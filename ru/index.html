@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Silkbound — Ваше путешествие по Шёлковому пути в одной книге</title>
-<meta name="description" content="Фотокнига ручной вёрстки о вашем путешествии по Узбекистану: твёрдый переплёт, раскрытие на 180°. Вы присылаете фотографии — мы делаем всё остальное. Макет за 72 часа, печать в Ташкенте, вручим до вылета или доставим домой. $149.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2324407c'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%233ba99c'/%3E%3Ccircle cx='16' cy='16' r='3.5' fill='%23c9a227'/%3E%3C/svg%3E">
+<title>Silkbound — Создайте свою тревел-фотокнигу онлайн</title>
+<meta name="description" content="Превратите фотографии из путешествия в настоящую печатную книгу. Соберите её сами в простом онлайн-редакторе: загрузите фото, оформите страницы и обложку. Мы напечатаем твёрдый переплёт с раскрытием на 180° и доставим до двери.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232456d6'/%3E%3Cpath d='M8 9h7v14H8z' fill='%23ffffff'/%3E%3Cpath d='M17 9h7v14h-7z' fill='%23dbe4ff'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="../assets/style.css">
 <!-- Когда будет выбран домен, добавьте canonical + hreflang:
 <link rel="canonical" href="https://DOMAIN/ru/">
@@ -15,25 +15,24 @@
 </head>
 <body>
 
-<div class="tile-band" aria-hidden="true"></div>
-
 <header class="site-header">
   <div class="wrap header-row">
     <a class="brand" href="#top">
       <svg class="brand-mark" width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-        <rect width="32" height="32" rx="7" fill="#24407c"/>
-        <circle cx="16" cy="16" r="8" fill="#3ba99c"/>
-        <circle cx="16" cy="16" r="3.5" fill="#c9a227"/>
+        <rect width="32" height="32" rx="7" fill="#2456d6"/>
+        <path d="M8 9h7v14H8z" fill="#ffffff"/>
+        <path d="M17 9h7v14h-7z" fill="#dbe4ff"/>
       </svg>
       Silkbound
     </a>
     <nav class="site-nav" aria-label="Основное меню">
       <a href="#how">Как это работает</a>
+      <a href="#editor">Редактор</a>
       <a href="#book">Книга</a>
-      <a href="#pricing">Цена</a>
       <a href="#faq">Вопросы</a>
-      <a href="#operators">Туроператорам</a>
     </nav>
+    <!-- TODO: замените ссылку на реальный адрес редактора -->
+    <a class="btn btn-primary btn-small header-cta" href="#">Создать книгу</a>
     <a class="lang-switch" href="../" lang="en" hreflang="en">English</a>
   </div>
 </header>
@@ -44,69 +43,86 @@
 <section class="hero">
   <div class="wrap hero-grid">
     <div>
-      <span class="hero-kicker">Сделано в Узбекистане · Вёрстка вручную</span>
-      <h1>Две недели на Шёлковом пути. Одна книга, которая останется с&nbsp;вами.</h1>
-      <p class="lede">Из Самарканда, Бухары и Хивы вы привезёте 1 400 фотографий — и посмотрите их дважды. <strong>Лучше пришлите их нам.</strong> Дизайнер в Ташкенте превратит вашу поездку в фотокнигу с твёрдой обложкой и раскрытием на 180°: ваш маршрут, ваши близкие, ваш свет. Вы присылаете фотографии. Всё остальное делаем мы.</p>
+      <span class="hero-kicker">Онлайн-редактор · Печать и доставка</span>
+      <h1>Ваше путешествие. Ваши фото. Ваша&nbsp;книга.</h1>
+      <p class="lede">Соберите свою тревел-фотокнигу в простом онлайн-редакторе. <strong>Начните с чистой книги</strong>: загрузите фотографии, расставьте их по страницам как хотите, добавьте подписи, оформите обложку. Мы напечатаем ровно то, что вы создали, — твёрдый переплёт с раскрытием на 180° — и доставим до двери.</p>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="https://wa.me/998XXXXXXXXX" target="_blank" rel="noopener">Начать книгу в WhatsApp</a>
-        <a class="btn btn-ghost" href="https://t.me/XXXXXXXXX" target="_blank" rel="noopener">или в Telegram</a>
+        <!-- TODO: замените ссылку на реальный адрес редактора -->
+        <a class="btn btn-primary" href="#">Создать книгу</a>
+        <a class="btn btn-ghost" href="#how">Как это работает</a>
       </div>
-      <p class="hero-meta"><b>$149</b> за всё · макет за <b>72 часа</b> · вручим до вылета или доставим домой</p>
+      <p class="hero-meta">Создание книги бесплатно — вы платите только при заказе печати.</p>
     </div>
     <div class="hero-art">
-      <!-- Открытая книга lay-flat с панорамой Регистана на развороте -->
-      <svg viewBox="0 0 760 520" role="img" aria-label="Открытая фотокнига с панорамой площади Регистан на развороте, рядом — закрытая книга с обложкой в стиле сюзане">
-        <defs>
-          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#f2d9b0"/>
-            <stop offset="1" stop-color="#e8b985"/>
-          </linearGradient>
-        </defs>
-        <rect x="62" y="118" width="600" height="304" rx="8" fill="#e3dccb"/>
-        <rect x="56" y="112" width="612" height="304" rx="8" fill="#efe9da"/>
-        <rect x="50" y="104" width="312" height="304" rx="6" fill="#fdfaf3"/>
-        <rect x="362" y="104" width="312" height="304" rx="6" fill="#faf6ec"/>
+      <!-- Макет редактора: окно браузера с разворотом книги -->
+      <svg viewBox="0 0 720 500" role="img" aria-label="Онлайн-редактор: окно браузера с открытым разворотом книги, фотографиями и текстом, панелью снимков слева и инструментами сверху">
+        <rect x="10" y="10" width="700" height="480" rx="16" fill="#ffffff" stroke="#e4e8f0"/>
+        <rect x="10" y="10" width="700" height="48" rx="16" fill="#f4f6fa"/>
+        <rect x="10" y="42" width="700" height="16" fill="#f4f6fa"/>
+        <circle cx="40" cy="34" r="6" fill="#ef6a4d"/>
+        <circle cx="60" cy="34" r="6" fill="#f5c04e"/>
+        <circle cx="80" cy="34" r="6" fill="#57bb8a"/>
+        <rect x="110" y="24" width="360" height="20" rx="10" fill="#e8eefc"/>
         <g>
-          <rect x="78" y="132" width="568" height="192" fill="url(#sky)"/>
-          <rect x="96" y="196" width="118" height="128" fill="#24407c"/>
-          <path d="M114 324 v-84 a41 41 0 0 1 82 0 v84 z" fill="#f2d9b0"/>
-          <path d="M124 324 v-74 a31 31 0 0 1 62 0 v74 z" fill="#182c58"/>
-          <rect x="96" y="196" width="118" height="12" fill="#3ba99c"/>
-          <rect x="510" y="196" width="118" height="128" fill="#24407c"/>
-          <path d="M528 324 v-84 a41 41 0 0 1 82 0 v84 z" fill="#f2d9b0"/>
-          <path d="M538 324 v-74 a31 31 0 0 1 62 0 v74 z" fill="#182c58"/>
-          <rect x="510" y="196" width="118" height="12" fill="#3ba99c"/>
-          <rect x="300" y="212" width="124" height="112" fill="#2b4a8f"/>
-          <path d="M318 324 v-64 a44 34 0 0 1 88 0 v64 z" fill="#182c58"/>
-          <circle cx="284" cy="204" r="26" fill="#3ba99c"/>
-          <rect x="278" y="204" width="12" height="120" fill="#2b4a8f"/>
-          <rect x="230" y="164" width="16" height="160" fill="#24407c"/>
-          <circle cx="238" cy="160" r="12" fill="#3ba99c"/>
-          <rect x="478" y="164" width="16" height="160" fill="#24407c"/>
-          <circle cx="486" cy="160" r="12" fill="#3ba99c"/>
-          <rect x="78" y="316" width="568" height="8" fill="#c4633c"/>
+          <rect x="34" y="76" width="96" height="30" rx="8" fill="#2456d6"/>
+          <rect x="46" y="88" width="72" height="6" rx="3" fill="#ffffff"/>
+          <rect x="140" y="76" width="86" height="30" rx="8" fill="#eef1f7"/>
+          <rect x="152" y="88" width="62" height="6" rx="3" fill="#9aa6bd"/>
+          <rect x="236" y="76" width="70" height="30" rx="8" fill="#eef1f7"/>
+          <rect x="248" y="88" width="46" height="6" rx="3" fill="#9aa6bd"/>
+          <rect x="316" y="76" width="76" height="30" rx="8" fill="#eef1f7"/>
+          <rect x="328" y="88" width="52" height="6" rx="3" fill="#9aa6bd"/>
         </g>
-        <rect x="78" y="344" width="150" height="9" rx="4.5" fill="#d8d0bd"/>
-        <rect x="78" y="362" width="96" height="9" rx="4.5" fill="#e2dbc9"/>
-        <rect x="496" y="344" width="150" height="9" rx="4.5" fill="#d8d0bd"/>
-        <rect x="360" y="104" width="4" height="304" fill="rgba(28,35,51,0.10)"/>
-        <g transform="translate(468 348) rotate(-6)">
-          <rect x="10" y="10" width="212" height="150" rx="8" fill="#101f42"/>
-          <rect x="0" y="0" width="212" height="150" rx="8" fill="#182c58"/>
-          <rect x="0" y="0" width="14" height="150" rx="7" fill="#101f42"/>
-          <g transform="translate(118 75)">
-            <circle r="44" fill="none" stroke="#c9a227" stroke-width="3"/>
-            <circle r="30" fill="#c4633c"/>
-            <circle r="16" fill="#3ba99c"/>
-            <circle r="6" fill="#f7f2e9"/>
-            <g fill="#c9a227">
-              <circle cx="0" cy="-38" r="4"/><circle cx="27" cy="-27" r="4"/>
-              <circle cx="38" cy="0" r="4"/><circle cx="27" cy="27" r="4"/>
-              <circle cx="0" cy="38" r="4"/><circle cx="-27" cy="27" r="4"/>
-              <circle cx="-38" cy="0" r="4"/><circle cx="-27" cy="-27" r="4"/>
-            </g>
+        <g>
+          <rect x="34" y="122" width="118" height="344" rx="12" fill="#f4f6fa"/>
+          <g>
+            <rect x="48" y="138" width="90" height="62" rx="6" fill="#bcd3f7"/>
+            <path d="M48 186 l26 -20 22 14 20 -16 22 16 v20 h-90 z" fill="#2456d6" opacity="0.55"/>
+            <circle cx="70" cy="154" r="7" fill="#f5c04e"/>
           </g>
-          <rect x="36" y="118" width="96" height="8" rx="4" fill="#c9a227"/>
+          <g>
+            <rect x="48" y="212" width="90" height="62" rx="6" fill="#f8cfc2"/>
+            <path d="M48 260 l30 -22 24 16 18 -12 18 12 v20 h-90 z" fill="#ef6a4d" opacity="0.6"/>
+          </g>
+          <g>
+            <rect x="48" y="286" width="90" height="62" rx="6" fill="#c9e7d9"/>
+            <path d="M48 334 l24 -18 26 14 20 -14 20 14 v18 h-90 z" fill="#57bb8a" opacity="0.6"/>
+          </g>
+          <rect x="48" y="360" width="90" height="62" rx="6" fill="#e8eefc" stroke="#bcd3f7" stroke-dasharray="6 5"/>
+          <rect x="82" y="384" width="22" height="6" rx="3" fill="#9aa6bd"/>
+          <rect x="90" y="376" width="6" height="22" rx="3" fill="#9aa6bd"/>
+          <rect x="48" y="434" width="90" height="12" rx="6" fill="#dfe5f0"/>
+        </g>
+        <g>
+          <rect x="180" y="140" width="500" height="310" rx="10" fill="#eef1f7"/>
+          <rect x="200" y="160" width="228" height="270" rx="4" fill="#ffffff" stroke="#e4e8f0"/>
+          <rect x="432" y="160" width="228" height="270" rx="4" fill="#fdfdfd" stroke="#e4e8f0"/>
+          <rect x="428" y="160" width="4" height="270" fill="#e4e8f0"/>
+          <g>
+            <rect x="216" y="176" width="196" height="150" rx="4" fill="#bcd3f7"/>
+            <path d="M216 292 l50 -44 40 30 36 -28 70 52 v16 h-196 z" fill="#2456d6" opacity="0.6"/>
+            <circle cx="256" cy="210" r="14" fill="#f5c04e"/>
+            <rect x="216" y="340" width="130" height="9" rx="4.5" fill="#dfe5f0"/>
+            <rect x="216" y="358" width="86" height="9" rx="4.5" fill="#eef1f7"/>
+          </g>
+          <g>
+            <rect x="448" y="176" width="94" height="110" rx="4" fill="#f8cfc2"/>
+            <path d="M448 262 l30 -26 22 16 18 -12 24 18 v28 h-94 z" fill="#ef6a4d" opacity="0.6"/>
+            <g>
+              <rect x="552" y="176" width="94" height="110" rx="4" fill="#c9e7d9"/>
+              <path d="M552 258 l26 -20 24 14 18 -12 26 20 v26 h-94 z" fill="#57bb8a" opacity="0.65"/>
+              <rect x="548" y="172" width="102" height="118" rx="4" fill="none" stroke="#2456d6" stroke-width="2" stroke-dasharray="7 5"/>
+              <rect x="544" y="168" width="9" height="9" rx="2" fill="#2456d6"/>
+              <rect x="645" y="168" width="9" height="9" rx="2" fill="#2456d6"/>
+              <rect x="544" y="285" width="9" height="9" rx="2" fill="#2456d6"/>
+              <rect x="645" y="285" width="9" height="9" rx="2" fill="#2456d6"/>
+            </g>
+            <rect x="448" y="306" width="198" height="9" rx="4.5" fill="#dfe5f0"/>
+            <rect x="448" y="324" width="150" height="9" rx="4.5" fill="#eef1f7"/>
+            <rect x="448" y="342" width="170" height="9" rx="4.5" fill="#eef1f7"/>
+            <rect x="622" y="340" width="2.5" height="13" fill="#2456d6"/>
+          </g>
+          <rect x="395" y="410" width="70" height="10" rx="5" fill="#dfe5f0"/>
         </g>
       </svg>
     </div>
@@ -117,117 +133,153 @@
 <section id="how" class="section alt">
   <div class="wrap">
     <div class="section-head">
-      <svg class="medallion" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#c4633c" stroke-width="2"/><circle cx="20" cy="20" r="9" fill="#3ba99c"/><circle cx="20" cy="20" r="3.5" fill="#c9a227"/></svg>
-      <h2>Как это работает</h2>
-      <p>Без приложений, без редакторов, без «перетащите фото сюда». Один чат и четыре шага.</p>
+      <span class="eyebrow">Как это работает</span>
+      <h2>Из галереи телефона — в твёрдый переплёт за четыре шага</h2>
+      <p>Навыки дизайна не нужны. Редактор работает прямо в браузере — ничего устанавливать не надо.</p>
     </div>
     <ol class="steps">
       <li>
-        <h3>Пришлите 40–80 фото</h3>
-        <p>Прямо с телефона — в WhatsApp, Telegram или по ссылке для загрузки. Не отбирайте и не сортируйте: это наша работа.</p>
+        <h3>Начните с чистой книги</h3>
+        <p>Откройте редактор и получите пустую книгу — ваши страницы, ваши правила. Никаких навязанных шаблонов.</p>
       </li>
       <li>
-        <h3>Мы верстаем книгу</h3>
-        <p>Дизайнер вручную собирает историю: хронология, ритм разворотов, подписи и обложка, сделанная под вашу поездку.</p>
+        <h3>Загрузите фотографии</h3>
+        <p>По одной или все сразу — целое путешествие одной массовой загрузкой.</p>
       </li>
       <li>
-        <h3>Макет за 72 часа</h3>
-        <p>Вы получаете полный цифровой макет. Два круга правок включены в цену — можно заменить фото, поправить имена, поменять обложку.</p>
+        <h3>Оформите страницы и обложку</h3>
+        <p>Расставьте фото вручную или нажмите автозаполнение — и дальше двигайте, меняйте, переставляйте. Добавляйте текст где угодно. Обложка тоже в ваших руках.</p>
       </li>
       <li>
-        <h3>Печать и доставка</h3>
-        <p>Печатаем в Ташкенте, проверяем каждую страницу, вручаем до вылета или отправляем к вам домой.</p>
+        <h3>Оплатите — мы напечатаем и доставим</h3>
+        <p>Когда всё готово, оплатите заказ онлайн. Ваш макет уходит в печать ровно таким, каким вы его сделали, а готовая книга приезжает к вам домой.</p>
       </li>
     </ol>
   </div>
 </section>
 
+<!-- ================= РЕДАКТОР ================= -->
+<section id="editor" class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Редактор</span>
+      <h2>Ваш дизайн, ваша фантазия</h2>
+      <p>Достаточно простой, чтобы закончить за вечер. Достаточно гибкий, чтобы книга получилась по-настоящему вашей.</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V5m0 0l-4 4m4-4l4 4" stroke="#2456d6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="#2456d6" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Массовая загрузка</h3>
+        <p>Загружайте сотни фотографий разом — с телефона или компьютера.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" stroke="#2456d6" stroke-width="2" fill="none"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" stroke="#2456d6" stroke-width="2" fill="none"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" stroke="#2456d6" stroke-width="2" fill="none"/><path d="M17 13.5v7M13.5 17h7" stroke="#2456d6" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Автозаполнение</h3>
+        <p>Один клик — и фото расставлены по страницам. Дальше двигайте, масштабируйте и меняйте местами как угодно.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M12 6v13" stroke="#2456d6" stroke-width="2.2" stroke-linecap="round"/><path d="M8 19h8" stroke="#2456d6" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Текст где угодно</h3>
+        <p>Подписи, даты, истории, шутки для своих — добавляйте и оформляйте текст на любой странице.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2" stroke="#2456d6" stroke-width="2" fill="none"/><path d="M4 8h16" stroke="#2456d6" stroke-width="2"/><circle cx="12" cy="14.5" r="3" stroke="#2456d6" stroke-width="2" fill="none"/></svg>
+        </div>
+        <h3>Дизайн обложки</h3>
+        <p>Ваше название, ваше фото, ваш стиль — обложка такая же часть холста, как и страницы.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ================= КНИГА ================= -->
-<section id="book" class="section">
+<section id="book" class="section alt">
   <div class="wrap">
     <div class="section-head">
-      <svg class="medallion" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#24407c" stroke-width="2"/><circle cx="20" cy="20" r="9" fill="#c4633c"/><circle cx="20" cy="20" r="3.5" fill="#f7f2e9"/></svg>
-      <h2>Сама книга</h2>
-      <p>Сделана, чтобы её листали, раскрывали на столе и передавали из рук в руки — годами.</p>
+      <span class="eyebrow">Печатная книга</span>
+      <h2>Что приедет к вам домой</h2>
+      <p>Мы печатаем ваш макет ровно таким, каким вы его сделали, проверяем каждую страницу и отправляем. Сделано в Узбекистане.</p>
     </div>
-    <div class="spec-grid">
-      <div class="spec-card">
-        <svg class="spec-icon" width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="4" y="3" width="26" height="28" rx="3" fill="#24407c"/><rect x="8" y="8" width="18" height="12" rx="1" fill="#3ba99c"/><rect x="8" y="23" width="12" height="3" rx="1.5" fill="#c9a227"/></svg>
-        <h3>Твёрдая обложка, формат A5</h3>
-        <p>14,8 × 21 см, 20–60 страниц. Помещается на книжную полку и в ручную кладь. Это <em>книга</em>, а не альбом.</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-2.5 6-2.5 9 0 3-2.5 6-2.5 9 0" stroke="#2456d6" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M4 7h7v7H4zM13 7h7v7h-7z" stroke="#2456d6" stroke-width="2" fill="none"/></svg>
+        </div>
+        <h3>Раскрытие на 180°</h3>
+        <p>Каждый разворот раскрывается полностью: панорамы идут через обе страницы и не проваливаются в корешок, а страницы не выпадают со временем.</p>
       </div>
-      <div class="spec-card">
-        <svg class="spec-icon" width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><path d="M3 25 Q10 20 17 25 Q24 20 31 25 V29 H3 Z" fill="#c4633c"/><rect x="3" y="8" width="13" height="15" rx="1" fill="#efe7d8"/><rect x="18" y="8" width="13" height="15" rx="1" fill="#efe7d8"/><rect x="6" y="11" width="22" height="7" fill="#3ba99c"/></svg>
-        <h3>Переплёт lay-flat — раскрытие на 180°</h3>
-        <p>Каждый разворот раскрывается на все 180°, в одну плоскость: панорамы идут через обе страницы и <em>не проваливаются в корешок</em>. Никакого треснувшего клея и выпадающих страниц — главной беды обычных фотокниг.</p>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2" stroke="#2456d6" stroke-width="2" fill="none"/><path d="M8 3.5v17" stroke="#2456d6" stroke-width="2"/></svg>
+        </div>
+        <h3>Твёрдая матовая обложка</h3>
+        <p>Жёсткая обложка с матовой ламинацией — на ощупь как настоящая книга из хорошего книжного.</p>
       </div>
-      <div class="spec-card">
-        <svg class="spec-icon" width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="5" y="5" width="24" height="24" rx="3" fill="#efe7d8"/><path d="M5 21 L14 13 L21 19 L26 15 L29 17 V26 a3 3 0 0 1 -3 3 H8 a3 3 0 0 1 -3 -3 Z" fill="#3ba99c"/><circle cx="12" cy="11" r="3" fill="#c9a227"/></svg>
-        <h3>Мелованная бумага «шёлк», 200 г/м²</h3>
-        <p>Плотная шёлковая мелованная бумага: насыщенный цвет и точная цветопередача. Страницы как в музейном каталоге, а не в рекламном буклете.</p>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l5 5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 6 20V4z" stroke="#2456d6" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M15 4v5h5" stroke="#2456d6" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Плотная шёлковая бумага</h3>
+        <p>Плотная мелованная бумага «шёлк» с насыщенным цветом и точной цветопередачей — страницы как в музейном каталоге.</p>
       </div>
-      <div class="spec-card">
-        <svg class="spec-icon" width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="4" y="9" width="26" height="18" rx="2" fill="#c4633c"/><rect x="4" y="9" width="26" height="5" fill="#a04e2e"/><rect x="14" y="6" width="6" height="8" rx="1" fill="#c9a227"/></svg>
-        <h3>Подарочная коробка</h3>
-        <p>Матовая ламинация обложки и жёсткая подарочная коробка. Книга переживает перелёт и открывается как подарок — потому что это он и есть.</p>
-      </div>
-      <div class="spec-card">
-        <svg class="spec-icon" width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="13" fill="none" stroke="#24407c" stroke-width="2.5"/><circle cx="17" cy="17" r="7" fill="#c4633c"/><circle cx="17" cy="17" r="2.5" fill="#f7f2e9"/><circle cx="17" cy="2.5" r="2" fill="#3ba99c"/><circle cx="17" cy="31.5" r="2" fill="#3ba99c"/><circle cx="2.5" cy="17" r="2" fill="#3ba99c"/><circle cx="31.5" cy="17" r="2" fill="#3ba99c"/></svg>
-        <h3>Узбекистан в дизайне</h3>
-        <p>Коллекции обложек по мотивам сюзане и изразцов Регистана, Бухары и Хивы, форзацы с орнаментом. Сувенир именно <em>этой</em> страны, а не шаблон с сервера.</p>
-      </div>
-      <div class="spec-card">
-        <svg class="spec-icon" width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="7" width="28" height="20" rx="3" fill="#24407c"/><text x="17" y="21.5" text-anchor="middle" font-family="Georgia, serif" font-size="10" fill="#f7f2e9">Аа</text><rect x="7" y="23" width="8" height="2" fill="#3ba99c"/><rect x="19" y="23" width="8" height="2" fill="#c9a227"/></svg>
-        <h3>Подписи на вашем языке</h3>
-        <p>Русский, английский или узбекский — или все три. Названия городов без ошибок, даты по порядку, ваши шутки там, где им место.</p>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z" stroke="#2456d6" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M9 12l2.2 2.2L15.5 10" stroke="#2456d6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Проверка перед отправкой</h3>
+        <p>Каждую книгу проверяют постранично до отправки. Брак печати? Перепечатаем бесплатно.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ================= СЕРВИС ДИЗАЙНА ================= -->
-<section class="section alt">
-  <div class="wrap design-band">
-    <div>
-      <h2>Вашу книгу верстает человек. Не алгоритм и не шаблонизатор.</h2>
-      <p>Онлайн-редакторы фотокниг отдают вам самое трудное — отобрать, выстроить и свёрстать сотни фотографий — и называют это удобством. Мы считаем, что именно от этой работы вы и хотите избавиться.</p>
+<!-- ================= ОТЗЫВЫ =================
+     Заготовка блока — НЕ публикуйте выдуманные отзывы.
+     Раскомментируйте и заполните настоящими цитатами клиентов (имя + город),
+     когда появятся реальные заказы. Фейковые отзывы — самый быстрый способ
+     потерять доверие.
+
+<section id="reviews" class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Отзывы</span>
+      <h2>Что говорят наши клиенты</h2>
     </div>
-    <div>
-      <ul>
-        <li>Дизайнер просматривает каждое фото и выстраивает рассказ о вашем маршруте — Ташкент, Самарканд, Бухара, Хива, в том порядке, в каком вы его прожили.</li>
-        <li>Фотографии, которые плохо лягут в печать, отклоняет живой человек и просит замену — мы не «улучшаем» лица нейросетью, дорисовывая то, чего не было.</li>
-        <li>Подписи, названия и даты выверяются и пишутся без ошибок на вашем языке.</li>
-        <li>Два полных круга правок до отправки в печать. Каждую страницу утверждаете вы.</li>
-      </ul>
+    <div class="review-grid">
+      <div class="review-card">
+        <blockquote>«…»</blockquote>
+        <cite>Имя, город</cite>
+      </div>
+      <div class="review-card">
+        <blockquote>«…»</blockquote>
+        <cite>Имя, город</cite>
+      </div>
+      <div class="review-card">
+        <blockquote>«…»</blockquote>
+        <cite>Имя, город</cite>
+      </div>
     </div>
   </div>
 </section>
+================= /ОТЗЫВЫ ================= -->
 
-<!-- ================= ЦЕНА ================= -->
-<section id="pricing" class="section">
+<!-- ================= CTA ================= -->
+<section class="section">
   <div class="wrap">
-    <div class="section-head">
-      <svg class="medallion" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#3ba99c" stroke-width="2"/><circle cx="20" cy="20" r="9" fill="#24407c"/><circle cx="20" cy="20" r="3.5" fill="#c9a227"/></svg>
-      <h2>Одна цена. Всё включено.</h2>
-      <p>Поездка стоила тысячи долларов. Вещь, которая привезёт её домой, стоит $149 — и вы будете открывать её и через двадцать лет.</p>
-    </div>
-    <div class="price-card">
-      <div class="price-header">
-        <h3>Книга Silkbound</h3>
-        <div class="price-amount">$149 <span>USD, всё включено</span></div>
+    <div class="cta-band">
+      <div>
+        <h2>Ваше путешествие заслуживает большего, чем папка в телефоне</h2>
+        <p>Начните книгу прямо сейчас — создание бесплатно, платите только при заказе печати.</p>
       </div>
-      <div class="price-body">
-        <ul>
-          <li>Ручная вёрстка 40–80 ваших фотографий дизайнером в Ташкенте</li>
-          <li>A5, твёрдая обложка, переплёт lay-flat, мелованная бумага «шёлк» 200 г/м², матовая ламинация</li>
-          <li>Подарочная коробка</li>
-          <li>Цифровой макет за 72 часа, два круга правок включены</li>
-          <li>Вручение в Ташкенте до вашего вылета — бесплатно</li>
-          <li>Или международная доставка домой — по себестоимости, считаем при заказе</li>
-        </ul>
-        <a class="btn btn-primary" href="https://wa.me/998XXXXXXXXX" target="_blank" rel="noopener">Начать книгу в WhatsApp</a>
-        <p class="price-note">Оплата в долларах США — способ оплаты подтвердим при заказе (картой или через вашего туроператора). Чем раньше вы пришлёте фотографии, тем лучше: за пять и более дней до вылета вы, как правило, улетаете уже с готовой книгой. Если времени меньше — доставим её вам домой.</p>
-      </div>
+      <!-- TODO: замените ссылку на реальный адрес редактора -->
+      <a class="btn btn-primary" href="#">Создать книгу</a>
     </div>
   </div>
 </section>
@@ -236,60 +288,35 @@
 <section id="faq" class="section alt">
   <div class="wrap">
     <div class="section-head">
-      <svg class="medallion" width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="#c9a227" stroke-width="2"/><circle cx="20" cy="20" r="9" fill="#c4633c"/><circle cx="20" cy="20" r="3.5" fill="#f7f2e9"/></svg>
-      <h2>Вопросы, которые задают путешественники</h2>
+      <span class="eyebrow">FAQ</span>
+      <h2>Ответы на вопросы</h2>
     </div>
     <div class="faq-list">
       <details>
-        <summary>У меня обычные фото с телефона. Они подойдут?</summary>
-        <p>Почти всегда — да. Современные фотографии с телефона отлично печатаются в формате A5. Каждое фото перед вёрсткой проверяет человек: если какое-то действительно не годится для печати, мы честно скажем и попросим замену, а не напечатаем то, о чём вы пожалеете. Никакого «улучшения» нейросетями, которое дорисовывает детали.</p>
+        <summary>Нужны ли навыки дизайна?</summary>
+        <p>Нет. Автозаполнение расставит фото по страницам за один клик, и всё остаётся редактируемым — двигайте, масштабируйте и меняйте, пока не понравится. Большинство собирает книгу за вечер.</p>
       </details>
       <details>
-        <summary>Я улетаю через три дня. Успеем?</summary>
-        <p>Сроки жёсткие, но книга будет сделана в любом случае. Пришлите фотографии сегодня — макет придёт в течение 72 часов; если напечатать до вылета не успеем, отправим готовую книгу вам домой, а макет вы утвердите откуда угодно. Надёжный вариант улететь с книгой в чемодане — прислать фотографии за пять и более дней до вылета.</p>
-      </details>
-      <details>
-        <summary>Я уже дома. Поздно?</summary>
-        <p>Совсем нет. Присылайте фотографии откуда угодно: мы верстаем и печатаем в Ташкенте и доставляем по всему миру. Стоимость и сроки доставки назовём заранее, до оплаты.</p>
-      </details>
-      <details>
-        <summary>Книга переживёт перелёт и почту?</summary>
-        <p>Книга едет в жёсткой подарочной коробке, а у переплёта lay-flat нет хрупкого клеёного корешка, который мог бы треснуть. Если книга всё же приедет повреждённой или с браком печати — перепечатаем за наш счёт, без споров.</p>
-      </details>
-      <details>
-        <summary>Можно увидеть живой экземпляр до заказа?</summary>
-        <p>Если вы в Ташкенте — напишите нам, покажем образец лично. Также пришлём фото крупным планом и видео перелистывания готовой книги.</p>
+        <summary>Часть моих фото размытые. Вы можете их исправить?</summary>
+        <p>Да — перед печатью мы улучшаем размытые и «мутные» фотографии с помощью нейросетей, чтобы страницы выглядели как можно лучше.</p>
       </details>
       <details>
         <summary>Как оплатить?</summary>
-        <p>В долларах США — способ оплаты подтвердим при заказе: картой или через вашего туроператора, если он предлагает книги Silkbound. Финальный макет вы утверждаете до печати, и ничего не печатается, пока вы не довольны.</p>
+        <p>Онлайн, в узбекских сумах, через местные платёжные системы. Платите только при заказе печати — создание книги бесплатно.</p>
+      </details>
+      <details>
+        <summary>Когда приедет книга?</summary>
+        <p>Около 30 дней от оплаты до доставки. Мы печатаем ваш макет, проверяем каждую страницу и отправляем по вашему адресу.</p>
+      </details>
+      <details>
+        <summary>Напечатанная книга будет такой же, как на экране?</summary>
+        <p>Да — что вы видите в редакторе, то мы и печатаем. Каждую страницу вы оформляете сами, поэтому сюрпризов не будет.</p>
+      </details>
+      <details>
+        <summary>А если книга приедет повреждённой или с браком?</summary>
+        <p>Перепечатаем бесплатно, без споров. Каждая книга к тому же едет в защитной упаковке.</p>
       </details>
     </div>
-  </div>
-</section>
-
-<!-- ================= ТУРОПЕРАТОРАМ ================= -->
-<section id="operators" class="section operators">
-  <div class="wrap">
-    <div class="section-head">
-      <h2>Туроператорам</h2>
-      <p>Завершайте тур вещью, которую ваши клиенты будут показывать всем дома, — и в этой истории будет ваше имя.</p>
-    </div>
-    <div class="operator-points">
-      <div>
-        <h3>Финал тура, который запоминают</h3>
-        <p>Книга ручной вёрстки именно о том туре, который вы провели, — вручается на прощальном ужине или доставляется в отель перед трансфером в аэропорт.</p>
-      </div>
-      <div>
-        <h3>Партнёрские условия</h3>
-        <p>Оптовая цена с понятной маржой для вас, кобрендинг или white label. Продавайте как платный апсейл или включайте в премиальные пакеты.</p>
-      </div>
-      <div>
-        <h3>Ноль работы для вашей команды</h3>
-        <p>Мы сами собираем фотографии, верстаем, печатаем и доставляем. Ваш гид просто вручает коробку с книгой. Можем работать и со снимками вашего группового фотографа.</p>
-      </div>
-    </div>
-    <a class="btn btn-primary" href="mailto:hello@example.com?subject=%D0%9F%D0%B0%D1%80%D1%82%D0%BD%D1%91%D1%80%D1%81%D1%82%D0%B2%D0%BE%20%D1%81%20%D1%82%D1%83%D1%80%D0%BE%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D0%BE%D1%80%D0%BE%D0%BC">Запросить образец и условия</a>
   </div>
 </section>
 
@@ -298,12 +325,11 @@
 <footer class="site-footer">
   <div class="wrap footer-row">
     <div>
-      <strong>Silkbound</strong> — придумано и напечатано в Ташкенте (Узбекистан).
+      <strong>Silkbound</strong> — создайте свою тревел-книгу онлайн. Напечатано в Узбекистане.
     </div>
     <div>
-      <a href="https://wa.me/998XXXXXXXXX" target="_blank" rel="noopener">WhatsApp</a> ·
-      <a href="https://t.me/XXXXXXXXX" target="_blank" rel="noopener">Telegram</a> ·
       <a href="mailto:hello@example.com">hello@example.com</a> ·
+      <a href="https://t.me/XXXXXXXXX" target="_blank" rel="noopener">Telegram</a> ·
       <a href="../" lang="en" hreflang="en">English version</a>
     </div>
   </div>

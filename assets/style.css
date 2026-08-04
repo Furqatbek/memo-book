@@ -1,21 +1,18 @@
 /* ==========================================================================
    Silkbound — landing page stylesheet (EN + RU pages share this file)
-   Palette drawn from Uzbek ceramics: lapis, turquoise, terracotta, ivory.
+   Clean product look: white ground, ocean blue primary, coral accents.
    ========================================================================== */
 
 :root {
-  --paper: #f7f2e9;
-  --paper-deep: #efe7d8;
-  --ink: #1c2333;
-  --ink-soft: #4a5065;
-  --lapis: #24407c;
-  --lapis-deep: #182c58;
-  --turquoise: #3ba99c;
-  --terracotta: #c4633c;
-  --terracotta-text: #9c4a26; /* AA on paper and white; --terracotta itself is decorative-only */
-  --gold: #c9a227;
-  --line: rgba(28, 35, 51, 0.14);
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --bg: #ffffff;
+  --bg-soft: #f4f6fa;
+  --ink: #0f172a;
+  --muted: #46536b;
+  --primary: #2456d6;
+  --primary-deep: #1a3fa0;
+  --accent: #ef6a4d;          /* decorative only — fails AA as text on white */
+  --accent-text: #c14a2e;     /* AA-safe accent for text */
+  --line: #e4e8f0;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -30,53 +27,68 @@ body {
   font-size: 17px;
   line-height: 1.65;
   color: var(--ink);
-  background: var(--paper);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 
 img, svg { max-width: 100%; height: auto; display: block; }
 
 .wrap {
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 0 24px;
 }
 
 h1, h2, h3 {
-  font-family: var(--serif);
-  font-weight: 600;
-  line-height: 1.15;
+  font-weight: 800;
+  line-height: 1.12;
   color: var(--ink);
+  letter-spacing: -0.015em;
 }
 
-h1 { font-size: clamp(2.1rem, 5vw, 3.4rem); letter-spacing: -0.01em; }
-h2 { font-size: clamp(1.6rem, 3.5vw, 2.3rem); margin-bottom: 0.5em; }
-h3 { font-size: 1.15rem; margin-bottom: 0.35em; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.5rem); }
+h2 { font-size: clamp(1.7rem, 3.5vw, 2.4rem); margin-bottom: 0.45em; }
+h3 { font-size: 1.12rem; margin-bottom: 0.35em; letter-spacing: 0; }
 
-p { color: var(--ink-soft); }
+p { color: var(--muted); }
 
-a { color: var(--lapis); }
+a { color: var(--primary); }
 
-/* --- Tile border band (Uzbek-tile rhythm, pure CSS) ------------------- */
-.tile-band {
-  height: 8px;
-  background: repeating-linear-gradient(
-    90deg,
-    var(--lapis) 0 28px,
-    var(--turquoise) 28px 44px,
-    var(--gold) 44px 52px,
-    var(--terracotta) 52px 68px,
-    var(--gold) 68px 76px,
-    var(--turquoise) 76px 92px
-  );
+/* --- Buttons ----------------------------------------------------------- */
+.btn {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 1rem;
+  text-decoration: none;
+  border-radius: 12px;
+  padding: 14px 28px;
+  transition: transform 0.12s ease, background 0.12s ease;
 }
+
+.btn:hover { transform: translateY(-1px); }
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(36, 86, 214, 0.28);
+}
+
+.btn-primary:hover { background: var(--primary-deep); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+
+.btn-small { padding: 10px 20px; font-size: 0.92rem; }
 
 /* --- Header ------------------------------------------------------------ */
 .site-header {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(247, 242, 233, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
@@ -85,17 +97,15 @@ a { color: var(--lapis); }
 .header-row {
   display: flex;
   align-items: center;
-  gap: 28px;
-  min-height: 64px;
+  gap: 26px;
+  min-height: 66px;
 }
 
 .brand {
-  font-family: var(--serif);
-  font-size: 1.35rem;
-  font-weight: 700;
+  font-size: 1.3rem;
+  font-weight: 800;
   color: var(--ink);
   text-decoration: none;
-  letter-spacing: 0.01em;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -110,18 +120,20 @@ a { color: var(--lapis); }
 }
 
 .site-nav a {
-  color: var(--ink-soft);
+  color: var(--muted);
   text-decoration: none;
   font-size: 0.95rem;
+  font-weight: 500;
 }
 
-.site-nav a:hover { color: var(--lapis); }
+.site-nav a:hover { color: var(--primary); }
+
+.header-cta { white-space: nowrap; }
 
 .lang-switch {
-  margin-left: auto;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--lapis);
+  color: var(--primary);
   text-decoration: none;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -129,43 +141,14 @@ a { color: var(--lapis); }
   white-space: nowrap;
 }
 
-.site-nav + .lang-switch { margin-left: 0; }
-
-.lang-switch:hover { border-color: var(--lapis); }
-
-/* --- Buttons ----------------------------------------------------------- */
-.btn {
-  display: inline-block;
-  font-weight: 600;
-  font-size: 1rem;
-  text-decoration: none;
-  border-radius: 10px;
-  padding: 14px 26px;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-
-.btn:hover { transform: translateY(-1px); }
-
-.btn-primary {
-  background: var(--lapis);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(36, 64, 124, 0.28);
-}
-
-.btn-primary:hover { background: var(--lapis-deep); }
-
-.btn-ghost {
-  background: transparent;
-  color: var(--lapis);
-  border: 1.5px solid var(--lapis);
-}
+.lang-switch:hover { border-color: var(--primary); }
 
 /* --- Hero -------------------------------------------------------------- */
-.hero { padding: 72px 0 84px; overflow: hidden; }
+.hero { padding: 76px 0 88px; overflow: hidden; }
 
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  grid-template-columns: minmax(0, 11fr) minmax(0, 10fr);
   gap: 56px;
   align-items: center;
 }
@@ -174,16 +157,16 @@ a { color: var(--lapis); }
   display: inline-block;
   font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--terracotta-text);
+  color: var(--accent-text);
   margin-bottom: 18px;
 }
 
 .hero p.lede {
-  font-size: 1.15rem;
+  font-size: 1.16rem;
   margin: 22px 0 10px;
-  max-width: 34em;
+  max-width: 33em;
 }
 
 .hero p.lede strong { color: var(--ink); }
@@ -192,34 +175,35 @@ a { color: var(--lapis); }
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-  margin: 30px 0 18px;
+  margin: 30px 0 16px;
 }
 
-.hero-meta {
-  font-size: 0.95rem;
-  color: var(--ink-soft);
-}
-
-.hero-meta b { color: var(--ink); }
-
-.hero-art { position: relative; }
+.hero-meta { font-size: 0.95rem; color: var(--muted); }
 
 .hero-art svg {
   width: 100%;
-  filter: drop-shadow(0 24px 40px rgba(24, 44, 88, 0.18));
+  filter: drop-shadow(0 26px 44px rgba(15, 23, 42, 0.16));
 }
 
 /* --- Section rhythm ---------------------------------------------------- */
-.section { padding: 76px 0; scroll-margin-top: 72px; }
+.section { padding: 80px 0; scroll-margin-top: 76px; }
 
-.section.alt { background: var(--paper-deep); }
+.section.alt { background: var(--bg-soft); }
 
 .section-head {
-  max-width: 640px;
-  margin-bottom: 44px;
+  max-width: 660px;
+  margin-bottom: 46px;
 }
 
-.section-head .medallion { margin-bottom: 14px; }
+.section-head .eyebrow {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: 10px;
+}
 
 .section-head p { font-size: 1.05rem; }
 
@@ -227,7 +211,7 @@ a { color: var(--lapis); }
 .steps {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 26px;
+  gap: 24px;
   counter-reset: step;
   list-style: none;
 }
@@ -235,9 +219,8 @@ a { color: var(--lapis); }
 .steps li {
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 26px 22px 22px;
-  position: relative;
 }
 
 .steps li::before {
@@ -246,172 +229,89 @@ a { color: var(--lapis); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: #1b7a6f; /* darkened brand shades: white numerals must clear WCAG 4.5:1 */
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--primary);
   color: #fff;
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 800;
+  font-size: 1.05rem;
   margin-bottom: 14px;
 }
 
-.steps li:nth-child(2)::before { background: var(--lapis); }
-.steps li:nth-child(3)::before { background: #a04d28; }
-.steps li:nth-child(4)::before { background: #8a6d14; }
-
 .steps p { font-size: 0.95rem; }
 
-/* --- Spec grid (The book) ---------------------------------------------- */
-.spec-grid {
+/* --- Feature grid ------------------------------------------------------- */
+.feature-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 26px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
 }
 
-.spec-card {
+.feature-card {
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 26px 24px;
+  border-radius: 16px;
+  padding: 26px 22px;
 }
 
-.spec-card .spec-icon { margin-bottom: 14px; }
+.section.alt .feature-card { background: #fff; }
 
-.spec-card p { font-size: 0.95rem; }
-
-.spec-card em {
-  font-style: normal;
-  color: var(--terracotta-text);
-  font-weight: 600;
-}
-
-/* --- Design service band ----------------------------------------------- */
-.design-band {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 56px;
-  align-items: center;
-}
-
-.design-band ul {
-  list-style: none;
-  margin-top: 18px;
-}
-
-.design-band ul li {
-  padding-left: 30px;
-  position: relative;
-  margin-bottom: 12px;
-  color: var(--ink-soft);
-}
-
-.design-band ul li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.42em;
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  transform: rotate(45deg);
-  background: var(--turquoise);
-}
-
-.design-band ul li:nth-child(2)::before { background: var(--lapis); }
-.design-band ul li:nth-child(3)::before { background: var(--terracotta); }
-.design-band ul li:nth-child(4)::before { background: var(--gold); }
-
-/* --- Pricing ------------------------------------------------------------ */
-.price-card {
-  max-width: 720px;
-  margin: 0 auto;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: 0 18px 44px rgba(24, 44, 88, 0.1);
-}
-
-.price-header {
-  background: var(--lapis-deep);
-  color: #fff;
-  padding: 30px 34px;
+.feature-card .icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #e8eefc;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.feature-card p { font-size: 0.95rem; }
+
+/* --- CTA band ----------------------------------------------------------- */
+.cta-band {
+  background: linear-gradient(120deg, var(--primary-deep), var(--primary));
+  border-radius: 22px;
+  padding: 54px 48px;
+  display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 }
 
-.price-header h3 {
-  color: #fff;
-  font-size: 1.3rem;
-  margin: 0;
+.cta-band h2 { color: #fff; margin-bottom: 0.2em; }
+
+.cta-band p { color: rgba(255, 255, 255, 0.85); max-width: 34em; }
+
+.cta-band .btn-primary {
+  background: #fff;
+  color: var(--primary-deep);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
 
-.price-amount {
-  font-family: var(--serif);
-  font-size: 2.6rem;
-  font-weight: 700;
-}
-
-.price-amount span {
-  font-size: 1rem;
-  font-family: var(--sans);
-  font-weight: 400;
-  opacity: 0.8;
-}
-
-.price-body { padding: 30px 34px 34px; }
-
-.price-body ul {
-  list-style: none;
-  margin-bottom: 26px;
-}
-
-.price-body li {
-  padding: 10px 0 10px 32px;
-  border-bottom: 1px dashed var(--line);
-  position: relative;
-  color: var(--ink-soft);
-}
-
-.price-body li:last-child { border-bottom: 0; }
-
-.price-body li::before {
-  content: "✓";
-  position: absolute;
-  left: 4px;
-  color: var(--turquoise);
-  font-weight: 700;
-}
-
-.price-note {
-  font-size: 0.88rem;
-  color: var(--ink-soft);
-  margin-top: 14px;
-}
+.cta-band .btn-primary:hover { background: #eef2ff; }
 
 /* --- FAQ ---------------------------------------------------------------- */
-.faq-list { max-width: 760px; }
+.faq-list { max-width: 780px; }
 
 .faq-list details {
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   margin-bottom: 14px;
   overflow: hidden;
 }
 
 .faq-list summary {
   cursor: pointer;
-  padding: 18px 22px;
-  font-weight: 600;
+  padding: 18px 48px 18px 22px;
+  font-weight: 700;
   color: var(--ink);
   list-style: none;
   position: relative;
-  padding-right: 48px;
 }
 
 .faq-list summary::-webkit-details-marker { display: none; }
@@ -423,7 +323,7 @@ a { color: var(--lapis); }
   top: 50%;
   transform: translateY(-50%);
   font-size: 1.4rem;
-  color: var(--terracotta);
+  color: var(--primary);
   font-weight: 400;
 }
 
@@ -434,48 +334,37 @@ a { color: var(--lapis); }
   font-size: 0.97rem;
 }
 
-/* --- Operators band ------------------------------------------------------ */
-.operators {
-  background: var(--lapis-deep);
-  color: #fff;
-}
-
-.operators h2, .operators h3 { color: #fff; }
-
-.operators p { color: rgba(255, 255, 255, 0.82); }
-
-.operators .section-head { margin-bottom: 30px; }
-
-.operator-points {
+/* --- Reviews (hidden until real reviews exist) --------------------------- */
+.review-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 26px;
-  margin-bottom: 38px;
+  gap: 24px;
 }
 
-.operator-points div {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  padding: 24px 22px;
+.review-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 26px 24px;
 }
 
-.operator-points p { font-size: 0.95rem; }
+.review-card blockquote { color: var(--muted); font-size: 0.97rem; }
 
-.operators .btn-primary {
-  background: var(--gold);
+.review-card cite {
+  display: block;
+  margin-top: 14px;
+  font-style: normal;
+  font-weight: 700;
   color: var(--ink);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  font-size: 0.92rem;
 }
-
-.operators .btn-primary:hover { background: #dab637; }
 
 /* --- Footer -------------------------------------------------------------- */
 .site-footer {
   padding: 44px 0 54px;
   border-top: 1px solid var(--line);
   font-size: 0.92rem;
-  color: var(--ink-soft);
+  color: var(--muted);
 }
 
 .footer-row {
@@ -486,20 +375,16 @@ a { color: var(--lapis); }
   justify-content: space-between;
 }
 
-.site-footer a { color: var(--lapis); }
-
 /* --- Responsive ----------------------------------------------------------- */
-@media (max-width: 920px) {
+@media (max-width: 940px) {
   .hero-grid { grid-template-columns: 1fr; gap: 44px; }
   .hero { padding: 52px 0 64px; }
   .steps { grid-template-columns: repeat(2, 1fr); }
-  .spec-grid { grid-template-columns: repeat(2, 1fr); }
-  .design-band { grid-template-columns: 1fr; gap: 36px; }
-  .operator-points { grid-template-columns: 1fr; }
-  /* Nav wraps to a scrollable second row; lang switch keeps its right-edge slot */
-  .header-row { flex-wrap: wrap; gap: 0 16px; padding: 10px 24px; min-height: 0; }
+  .feature-grid { grid-template-columns: repeat(2, 1fr); }
+  .review-grid { grid-template-columns: 1fr; }
+  .header-row { flex-wrap: wrap; gap: 0 14px; padding-top: 10px; padding-bottom: 10px; min-height: 0; }
   .site-nav {
-    order: 3;
+    order: 4;
     flex-basis: 100%;
     overflow-x: auto;
     white-space: nowrap;
@@ -509,14 +394,15 @@ a { color: var(--lapis); }
     scrollbar-width: none;
   }
   .site-nav::-webkit-scrollbar { display: none; }
-  .site-nav + .lang-switch { margin-left: auto; }
-  .section { scroll-margin-top: 106px; }
+  .header-cta { margin-left: auto; }
+  .section { scroll-margin-top: 112px; }
 }
 
 @media (max-width: 560px) {
   body { font-size: 16px; }
   .steps { grid-template-columns: 1fr; }
-  .spec-grid { grid-template-columns: 1fr; }
+  .feature-grid { grid-template-columns: 1fr; }
   .section { padding: 56px 0; }
-  .price-header, .price-body { padding-left: 22px; padding-right: 22px; }
+  .cta-band { padding: 40px 26px; }
+  .header-cta { display: none; }
 }

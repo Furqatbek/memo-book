@@ -1,25 +1,29 @@
-# Silkbound — Premium Travel Memory Books (Uzbekistan)
+# Silkbound — Travel Photo Books, Designed by You
 
-Landing page and Phase-0 working documents for the business described in
-[`memory-book-project-brief.md`](memory-book-project-brief.md): a hand-designed,
-A5 lay-flat hardcover travel book sold in USD to foreign tourists leaving
-Uzbekistan, distributed through Uzbek tour operators, printed in Tashkent.
+Landing page for a travel photo-book service: customers design their own book
+in an online editor (upload photos, lay out pages, add text, design the
+cover), pay online in Uzbek so'm, and receive a printed lay-flat hardcover —
+printed in Uzbekistan, delivered in about 30 days.
 
-> **"Silkbound" is a working name.** Open Question #1 in the brief (brand name +
-> domain) is unresolved. The name appears only as plain text — a global
-> find-and-replace of `Silkbound` across `index.html` and `ru/index.html`
-> renames the site.
+> **Note:** this self-serve editor model was set by the owner in Aug 2026 and
+> supersedes the design-service model described in
+> [`memory-book-project-brief.md`](memory-book-project-brief.md). The brief
+> remains useful for production specs (lay-flat binding, paper, printer
+> vetting) and market history.
+
+> **"Silkbound" is a working name.** A global find-and-replace of `Silkbound`
+> across `index.html` and `ru/index.html` renames the site.
 
 ## What's here
 
 | Path | What it is |
 |---|---|
-| `index.html` | Landing page, English (primary — foreign tourists) |
+| `index.html` | Landing page, English |
 | `ru/index.html` | Landing page, Russian |
 | `assets/style.css` | Shared stylesheet (no frameworks, no build step, no external requests) |
-| `docs/printer-rfq.md` | Written A5 lay-flat spec + RU quote-request letter for the three Tashkent printer quotes (Open Question #4, Risk 3) |
-| `docs/operator-pitch.md` | Pitch script, terms guardrails and discovery questions for the five operator meetings (Open Question #5, Risk 5) |
-| `memory-book-project-brief.md` | The source of truth. Read it before changing copy. |
+| `docs/printer-rfq.md` | Written lay-flat spec + RU quote-request letter for Tashkent printers |
+| `docs/operator-pitch.md` | Archive of the earlier tour-operator channel plan (not reflected on the site) |
+| `memory-book-project-brief.md` | Original project brief (see note above) |
 
 ## Preview locally
 
@@ -30,45 +34,30 @@ python3 -m http.server 8000
 # → http://localhost:8000  (EN)  ·  http://localhost:8000/ru/  (RU)
 ```
 
-## Deploy (GitHub Pages)
+## Deployment
 
-The site is static with relative paths — it works from a subpath out of the box.
-Repo → **Settings → Pages** → deploy from branch, root folder. When a custom
-domain is chosen, uncomment and fill the `canonical`/`hreflang` tags in the
-`<head>` of both HTML files.
+The site is live on GitHub Pages, served from the `gh-pages` branch.
+`.github/workflows/deploy-pages.yml` republishes it automatically on every
+push to `main` or `claude/memo-book-project-duulu7` — edit, push, done.
+When a custom domain is chosen, uncomment and fill the `canonical`/`hreflang`
+tags in the `<head>` of both HTML files.
 
-## Before going live — placeholders to replace
+## Before going live for real customers
 
-These appear in **both** `index.html` and `ru/index.html` (and the footer):
+These placeholders appear in **both** `index.html` and `ru/index.html`:
 
 | Placeholder | Replace with |
 |---|---|
-| `https://wa.me/998XXXXXXXXX` | Real WhatsApp number (digits only, no `+`) |
-| `https://t.me/XXXXXXXXX` | Real Telegram username |
+| `href="#"` on every **Create your book** button (marked with `TODO` comments) | The real editor URL |
 | `hello@example.com` | Real email address |
+| `https://t.me/XXXXXXXXX` | Real Telegram username |
 | `Silkbound` | Final brand name, when chosen |
 
-Also review the **price**: the pages show the brief's provisional **$149**.
-Brief §6 flags $89–119 as the likely A5 range — decide after showing the
-physical sample to operators, then update the hero meta line and the pricing
-card in both languages.
+And two content gates:
 
-Two more gates before publishing (the pages promise both):
-
-1. **The Phase-0 sample book must physically exist** — the FAQ offers to show
-   it in person and to send close-up photos and a page-turn video.
-2. **A working USD card payment path must be verified** (Open Question #7 —
-   Payme/Click are domestic-only). The copy hedges with "we confirm the
-   payment method when you order", but don't go live without an answer for
-   the first customer who asks.
-
-## Copy rules (from brief §8 — do not undo these)
-
-- Never use "preserve your memories" / "beautiful moments of life as a book" /
-  "photobooks tell stories" phrasing — it's category wallpaper all three
-  competitors use.
-- No invented testimonials, review counts or customer numbers. The category's
-  copycats fake social proof (brief §7); we don't. Add real reviews only once
-  they exist (Phase 1 collects them).
-- The page sells the four real differentiators: hand design, made-in-Uzbekistan,
-  lay-flat/materials quality, and delivery before departure.
+1. **Reviews:** a testimonials section exists in both pages as a commented-out
+   block. Fill it with real customer quotes when real orders exist —
+   **never publish invented reviews.**
+2. **Payment:** the FAQ promises online payment in so'm via local payment
+   systems — have the acquirer integration (Payme/Click/etc.) working before
+   the editor goes live.
