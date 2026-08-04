@@ -132,3 +132,11 @@ printer asks for them.
 page without a placement, or a placement referencing an unavailable photo
 raises before a single page is composed. Blank pages are a guaranteed refund;
 better to fail loudly in the worker than to print one.
+
+**A30 — Preview details.** Per-page watermarked JPEGs at 72 DPI under
+`books/{id}/preview/` (a namespace the print pipeline never reads). Unlike the
+print render, preview has NO preflight: empty pages render as watermarked
+blanks so the user sees exactly what would print. Staleness is tracked by
+comparing the layout version the preview was rendered from with the current
+one; text is approximated in raster (the print PDF keeps vector text). The
+checkout confirmation gate (M8) must require status=ready AND stale=false.

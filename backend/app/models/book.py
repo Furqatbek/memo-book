@@ -27,3 +27,8 @@ class Book(Base):
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
+
+    # Preview (Milestone 7): none/processing/ready/failed + the layout version
+    # the preview was rendered from, so staleness is detectable.
+    preview_status: Mapped[str | None] = mapped_column(sa.String(16), nullable=True)
+    preview_layout_version: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
