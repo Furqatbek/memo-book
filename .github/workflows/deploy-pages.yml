@@ -29,7 +29,7 @@ jobs:
         run: |
           set -eu
           SITE=$(mktemp -d)
-          cp -r index.html assets ru "$SITE"/
+          cp -r index.html assets ru uz uz-cyrl kaa "$SITE"/
           touch "$SITE"/.nojekyll
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

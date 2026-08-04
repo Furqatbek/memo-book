@@ -20,6 +20,9 @@ printed in Uzbekistan, delivered in about 30 days.
 |---|---|
 | `index.html` | Landing page, English |
 | `ru/index.html` | Landing page, Russian |
+| `uz/index.html` | Landing page, Uzbek (Latin) |
+| `uz-cyrl/index.html` | Landing page, Uzbek (Cyrillic) |
+| `kaa/index.html` | Landing page, Karakalpak |
 | `assets/style.css` | Shared stylesheet (no frameworks, no build step, no external requests) |
 | `docs/printer-rfq.md` | Written lay-flat spec + RU quote-request letter for Tashkent printers |
 | `docs/operator-pitch.md` | Archive of the earlier tour-operator channel plan (not reflected on the site) |
@@ -44,7 +47,8 @@ tags in the `<head>` of both HTML files.
 
 ## Before going live for real customers
 
-These placeholders appear in **both** `index.html` and `ru/index.html`:
+These placeholders appear in **all five** language pages (`index.html`,
+`ru/`, `uz/`, `uz-cyrl/`, `kaa/`):
 
 | Placeholder | Replace with |
 |---|---|

@@ -11,6 +11,9 @@
 <link rel="canonical" href="https://DOMAIN/">
 <link rel="alternate" hreflang="en" href="https://DOMAIN/">
 <link rel="alternate" hreflang="ru" href="https://DOMAIN/ru/">
+<link rel="alternate" hreflang="uz" href="https://DOMAIN/uz/">
+<link rel="alternate" hreflang="uz-Cyrl" href="https://DOMAIN/uz-cyrl/">
+<link rel="alternate" hreflang="kaa" href="https://DOMAIN/kaa/">
 -->
 </head>
 <body>
@@ -33,7 +36,15 @@
     </nav>
     <!-- TODO: point every "Create your book" button at the real editor URL -->
     <a class="btn btn-primary btn-small header-cta" href="#">Create your book</a>
-    <a class="lang-switch" href="ru/" lang="ru" hreflang="ru">Русский</a>
+    <details class="lang-menu">
+      <summary aria-label="Language: English">EN</summary>
+      <div class="lang-list">
+        <a href="ru/" lang="ru" hreflang="ru">Русский</a>
+        <a href="uz/" lang="uz" hreflang="uz">Oʻzbekcha</a>
+        <a href="uz-cyrl/" lang="uz-Cyrl" hreflang="uz-Cyrl">Ўзбекча</a>
+        <a href="kaa/" lang="kaa" hreflang="kaa">Qaraqalpaqsha</a>
+      </div>
+    </details>
   </div>
 </header>
 
@@ -337,7 +348,10 @@
     <div>
       <a href="mailto:hello@example.com">hello@example.com</a> ·
       <a href="https://t.me/XXXXXXXXX" target="_blank" rel="noopener">Telegram</a> ·
-      <a href="ru/" lang="ru" hreflang="ru">Русская версия</a>
+      <a href="ru/" lang="ru">Русский</a> ·
+      <a href="uz/" lang="uz">Oʻzbekcha</a> ·
+      <a href="uz-cyrl/" lang="uz-Cyrl">Ўзбекча</a> ·
+      <a href="kaa/" lang="kaa">Qaraqalpaqsha</a>
     </div>
   </div>
 </footer>
