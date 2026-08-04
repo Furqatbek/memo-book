@@ -1,7 +1,7 @@
 # memo-book backend
 
 Backend for the self-serve photo book platform. Spec: [`../backend-build-prompt.md`](../backend-build-prompt.md)
-(build milestones in Part 10). Current state: **Milestones 1–7 complete** —
+(build milestones in Part 10). Current state: **Milestones 1–8 complete** —
 FastAPI skeleton, fully unit-tested pure domain core, the books API
 (JSONB layout, optimistic concurrency via `If-Match`, anonymous `X-Edit-Token`
 auth, page-count re-flow, 30-day retention extension), and photo ingest
@@ -12,8 +12,11 @@ auto-place (R2 chronological fill, surplus surfaced), the
 checkout-eligibility endpoint (R1/R3), and the interior render pipeline
 (300dpi from originals, one page at a time under a proven 512MB budget,
 byte-deterministic RGB PDF + optional Ghostscript CMYK stage, repo-pinned
-DejaVu fonts, golden-raster regression test), and the 72dpi watermarked
-preview with staleness tracking.
+DejaVu fonts, golden-raster regression test), the 72dpi watermarked
+preview with staleness tracking, and checkout/orders (confirmation gate
+with recorded timestamp, R1 + complete-pages enforcement, book locking,
+append-only order_events audit, cancellation/re-checkout, public status
+lookup by reference + phone).
 
 ## Local setup
 

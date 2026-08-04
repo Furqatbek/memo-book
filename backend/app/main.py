@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from app.api.books import router as books_router
 from app.api.errors import register_error_handlers
 from app.api.health import router as health_router
+from app.api.orders import router as orders_router
 from app.api.photos import router as photos_router
 from app.api.preview import router as preview_router
 from app.config import get_settings
@@ -19,6 +20,7 @@ def create_app() -> FastAPI:
     app.include_router(books_router)
     app.include_router(photos_router)
     app.include_router(preview_router)
+    app.include_router(orders_router)
     return app
 
 

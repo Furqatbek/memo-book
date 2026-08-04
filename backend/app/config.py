@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     spine_mm_48: float = 8.0
     spine_mm_96: float = 14.0
 
+    # PLACEHOLDER prices per tier, UZS in tiyin (1 sum = 100 tiyin).
+    # Set the real prices before going live.
+    price_minor_16: int = 29_900_000   # 299,000 UZS
+    price_minor_32: int = 39_900_000   # 399,000 UZS
+    price_minor_48: int = 49_900_000   # 499,000 UZS
+    price_minor_96: int = 79_900_000   # 799,000 UZS
+
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 

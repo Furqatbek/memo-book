@@ -27,7 +27,9 @@ class OrderStatus(StrEnum):
 ORDER_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
     OrderStatus.DRAFT_ORDER: frozenset({OrderStatus.PENDING_PAYMENT}),
     OrderStatus.PENDING_PAYMENT: frozenset({OrderStatus.PAID, OrderStatus.CANCELLED}),
-    OrderStatus.CANCELLED: frozenset(),
+    # cancelled -> pending_payment: re-checkout of the same book reuses its
+    # one order row (unique book_id) with a fresh audit event (assumption A33).
+    OrderStatus.CANCELLED: frozenset({OrderStatus.PENDING_PAYMENT}),
     OrderStatus.PAID: frozenset({OrderStatus.RENDERING}),
     # render_failed -> rendering is the operator retry path (assumption A5).
     OrderStatus.RENDERING: frozenset({OrderStatus.RENDERED, OrderStatus.RENDER_FAILED}),

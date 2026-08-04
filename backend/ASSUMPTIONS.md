@@ -140,3 +140,21 @@ blanks so the user sees exactly what would print. Staleness is tracked by
 comparing the layout version the preview was rendered from with the current
 one; text is approximated in raster (the print PDF keeps vector text). The
 checkout confirmation gate (M8) must require status=ready AND stale=false.
+
+**A31 — Checkout also requires complete pages**, not just the R1 photo count:
+every page must hold a placement referencing a usable photo
+(`PAGES_INCOMPLETE` otherwise). R1 alone would let a user with 16 uploaded
+photos but 3 empty pages pay for a book the render preflight would then
+refuse — better to block before money moves.
+
+**A32 — Prices are config PLACEHOLDERS** (`PRICE_MINOR_*`, tiyin): 299k/399k/
+499k/799k UZS for 16/32/48/96 pages. Set real prices before going live.
+Pricing has one entry point (`services/pricing.py`) per the Part 12 seam.
+
+**A33 — `cancelled → pending_payment` is legal**: re-checkout of the same
+book reuses its single order row (the spec's unique `book_id` constraint)
+with refreshed customer details and a full audit trail. The alternative —
+a second order row — would violate the one-order-per-book invariant.
+
+**A34 — The public status endpoint returns no PII** (no name, address or
+email) and a wrong phone is byte-identical to an unknown reference.

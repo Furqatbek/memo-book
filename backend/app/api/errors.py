@@ -23,6 +23,8 @@ STATUS_BY_CODE: dict[ErrorCode, int] = {
     ErrorCode.SIGNATURE_INVALID: 403,
     ErrorCode.ORDER_NOT_FOUND: 404,
     ErrorCode.PREVIEW_NOT_CONFIRMED: 422,
+    ErrorCode.PREVIEW_STALE: 409,
+    ErrorCode.PAGES_INCOMPLETE: 409,
     ErrorCode.NOT_FOUND: 404,
     ErrorCode.RATE_LIMITED: 429,
 }
