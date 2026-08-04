@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # Readiness probes must fail fast, not hang the endpoint.
     ready_check_timeout_s: float = 2.0
 
+    # Run queue jobs inline instead of enqueueing to RQ (tests, simple dev).
+    task_eager: bool = False
+
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 

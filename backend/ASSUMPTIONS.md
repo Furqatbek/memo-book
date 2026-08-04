@@ -69,3 +69,29 @@ which book ids exist.
 a real Postgres 16 service (`TEST_DATABASE_URL`); the JSONB column degrades to
 JSON on SQLite via a type variant. Testcontainers was skipped because the spec's
 integration matrix is covered by CI's real Postgres with less machinery.
+
+**A17 — Storage in tests is moto (in-process mocked S3),** with real presign
+and object semantics; the spec's MinIO-via-testcontainers is equivalent here
+and moto runs everywhere, including sandboxes without a Docker daemon. The
+docker-compose MinIO remains the dev-stack storage.
+
+**A18 — The HEIC fixture is generated with pillow-heif,** carrying real EXIF
+(DateTimeOriginal + orientation), not committed from an actual iPhone. The
+decode/EXIF-extraction path is identical; still, drop one genuine iPhone HEIC
+into the fixtures before launch as the spec asks — camera files have quirks
+synthetic ones don't.
+
+**A19 — EXIF timestamps are stored as UTC.** EXIF has no timezone; R2 only
+needs relative order within one trip, so a consistent convention beats a
+guessed timezone.
+
+**A20 — `resolution_status` in photo lists is computed for a full-bleed
+placement** (the default use). The editor recalculates per actual placed size
+with the same domain thresholds.
+
+**A21 — Duplicate photos still get derivatives** so the editor can show what
+the duplicate is; they are flagged `status=duplicate` with `duplicate_of`
+pointing at the surviving photo. The backend never silently drops.
+
+**A22 — `complete` verifies the object exists in storage** before enqueueing
+ingest, and completing an already-processed photo is an idempotent no-op.

@@ -62,9 +62,32 @@ async def db(sessionmaker):
 
 
 @pytest.fixture
-async def client(sessionmaker):
+def s3():
+    """In-process mocked S3 (moto): real presigning, real object semantics,
+    no network. Injected into the app's storage module."""
+    import boto3
+    from moto import mock_aws
+
+    from app import storage as storage_mod
+
+    with mock_aws():
+        client = boto3.client(
+            "s3", region_name="us-east-1",
+            aws_access_key_id="test", aws_secret_access_key="test",
+        )
+        client.create_bucket(Bucket="memobook")
+        storage_mod.set_client(client)
+        yield client
+    storage_mod.set_client(None)
+
+
+@pytest.fixture
+async def client(sessionmaker, s3, monkeypatch):
+    from app.config import get_settings
     from app.main import create_app
 
+    monkeypatch.setenv("TASK_EAGER", "true")  # queue jobs run inline in tests
+    get_settings.cache_clear()
     app = create_app()
 
     async def _override_session():
@@ -75,3 +98,4 @@ async def client(sessionmaker):
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
+    get_settings.cache_clear()

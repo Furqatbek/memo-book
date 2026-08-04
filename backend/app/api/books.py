@@ -20,6 +20,7 @@ from app.schemas.book import (
     SetEmailRequest,
 )
 from app.services import books as svc
+from app.services import photos as photo_svc
 
 router = APIRouter(prefix="/api/v1/books", tags=["books"])
 
@@ -52,7 +53,9 @@ async def create_book(body: CreateBookRequest, session: Session):
 @router.get("/{book_id}", response_model=BookResponse)
 async def get_book(book_id: uuid.UUID, session: Session, x_edit_token: EditToken):
     book = await svc.get_book_authed(session, book_id, x_edit_token)
-    return _book_response(book)
+    photos = await photo_svc.list_photos(session, book_id, x_edit_token)
+    return {**_book_response(book),
+            "photos": [photo_svc.serialize_photo(p) for p in photos]}
 
 
 @router.patch("/{book_id}/layout", response_model=LayoutPatchResponse)

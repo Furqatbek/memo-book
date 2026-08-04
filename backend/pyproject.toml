@@ -20,11 +20,13 @@ dependencies = [
     "httpx>=0.27",
     "structlog>=24.1",
     "email-validator>=2.1",
+    "pillow>=10.3",
+    "pillow-heif>=0.16",
+    "rq>=1.16",
+    "anyio>=4.0",
 ]
 # Milestone-gated dependencies (add when their milestone starts, per spec Part 10):
-#   M4 photo ingest : pillow, pillow-heif, rq
-#   M6 render       : reportlab
-#   M9 payments     : (none new — httpx already present)
+#   M6 render : reportlab
 
 [project.optional-dependencies]
 dev = [
@@ -33,6 +35,7 @@ dev = [
     "hypothesis>=6.100",
     "ruff>=0.5",
     "aiosqlite>=0.20",
+    "moto[s3]>=5.0",
 ]
 
 [tool.setuptools.packages.find]
