@@ -9,6 +9,14 @@ on:
     branches:
       - main
       - claude/memo-book-project-duulu7
+    paths:
+      - "index.html"
+      - "ru/**"
+      - "uz/**"
+      - "uz-cyrl/**"
+      - "kaa/**"
+      - "assets/**"
+      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:

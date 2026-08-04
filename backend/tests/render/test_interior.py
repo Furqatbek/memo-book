@@ -139,9 +139,9 @@ class TestDeterminism:
 
         golden = Image.open(golden_path).convert("RGB")
         assert golden.size == rendered.size
-        pairs = zip(golden.getdata(), rendered.getdata(), strict=True)
         diff_total = sum(
-            abs(a - b) for gp, rp in pairs for a, b in zip(gp, rp, strict=True)
+            abs(a - b)
+            for a, b in zip(golden.tobytes(), rendered.tobytes(), strict=True)
         )
         mean_diff = diff_total / (golden.width * golden.height * 3)
         assert mean_diff < 8.0, f"perceptual drift: mean channel diff {mean_diff:.2f}"
