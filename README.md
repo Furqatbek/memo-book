@@ -24,6 +24,7 @@ printed in Uzbekistan, delivered in about 30 days.
 | `uz-cyrl/index.html` | Landing page, Uzbek (Cyrillic) |
 | `kaa/index.html` | Landing page, Karakalpak |
 | `assets/style.css` | Shared stylesheet (no frameworks, no build step, no external requests) |
+| `assets/lang.js` | Device-language detection: first visit to the root page redirects to the matching language version; an explicit pick in the language menu is stored and always wins; runs once per session so the back button works. No JS → the site just stays on the opened page. |
 | `docs/printer-rfq.md` | Written lay-flat spec + RU quote-request letter for Tashkent printers |
 | `docs/operator-pitch.md` | Archive of the earlier tour-operator channel plan (not reflected on the site) |
 | `memory-book-project-brief.md` | Original project brief (see note above) |
