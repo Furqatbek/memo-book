@@ -1,13 +1,15 @@
 # memo-book backend
 
 Backend for the self-serve photo book platform. Spec: [`../backend-build-prompt.md`](../backend-build-prompt.md)
-(build milestones in Part 10). Current state: **Milestones 1–4 complete** —
+(build milestones in Part 10). Current state: **Milestones 1–5 complete** —
 FastAPI skeleton, fully unit-tested pure domain core, the books API
 (JSONB layout, optimistic concurrency via `If-Match`, anonymous `X-Edit-Token`
 auth, page-count re-flow, 30-day retention extension), and photo ingest
 (presigned direct-to-S3 uploads, HEIC→JPEG with EXIF extracted first,
 physical orientation fix, metadata-stripped derivatives, sha256 dedupe,
-decompression-bomb guards; RQ worker or inline via `TASK_EAGER`).
+decompression-bomb guards; RQ worker or inline via `TASK_EAGER`), plus
+auto-place (R2 chronological fill, surplus surfaced) and the
+checkout-eligibility endpoint (R1/R3).
 
 ## Local setup
 

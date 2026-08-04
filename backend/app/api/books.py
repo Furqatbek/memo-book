@@ -21,6 +21,7 @@ from app.schemas.book import (
 )
 from app.services import books as svc
 from app.services import photos as photo_svc
+from app.services import placement as placement_svc
 
 router = APIRouter(prefix="/api/v1/books", tags=["books"])
 
@@ -81,3 +82,33 @@ async def set_email(book_id: uuid.UUID, body: SetEmailRequest, session: Session,
                     x_edit_token: EditToken):
     book = await svc.set_email(session, book_id, x_edit_token, body.email)
     return _book_response(book)
+
+
+@router.post("/{book_id}/auto-place")
+async def auto_place(book_id: uuid.UUID, session: Session, x_edit_token: EditToken,
+                     if_match: IfMatch = None):
+    book, placed_count, unplaced = await placement_svc.auto_place(
+        session, book_id, x_edit_token, if_match
+    )
+    return {
+        "layout": book.layout,
+        "layout_version": book.layout_version,
+        "placed_count": placed_count,
+        "unplaced_photo_ids": unplaced,  # R3: surplus is surfaced, never dropped
+    }
+
+
+@router.get("/{book_id}/checkout-eligibility")
+async def checkout_eligibility(book_id: uuid.UUID, session: Session,
+                               x_edit_token: EditToken):
+    result = await placement_svc.eligibility(session, book_id, x_edit_token)
+    return {
+        "eligible": result.eligible,
+        "photo_count": result.photo_count,
+        "page_count": result.page_count,
+        "issues": [
+            {"code": i.code.value, "message": i.message, "details": i.details}
+            for i in result.issues
+        ],
+        "suggested_tier": result.suggested_tier,
+    }

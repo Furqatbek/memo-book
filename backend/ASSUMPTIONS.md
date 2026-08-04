@@ -95,3 +95,14 @@ pointing at the surviving photo. The backend never silently drops.
 
 **A22 — `complete` verifies the object exists in storage** before enqueueing
 ingest, and completing an already-processed photo is an idempotent no-op.
+
+**A23 — "Usable" photos for auto-place and eligibility are `ready` and
+`duplicate`.** Duplicates are placeable (the user chose to keep them); pending,
+processing and failed photos count for nothing. The same definition is used in
+both places so eligibility can never pass while auto-place under-fills.
+
+**A24 — Auto-place writes full-bleed placements** (`-3,-3,154,216`, fit=cover),
+rewrites *only* placements (cover and texts survive), places the first
+`page_count` photos in R2 order, and returns surplus photo ids as
+`unplaced_photo_ids` — surfaced, never silently dropped (R3). It participates
+in the same If-Match concurrency scheme as every other layout mutation.
