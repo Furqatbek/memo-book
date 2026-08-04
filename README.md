@@ -53,6 +53,15 @@ Brief §6 flags $89–119 as the likely A5 range — decide after showing the
 physical sample to operators, then update the hero meta line and the pricing
 card in both languages.
 
+Two more gates before publishing (the pages promise both):
+
+1. **The Phase-0 sample book must physically exist** — the FAQ offers to show
+   it in person and to send close-up photos and a page-turn video.
+2. **A working USD card payment path must be verified** (Open Question #7 —
+   Payme/Click are domestic-only). The copy hedges with "we confirm the
+   payment method when you order", but don't go live without an answer for
+   the first customer who asks.
+
 ## Copy rules (from brief §8 — do not undo these)
 
 - Never use "preserve your memories" / "beautiful moments of life as a book" /

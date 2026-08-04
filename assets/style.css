@@ -12,6 +12,7 @@
   --lapis-deep: #182c58;
   --turquoise: #3ba99c;
   --terracotta: #c4633c;
+  --terracotta-text: #9c4a26; /* AA on paper and white; --terracotta itself is decorative-only */
   --gold: #c9a227;
   --line: rgba(28, 35, 51, 0.14);
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
@@ -20,7 +21,9 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
 
 body {
   font-family: var(--sans);
@@ -74,6 +77,7 @@ a { color: var(--lapis); }
   top: 0;
   z-index: 20;
   background: rgba(247, 242, 233, 0.92);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
@@ -172,7 +176,7 @@ a { color: var(--lapis); }
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--terracotta);
+  color: var(--terracotta-text);
   margin-bottom: 18px;
 }
 
@@ -206,7 +210,7 @@ a { color: var(--lapis); }
 }
 
 /* --- Section rhythm ---------------------------------------------------- */
-.section { padding: 76px 0; }
+.section { padding: 76px 0; scroll-margin-top: 72px; }
 
 .section.alt { background: var(--paper-deep); }
 
@@ -245,7 +249,7 @@ a { color: var(--lapis); }
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--turquoise);
+  background: #1b7a6f; /* darkened brand shades: white numerals must clear WCAG 4.5:1 */
   color: #fff;
   font-weight: 700;
   font-size: 1rem;
@@ -253,8 +257,8 @@ a { color: var(--lapis); }
 }
 
 .steps li:nth-child(2)::before { background: var(--lapis); }
-.steps li:nth-child(3)::before { background: var(--terracotta); }
-.steps li:nth-child(4)::before { background: var(--gold); }
+.steps li:nth-child(3)::before { background: #a04d28; }
+.steps li:nth-child(4)::before { background: #8a6d14; }
 
 .steps p { font-size: 0.95rem; }
 
@@ -278,7 +282,7 @@ a { color: var(--lapis); }
 
 .spec-card em {
   font-style: normal;
-  color: var(--terracotta);
+  color: var(--terracotta-text);
   font-weight: 600;
 }
 
@@ -492,7 +496,21 @@ a { color: var(--lapis); }
   .spec-grid { grid-template-columns: repeat(2, 1fr); }
   .design-band { grid-template-columns: 1fr; gap: 36px; }
   .operator-points { grid-template-columns: 1fr; }
-  .site-nav { display: none; }
+  /* Nav wraps to a scrollable second row; lang switch keeps its right-edge slot */
+  .header-row { flex-wrap: wrap; gap: 0 16px; padding: 10px 24px; min-height: 0; }
+  .site-nav {
+    order: 3;
+    flex-basis: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 18px;
+    padding: 8px 0 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .site-nav::-webkit-scrollbar { display: none; }
+  .site-nav + .lang-switch { margin-left: auto; }
+  .section { scroll-margin-top: 106px; }
 }
 
 @media (max-width: 560px) {

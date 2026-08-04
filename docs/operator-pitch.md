@@ -21,11 +21,11 @@
 
 | Term | Position | Walk-away line |
 |---|---|---|
-| Wholesale price | **$99** (retail $149) | Test $79–99 if attach-rate argument is strong; **do not** go below $79 before A5 COGS is re-quoted |
+| Wholesale price | **$99** (retail $149) | Retail and wholesale move **together**, not independently: the operator's margin is retail − wholesale, so if retail tests at $89–119, the numbers must be re-derived as a pair — never concede both separately in the same meeting. **No wholesale commitment below $79** before A5 COGS is re-quoted (realistic loaded COGS is ~$51–55 pre-A5); if their retail number doesn't leave both sides a margin at that floor, take the price data home and come back after the printer quotes |
 | Settlement | **Prepaid, or operator collects and settles weekly** | **Never** 30–60 day terms. Non-negotiable (Risk 5: printer wants cash up front; we do not carry receivables) |
 | Branding | Co-brand by default; white-label possible | White-label at a higher wholesale price |
 | Sales model | Their choice: paid upsell OR bundled into premium package | — |
-| Turnaround | Proof 72h from photos; print 1–2 days after approval | Client must start photos ≥4–5 days before departure for hand delivery |
+| Turnaround | Proof 72h from photos; two revision rounds included; print time TBD until a printer is signed (Open Question #4) | Client should start photos **≥5–7 days before departure** for hand delivery (revisions eat days); later starts → ship home. Do not promise print turnaround numbers before the printer quote exists |
 | Defects | Free reprint at our cost | — |
 
 ---
