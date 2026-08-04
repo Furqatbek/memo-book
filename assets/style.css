@@ -18,6 +18,8 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+html { -webkit-text-size-adjust: 100%; }
+
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
 }
@@ -29,6 +31,7 @@ body {
   color: var(--ink);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 img, svg { max-width: 100%; height: auto; display: block; }
@@ -46,8 +49,8 @@ h1, h2, h3 {
   letter-spacing: -0.015em;
 }
 
-h1 { font-size: clamp(2.2rem, 5vw, 3.5rem); }
-h2 { font-size: clamp(1.7rem, 3.5vw, 2.4rem); margin-bottom: 0.45em; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.5rem); text-wrap: balance; }
+h2 { font-size: clamp(1.7rem, 3.5vw, 2.4rem); margin-bottom: 0.45em; text-wrap: balance; }
 h3 { font-size: 1.12rem; margin-bottom: 0.35em; letter-spacing: 0; }
 
 p { color: var(--muted); }
@@ -433,10 +436,32 @@ a { color: var(--primary); }
 
 @media (max-width: 560px) {
   body { font-size: 16px; }
-  .steps { grid-template-columns: 1fr; }
-  .feature-grid { grid-template-columns: 1fr; }
-  .section { padding: 56px 0; }
-  .cta-band { padding: 40px 26px; }
-  .header-cta { display: none; }
-  .lang-menu { margin-left: auto; }
+  h1 { font-size: clamp(1.9rem, 8.5vw, 2.4rem); }
+  .wrap { padding: 0 20px; }
+  .section { padding: 54px 0; }
+  .section-head { margin-bottom: 32px; }
+  .steps { grid-template-columns: 1fr; gap: 16px; }
+  .feature-grid { grid-template-columns: 1fr; gap: 16px; }
+  /* Header stays compact but keeps the CTA — never hide the main action on phones */
+  .header-row { padding: 8px 20px; gap: 0 10px; }
+  .brand { font-size: 1.12rem; gap: 8px; }
+  .header-cta { padding: 8px 14px; font-size: 0.85rem; }
+  .lang-menu summary { padding: 5px 11px; font-size: 0.85rem; }
+  .site-nav { gap: 16px; padding-top: 6px; }
+  .site-nav a { font-size: 0.9rem; }
+  .section { scroll-margin-top: 98px; }
+  /* Thumb-friendly full-width actions */
+  .hero { padding: 40px 0 56px; }
+  .hero-cta { gap: 10px; }
+  .hero-cta .btn { width: 100%; text-align: center; }
+  .cta-band { flex-direction: column; align-items: stretch; text-align: center; padding: 38px 24px; gap: 20px; }
+  .cta-band p { max-width: none; }
+  .cta-band .btn { width: 100%; text-align: center; }
+  .footer-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
+
+@media (max-width: 420px) {
+  /* Icon-only brand so brand + CTA + language pill share one header row */
+  .brand { font-size: 0; gap: 0; }
+  .brand .brand-mark { width: 30px; height: 30px; }
 }
