@@ -24,9 +24,8 @@ dependencies = [
     "pillow-heif>=0.16",
     "rq>=1.16",
     "anyio>=4.0",
+    "reportlab>=4.1",
 ]
-# Milestone-gated dependencies (add when their milestone starts, per spec Part 10):
-#   M6 render : reportlab
 
 [project.optional-dependencies]
 dev = [
@@ -36,6 +35,8 @@ dev = [
     "ruff>=0.5",
     "aiosqlite>=0.20",
     "moto[s3]>=5.0",
+    "pypdf>=4.2",
+    "pymupdf~=1.28.0",  # pinned: the golden-raster test depends on its output
 ]
 
 [tool.setuptools.packages.find]

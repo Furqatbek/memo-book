@@ -106,3 +106,29 @@ rewrites *only* placements (cover and texts survive), places the first
 `page_count` photos in R2 order, and returns surplus photo ids as
 `unplaced_photo_ids` — surfaced, never silently dropped (R3). It participates
 in the same If-Match concurrency scheme as every other layout mutation.
+
+**A25 — Both colour paths exist (founder decision, 5 Aug 2026).** RGB is the
+canonical, byte-deterministic artifact; `RENDER_COLOR_MODE=cmyk` converts it
+via Ghostscript (+ optional `ICC_PROFILE_PATH`) at the boundary. Determinism
+guarantees apply to the RGB artifact only — Ghostscript stamps timestamps.
+
+**A26 — Spine widths are still PLACEHOLDERS.** The founder confirmed the page
+tiers (16/32/48/96) but not the spine mm values; `SPINE_MM_*` in config keeps
+the spec's placeholder numbers. Do not send any cover to production print
+until the printer's real values replace them (they gate Milestone 10).
+
+**A27 — All user-selected font names render as bundled DejaVu Sans** (repo-
+pinned, full Latin+Cyrillic). Brand fonts (e.g. Inter) can be added to
+`app/render/fonts/` later; the layout schema already carries the font name.
+
+**A28 — Page rasters enter the PDF as JPEG files by path** (quality 95).
+ReportLab's DCT passthrough keeps peak RSS at ~62MB for a 96-page book,
+versus ~1GB via `drawImage(ImageReader)` which decodes and retains raw RGB —
+the memory test in Part 9.3 exists precisely to keep this from regressing.
+Text stays vector (never rasterised). Crop marks are omitted until the
+printer asks for them.
+
+**A29 — Render preflight refuses incomplete books**: wrong page count, any
+page without a placement, or a placement referencing an unavailable photo
+raises before a single page is composed. Blank pages are a guaranteed refund;
+better to fail loudly in the worker than to print one.

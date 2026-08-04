@@ -26,6 +26,20 @@ class Settings(BaseSettings):
     # Run queue jobs inline instead of enqueueing to RQ (tests, simple dev).
     task_eager: bool = False
 
+    # --- Render (Milestone 6) ---
+    # "rgb" (canonical, deterministic) or "cmyk" (Ghostscript + printer ICC).
+    # Both paths are supported so losing either printer capability is survivable.
+    render_color_mode: str = "rgb"
+    icc_profile_path: str = ""
+
+    # PLACEHOLDER spine widths (mm) per page tier — replace with the printer's
+    # real numbers before ANY cover goes to production (spec Part 7: a wrong
+    # spine wraps the cover art onto the wrong face and wastes the print run).
+    spine_mm_16: float = 4.0
+    spine_mm_32: float = 6.0
+    spine_mm_48: float = 8.0
+    spine_mm_96: float = 14.0
+
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
