@@ -6,6 +6,7 @@ from app.config import get_settings
 
 INGEST_QUEUE = "ingest"
 PREVIEW_QUEUE = "preview"
+RENDER_QUEUE = "render"
 
 
 def eager() -> bool:
@@ -27,3 +28,7 @@ def enqueue_ingest(photo_id: uuid.UUID) -> None:
 
 def enqueue_preview(book_id: uuid.UUID) -> None:
     _enqueue(PREVIEW_QUEUE, "app.workers.preview.run", str(book_id))
+
+
+def enqueue_order_render(order_id: uuid.UUID) -> None:
+    _enqueue(RENDER_QUEUE, "app.workers.render.run", str(order_id))

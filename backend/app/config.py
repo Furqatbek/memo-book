@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # Run queue jobs inline instead of enqueueing to RQ (tests, simple dev).
     task_eager: bool = False
 
+    # --- Payments (Milestone 9) ---
+    # Dev mode: the "dev" provider treats any correctly-signed webhook as a
+    # completed payment. Disable and integrate a real acquirer for production.
+    dev_payments_enabled: bool = True
+    dev_payment_secret: str = "dev-secret-change-me"
+
     # --- Render (Milestone 6) ---
     # "rgb" (canonical, deterministic) or "cmyk" (Ghostscript + printer ICC).
     # Both paths are supported so losing either printer capability is survivable.

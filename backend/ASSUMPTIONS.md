@@ -158,3 +158,21 @@ a second order row — would violate the one-order-per-book invariant.
 
 **A34 — The public status endpoint returns no PII** (no name, address or
 email) and a wrong phone is byte-identical to an unknown reference.
+
+**A35 — Real acquirer integration is deferred (founder decision, 5 Aug
+2026).** The "dev" provider treats any webhook carrying the shared-secret
+signature header as a completed payment. Everything around it is the
+production machinery — signature-before-parse, amount verification against
+the stored order, (provider, event_id, method) idempotency, paid-triggers-
+render — so Payme/Click/Uzum later replace only `app/payments/dev.py`.
+`DEV_PAYMENTS_ENABLED=false` removes the provider entirely.
+
+**A36 — A pay event for an already-paid order is acknowledged, not
+re-executed** (`duplicate: true` in the response), even under a new event id —
+acquirers retry with fresh ids. A cancel after payment is an ILLEGAL_TRANSITION.
+Amount-mismatch events are recorded in the audit table but change nothing.
+
+**A37 — Render failure does not fail the webhook.** The payment is accepted
+(200), the order lands in `render_failed` with the operator alert logged, and
+`render_failed → rendering` remains the retry path. Spec's "render fails 3×"
+retry counter is left to the RQ worker's retry policy at deploy time.

@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
+from app.payments.registry import available_providers, get_provider
 from app.services import orders as svc
 
 router = APIRouter(prefix="/api/v1", tags=["orders"])
@@ -32,17 +33,16 @@ async def checkout(book_id: uuid.UUID, body: CheckoutRequest, session: Session,
         name=body.name, phone=body.phone, address=body.address,
         email=body.email, confirmed_preview=body.confirmed_preview,
     )
+    providers = available_providers()
     return {
         "human_ref": order.human_ref,
         "order_status": order.status,
         "amount_minor": order.amount_minor,
         "currency": order.currency,
-        # Payment init data — providers are wired in Milestone 9; the
-        # frontend polls the public status endpoint meanwhile.
         "payment": {
-            "providers_available": [],
-            "amount_minor": order.amount_minor,
-            "currency": order.currency,
+            "providers_available": providers,
+            "init": [get_provider(name).build_checkout_payload(order)
+                     for name in providers],
         },
     }
 
