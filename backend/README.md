@@ -1,8 +1,10 @@
 # memo-book backend
 
 Backend for the self-serve photo book platform. Spec: [`../backend-build-prompt.md`](../backend-build-prompt.md)
-(build milestones in Part 10). Current state: **Milestones 1–2 complete** —
-FastAPI skeleton + fully unit-tested pure domain core.
+(build milestones in Part 10). Current state: **Milestones 1–3 complete** —
+FastAPI skeleton, fully unit-tested pure domain core, and the books API
+(JSONB layout, optimistic concurrency via `If-Match`, anonymous `X-Edit-Token`
+auth, page-count re-flow, 30-day retention extension on every mutation).
 
 ## Local setup
 

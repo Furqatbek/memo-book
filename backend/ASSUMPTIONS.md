@@ -47,3 +47,25 @@ any S3-compatible provider), with a short timeout, run in a worker thread.
 **A11 — `pillow`, `pillow-heif`, `rq`, `reportlab` are not yet dependencies.**
 They enter `pyproject.toml` with their milestones (M4/M6) to keep the
 dependency surface reviewable per milestone.
+
+**A12 — `placements` allows 0 or 1 entries in MVP.** Part 12 says "a validator
+enforcing len == 1", but a freshly created draft has empty pages, so the
+validator enforces `len <= 1`; the "every page filled" requirement is checkout
+eligibility's job (R1), not the layout schema's.
+
+**A13 — `page-count` changes also require `If-Match`.** The endpoint rewrites
+the layout document, so it participates in the same optimistic-concurrency
+scheme as `PATCH /layout`. A missing header returns 428 VERSION_REQUIRED.
+
+**A14 — `photo_id` values in placements are not existence-checked yet.**
+Photos arrive in Milestone 4; referential validation joins checkout
+eligibility (M5) and render preflight (M6).
+
+**A15 — Auth failures return 404, not 401/403.** A wrong edit token is
+byte-identical to a missing book, so the API cannot be used as an oracle for
+which book ids exist.
+
+**A16 — Tests run on Postgres when available, SQLite otherwise.** CI provides
+a real Postgres 16 service (`TEST_DATABASE_URL`); the JSONB column degrades to
+JSON on SQLite via a type variant. Testcontainers was skipped because the spec's
+integration matrix is covered by CI's real Postgres with less machinery.

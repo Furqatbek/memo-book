@@ -12,8 +12,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Models register on this metadata (populated from Milestone 3 onwards).
-target_metadata = None
+import app.models  # noqa: F401  — imports register tables on Base.metadata
+from app.db.base import Base
+
+target_metadata = Base.metadata
 
 database_url = os.environ.get("DATABASE_URL")
 if database_url:
