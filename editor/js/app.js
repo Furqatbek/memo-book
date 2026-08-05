@@ -565,7 +565,16 @@ function renderCover(canvas) {
   }
   const scale = canvas.clientWidth / CANVAS_W;   // px per mm
   const textColor = cover.title_color || (photo ? '#ffffff' : '#1a1a1a');
-  const titles = h('div', { class: 'cover-titles' });
+  const cx = cover.title_x_mm ?? TRIM_W / 2;
+  const cy = cover.title_y_mm ?? 122;
+  const rot = cover.title_rotation || 0;
+  const selected = S.sel && S.sel.kind === 'cover';
+
+  const titles = h('div', { class: 'cover-titles' + (selected ? ' sel' : '') });
+  titles.style.left = pct(cx + BLEED, CANVAS_W);
+  titles.style.top = pct(cy + BLEED, CANVAS_H);
+  titles.style.transform = 'translate(-50%, -50%)' + (rot ? ` rotate(${rot}deg)` : '');
+
   const title = h('input', {
     class: 'cover-title', value: cover.title, maxlength: '200',
     placeholder: t('cover.titlePh'),
@@ -588,7 +597,119 @@ function renderCover(canvas) {
     cover.subtitle = subtitle.value;
     markDirty();
   });
+  for (const input of [title, subtitle]) {
+    input.addEventListener('focus', () => select({ kind: 'cover' }, true));
+  }
   titles.append(title, subtitle);
+
+  // Drag the block anywhere; a still click starts typing in the title.
+  titles.addEventListener('pointerdown', (e) => {
+    if (S.locked || !e.isPrimary) return;
+    if (document.activeElement === title || document.activeElement === subtitle) return;
+    if (e.target.closest('.tb-rotate, .tb-scale')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    S.dragging = true;
+    const sx = e.clientX, sy = e.clientY;
+    const ox = cover.title_x_mm ?? TRIM_W / 2;
+    const oy = cover.title_y_mm ?? 122;
+    let moved = false;
+    const move = (ev) => {
+      if (S.pinching) return;
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
+      moved = true;
+      cover.title_x_mm = clamp(Math.round((ox + (ev.clientX - sx) / scale) * 10) / 10,
+                               SAFE, TRIM_W - SAFE);
+      cover.title_y_mm = clamp(Math.round((oy + (ev.clientY - sy) / scale) * 10) / 10,
+                               SAFE, TRIM_H - SAFE);
+      titles.style.left = pct(cover.title_x_mm + BLEED, CANVAS_W);
+      titles.style.top = pct(cover.title_y_mm + BLEED, CANVAS_H);
+    };
+    const up = () => {
+      S.dragging = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (moved) markDirty();
+      else if (titles.isConnected) {
+        select({ kind: 'cover' });
+        // Synchronous: typing may start immediately after the tap.
+        const el = document.querySelector('.cover-title');
+        if (el) el.focus();
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+
+  if (selected && !S.locked) {
+    const rotate = h('div', { class: 'tb-rotate' }, '⟳');
+    rotate.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      S.dragging = true;
+      const r = titles.getBoundingClientRect();
+      const ccx = r.left + r.width / 2, ccy = r.top + r.height / 2;
+      const start = (Math.atan2(e.clientY - ccy, e.clientX - ccx) * 180) / Math.PI;
+      const orig = cover.title_rotation || 0;
+      const move = (ev) => {
+        if (S.pinching) return;
+        const a = (Math.atan2(ev.clientY - ccy, ev.clientX - ccx) * 180) / Math.PI;
+        cover.title_rotation = normDeg(orig + (a - start));
+        titles.style.transform = 'translate(-50%, -50%)'
+          + (cover.title_rotation ? ` rotate(${cover.title_rotation}deg)` : '');
+      };
+      const up = () => {
+        S.dragging = false;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        markDirty();
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+
+    const scaleH = h('div', { class: 'tb-scale' });
+    scaleH.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      S.dragging = true;
+      const r = titles.getBoundingClientRect();
+      const ccx = r.left + r.width / 2, ccy = r.top + r.height / 2;
+      const d0 = Math.max(8, Math.hypot(e.clientX - ccx, e.clientY - ccy));
+      const origSize = cover.title_size_pt;
+      const move = (ev) => {
+        if (S.pinching) return;
+        const f = clamp(Math.hypot(ev.clientX - ccx, ev.clientY - ccy) / d0, 0.25, 6);
+        cover.title_size_pt = clamp(Math.round(origSize * f), 4, 144);
+        title.style.fontSize = `${cover.title_size_pt * PT_MM * scale}px`;
+        subtitle.style.fontSize = `${0.5 * cover.title_size_pt * PT_MM * scale}px`;
+      };
+      const up = () => {
+        S.dragging = false;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        markDirty();
+        renderSelToolbar();
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+    titles.append(rotate, scaleH);
+  }
+
+  attachPinch(titles, {
+    getState: () => ({ size: cover.title_size_pt, rot: cover.title_rotation || 0 }),
+    apply: (f, da, o) => {
+      cover.title_size_pt = clamp(Math.round(o.size * f), 4, 144);
+      cover.title_rotation = normDeg(o.rot + da);
+      title.style.fontSize = `${cover.title_size_pt * PT_MM * scale}px`;
+      subtitle.style.fontSize = `${0.5 * cover.title_size_pt * PT_MM * scale}px`;
+      titles.style.transform = 'translate(-50%, -50%)'
+        + (cover.title_rotation ? ` rotate(${cover.title_rotation}deg)` : '');
+    },
+    end: () => { markDirty(); renderCanvas(true); renderSelToolbar(); },
+  });
+
   canvas.append(titles);
 }
 
@@ -644,7 +765,7 @@ function makePlacement(pl) {
 
   // Drag to move; a still tap/click just selects.
   box.addEventListener('pointerdown', (e) => {
-    if (S.locked || e.target.classList.contains('rs')) return;
+    if (S.locked || !e.isPrimary || e.target.classList.contains('rs')) return;
     e.preventDefault();
     e.stopPropagation();
     const scale = canvasScale();
@@ -652,6 +773,7 @@ function makePlacement(pl) {
     let moved = false;
     S.dragging = true;
     const move = (ev) => {
+      if (S.pinching) return;
       if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
       if (!moved) { moved = true; select({ kind: 'placement', idx: 0 }, true); box.classList.add('sel'); }
       pl.x_mm = clamp(ox + (ev.clientX - sx) / scale,
@@ -681,6 +803,20 @@ function makePlacement(pl) {
       box.append(handle);
     }
   }
+
+  attachPinch(box, {
+    getState: () => ({ x: pl.x_mm, y: pl.y_mm, w: pl.w_mm, h: pl.h_mm }),
+    apply: (f, _ang, o) => {
+      const w = clamp(o.w * f, 20, CANVAS_W);
+      const hh = clamp(o.h * f, 20, CANVAS_H);
+      pl.x_mm = clamp(o.x + (o.w - w) / 2, -BLEED, Math.max(-BLEED, CANVAS_W - BLEED - w));
+      pl.y_mm = clamp(o.y + (o.h - hh) / 2, -BLEED, Math.max(-BLEED, CANVAS_H - BLEED - hh));
+      pl.w_mm = w;
+      pl.h_mm = hh;
+      placeRect(box, pl);
+    },
+    end: () => { markDirty(); renderSelToolbar(); },
+  });
   return box;
 }
 
@@ -745,7 +881,7 @@ function makeTextBox(tb, scale) {
   // While the caret is inside, pointer events do native text selection and
   // the ⠿ handle moves the box instead.
   box.addEventListener('pointerdown', (e) => {
-    if (S.locked) return;
+    if (S.locked || !e.isPrimary) return;
     if (document.activeElement === content) return;
     if (e.target.closest('.tb-handle, .tb-resize')) return;
     e.preventDefault();
@@ -809,6 +945,27 @@ function makeTextBox(tb, scale) {
   });
 
   box.append(rotate, handle, content, resize, scaleH);
+
+  attachPinch(box, {
+    getState: () => ({ size: tb.size_pt, w: tb.w_mm, h: tb.h_mm,
+                       x: tb.x_mm, y: tb.y_mm, rot: tb.rotation || 0 }),
+    apply: (f, da, o) => {
+      const scale = canvasScale();
+      tb.size_pt = clamp(Math.round(o.size * f), 4, 144);
+      tb.w_mm = clamp(o.w * f, 15, TRIM_W - 2 * SAFE);
+      tb.h_mm = Math.max(5, o.h * f);
+      tb.x_mm = clamp(o.x + (o.w - tb.w_mm) / 2, SAFE, Math.max(SAFE, TRIM_W - SAFE - tb.w_mm));
+      tb.y_mm = clamp(o.y + (o.h - tb.h_mm) / 2, SAFE, Math.max(SAFE, TRIM_H - SAFE - tb.h_mm));
+      tb.rotation = normDeg(o.rot + da);
+      box.style.left = pct(tb.x_mm + BLEED, CANVAS_W);
+      box.style.top = pct(tb.y_mm + BLEED, CANVAS_H);
+      box.style.width = pct(tb.w_mm, CANVAS_W);
+      box.style.minHeight = pct(tb.h_mm, CANVAS_H);
+      box.style.fontSize = `${tb.size_pt * PT_MM * scale}px`;
+      box.style.transform = tb.rotation ? `rotate(${tb.rotation}deg)` : '';
+    },
+    end: () => { markDirty(); renderCanvas(true); renderSelToolbar(); },
+  });
   return box;
 }
 
@@ -881,6 +1038,7 @@ function startTextDrag(e, box, tb) {
     let moved = false;
     S.dragging = true;
     const move = (ev) => {
+      if (S.pinching) return;
       if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
       if (!moved) {
         moved = true;
@@ -909,6 +1067,64 @@ function startTextDrag(e, box, tb) {
 }
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+/* Normalize to (-180, 180] and snap within 5° of the compass points. */
+function normDeg(rot) {
+  rot = ((rot + 180) % 360 + 360) % 360 - 180;
+  for (const snapTo of [0, 90, 180, -90, -180]) {
+    if (Math.abs(rot - snapTo) < 5) return snapTo === -180 ? 180 : snapTo;
+  }
+  return Math.round(rot * 10) / 10;
+}
+
+/* Two-finger pinch on an element: apply(scaleFactor, angleDelta, startState)
+   on every move, end() once. Touch pointers only; single-finger drags check
+   S.pinching and stand down while a pinch is active. */
+function attachPinch(el, opts) {
+  const pts = new Map();
+  let base = null;
+  const winMove = (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (base && pts.size >= 2) {
+      const [a, b] = [...pts.values()];
+      const f = Math.max(0.05, Math.hypot(a.x - b.x, a.y - b.y) / base.d);
+      const ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+      opts.apply(f, ang - base.ang, base.state);
+    }
+  };
+  const winUp = (e) => {
+    if (!pts.delete(e.pointerId)) return;
+    if (base && pts.size < 2) {
+      base = null;
+      pts.clear();
+      S.pinching = false;
+      S.dragging = false;
+      window.removeEventListener('pointermove', winMove);
+      window.removeEventListener('pointerup', winUp);
+      window.removeEventListener('pointercancel', winUp);
+      opts.end();
+    }
+  };
+  el.addEventListener('pointerdown', (e) => {
+    if (S.locked || e.pointerType !== 'touch') return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      base = {
+        d: Math.max(8, Math.hypot(a.x - b.x, a.y - b.y)),
+        ang: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
+        state: opts.getState(),
+      };
+      S.pinching = true;
+      S.dragging = true;
+      e.preventDefault();
+      window.addEventListener('pointermove', winMove);
+      window.addEventListener('pointerup', winUp);
+      window.addEventListener('pointercancel', winUp);
+    }
+  });
+}
 
 function isSel(kind, key) {
   if (!S.sel || S.sel.kind !== kind) return false;
@@ -1038,7 +1254,9 @@ function renderSelToolbar() {
       renderCanvas(true);
     });
     const size = h('select', { 'aria-label': t('tool.titleSize') });
-    for (const v of [20, 28, 36]) {
+    const sizes = [20, 28, 36];
+    if (!sizes.includes(cover.title_size_pt)) sizes.push(cover.title_size_pt);
+    for (const v of sizes.sort((a, b) => a - b)) {
       size.append(h('option', { value: v, selected: cover.title_size_pt === v ? '' : null }, `${v} pt`));
     }
     size.addEventListener('change', () => {
@@ -1406,7 +1624,7 @@ function bind() {
   });
   const canvasWrap = $('canvas-wrap');
   canvasWrap.addEventListener('click', (e) => {
-    if (e.target.closest('.placement, .textbox, .cover-img, .rs, .tb-handle, .tb-resize')) {
+    if (e.target.closest('.placement, .textbox, .cover-img, .cover-titles, .rs, .tb-handle, .tb-resize, .tb-rotate, .tb-scale')) {
       return;   // interactions on elements manage selection themselves
     }
     // The canvas re-rendered during this gesture (e.g. type-anywhere just

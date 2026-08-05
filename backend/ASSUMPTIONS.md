@@ -285,3 +285,13 @@ unrotated box: a rotated box's corners may extend slightly past the safe
 margin, accepted for MVP. In the editor, a ⟳ handle rotates (snapping
 within 5° of the compass points) and a corner dot scales the font and box
 together about the centre.
+
+**A52 — Free cover title + touch gestures.** The cover title/subtitle block
+carries an optional centre position (`title_x_mm`/`title_y_mm`, front-panel
+trim mm) and `title_rotation`; when unset the renderer keeps the classic
+fixed layout byte-identical, when set it translates/rotates the same vector
+text about that centre. In the editor the block drags anywhere, rotates via
+the ⟳ handle and scales via the corner dot, exactly like page text. Touch:
+a two-finger pinch resizes photos (about their centre) and scales text /
+the cover title, with the twist of the same gesture rotating text — built
+on pointer events so single-finger drags stand down while a pinch is live.

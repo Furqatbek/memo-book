@@ -77,6 +77,12 @@ class CoverDoc(BaseModel):
     # None = automatic (white with shadow over a photo, dark ink otherwise).
     title_color: str | None = Field(default=None, pattern=HEX_COLOR)
     bg_color: str = Field(default="#ffffff", pattern=HEX_COLOR)
+    # Centre of the title block on the front panel, trim-origin mm.
+    # None = the classic fixed position (kept for existing covers).
+    title_x_mm: float | None = Field(default=None, ge=0, le=148)
+    title_y_mm: float | None = Field(default=None, ge=0, le=210)
+    # Clockwise degrees about the block centre, like text boxes.
+    title_rotation: float = Field(default=0, ge=-360, le=360)
 
 
 class PageDoc(BaseModel):

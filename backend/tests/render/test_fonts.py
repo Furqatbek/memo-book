@@ -114,3 +114,16 @@ def test_rotated_text_preview_renders():
     for rot in (0, 37.5, -90, 180):
         jpeg = render_preview_page(rotated_page(rot), {})
         assert jpeg[:2] == b"\xff\xd8"
+
+
+def test_cover_title_positioned_and_rotated():
+    import fitz
+
+    base = {"title": "Sayohat", "subtitle": "2026", "title_size_pt": 28}
+    fixed = build_cover_pdf(base, 16, None, cache_tag="cov-fixed")
+    moved = build_cover_pdf({**base, "title_x_mm": 40.0, "title_y_mm": 60.0,
+                             "title_rotation": 30.0}, 16, None, cache_tag="cov-moved")
+    assert moved != fixed
+    doc = fitz.open(stream=moved, filetype="pdf")
+    words = {w[4] for w in doc[0].get_text("words")}
+    assert "Sayohat" in words          # still vector text after move+rotate

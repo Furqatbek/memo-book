@@ -109,21 +109,44 @@ def _draw_cover_text(c: pdfcanvas.Canvas, cover: dict, geo: CoverGeometry,
         main = Color(1, 1, 1) if over_photo else HexColor("#1a1a1a")
     shadow = Color(0, 0, 0, alpha=0.55)
 
-    def centred(text: str, font: str, size: float, y_pt: float) -> None:
+    def centred(text: str, font: str, size: float, x_pt: float, y_pt: float) -> None:
         c.setFont(font, size)
         if over_photo:  # offset shadow keeps white text legible on any photo
             c.setFillColor(shadow)
-            c.drawCentredString(center_x_pt + size * 0.04 + 0.6,
+            c.drawCentredString(x_pt + size * 0.04 + 0.6,
                                 y_pt - size * 0.04 - 0.6, text)
         c.setFillColor(main)
-        c.drawCentredString(center_x_pt, y_pt, text)
+        c.drawCentredString(x_pt, y_pt, text)
 
     family = cover.get("title_font")
+    tx, ty = cover.get("title_x_mm"), cover.get("title_y_mm")
+    rotation = float(cover.get("title_rotation", 0) or 0) % 360
+
+    if tx is not None and ty is not None:
+        # User-positioned block: centre in front-panel trim mm, rotation
+        # clockwise about that centre (same conventions as text boxes).
+        centre_x = (geo.front_x0_mm + float(tx)) * MM_TO_PT
+        centre_y = total_h_pt - (geo.wrap_mm + float(ty)) * MM_TO_PT
+        c.saveState()
+        c.translate(centre_x, centre_y)
+        if rotation:
+            c.rotate(-rotation)
+        if title:
+            centred(title, font_name(family, bold=True), title_size, 0,
+                    title_size * 0.25)
+        if subtitle:
+            centred(subtitle, font_name(family), subtitle_size, 0,
+                    title_size * 0.25 - title_size * 1.5)
+        c.restoreState()
+        return
+
+    # Legacy fixed layout — byte-identical for existing covers.
     if title:
-        centred(title, font_name(family, bold=True), title_size, total_h_pt * 0.40)
+        centred(title, font_name(family, bold=True), title_size,
+                center_x_pt, total_h_pt * 0.40)
     if subtitle:
         centred(subtitle, font_name(family), subtitle_size,
-                total_h_pt * 0.40 - title_size * 1.5)
+                center_x_pt, total_h_pt * 0.40 - title_size * 1.5)
 
 
 def build_cover_pdf(cover: dict, page_count: int,

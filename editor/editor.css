@@ -264,14 +264,19 @@ select {
   cursor: pointer;
 }
 .cover-titles {
-  position: absolute; left: 8%; right: 8%; top: 58%; z-index: 4;
-  display: flex; flex-direction: column; gap: 2%; pointer-events: none;
+  position: absolute; width: 84%; z-index: 4;
+  display: flex; flex-direction: column; gap: 4px;
+  cursor: move; touch-action: none;
 }
+.cover-titles.sel { outline: 1.5px dashed var(--primary); outline-offset: 6px; }
+.cover-titles.sel .tb-rotate { display: flex; }
+.cover-titles.sel .tb-scale { display: block; }
 .cover-titles input {
-  pointer-events: auto; background: transparent; border: 0; outline: none;
+  background: transparent; border: 0; outline: none;
   text-align: center; color: #fff; width: 100%; font-weight: 700;
-  text-shadow: 0 1px 10px rgba(0,0,0,.45);
+  text-shadow: 0 1px 10px rgba(0,0,0,.45); cursor: inherit;
 }
+.cover-titles input:focus { cursor: text; }
 .cover-titles input::placeholder { color: rgba(255,255,255,.75); }
 .page-canvas.cover-mode:not(:has(.cover-img)) .cover-titles input {
   color: var(--ink); text-shadow: none;
