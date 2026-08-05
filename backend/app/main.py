@@ -38,6 +38,10 @@ def create_app() -> FastAPI:
     if settings.editor_dir and Path(settings.editor_dir).is_dir():
         app.mount("/editor", StaticFiles(directory=settings.editor_dir, html=True),
                   name="editor")
+    if settings.site_dir and Path(settings.site_dir).is_dir():
+        # Mounted last: everything the API and /editor don't claim.
+        app.mount("/", StaticFiles(directory=settings.site_dir, html=True),
+                  name="site")
     return app
 
 

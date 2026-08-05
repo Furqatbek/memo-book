@@ -17,9 +17,16 @@ COPY backend/scripts ./scripts
 # exactly as laid out here.
 RUN pip install --no-cache-dir -e .
 
-# The editor is served by the API at /editor (EDITOR_DIR) — same origin as
-# the API, so the editor works with zero CORS configuration.
+# The whole frontend ships in the image and is served by the API — the
+# editor at /editor (EDITOR_DIR) and the marketing site, all five language
+# versions, at / (SITE_DIR). One origin, zero CORS configuration.
 COPY editor /app/editor
+COPY index.html /app/site/index.html
+COPY assets /app/site/assets
+COPY ru /app/site/ru
+COPY uz /app/site/uz
+COPY uz-cyrl /app/site/uz-cyrl
+COPY kaa /app/site/kaa
 
 RUN useradd -m appuser && chown -R appuser /app
 USER appuser

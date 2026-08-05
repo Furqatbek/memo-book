@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     # Serve the static editor from this directory at /editor. Dev convenience —
     # in production the editor is a static site on its own host/CDN.
     editor_dir: str = ""
+    # Serve the marketing site (all language versions + assets) from this
+    # directory at /. Lets one VPS host the whole product on one origin;
+    # API routes always win over the static mount.
+    site_dir: str = ""
 
 
 @lru_cache

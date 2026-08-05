@@ -4,7 +4,7 @@ Everything runs on your own machine — nothing external:
 
 | Piece | What runs it | Where the data lives |
 |---|---|---|
-| API + editor | FastAPI container (editor at `/editor`) | — |
+| Site + editor + API | one FastAPI container (site at `/`, editor at `/editor`) | — |
 | Database | Postgres 16 container | `pg_data` volume on the VPS disk |
 | **Photo/PDF storage** | **MinIO container — an S3-compatible server, self-hosted** | `minio_data` volume on the VPS disk |
 | Job queue | Redis 7 container + RQ worker | `redis_data` volume |
@@ -21,10 +21,12 @@ external provider, no per-GB bills.
 - A VPS (2 vCPU / 4GB RAM is comfortable; renders are the heavy part),
   Ubuntu 22.04+ or similar, with Docker and the compose plugin:
   `curl -fsSL https://get.docker.com | sh`
-- A domain with two DNS **A records → your VPS IP**, created *before* first
+- A domain with DNS **A records → your VPS IP**, created *before* first
   start (Caddy gets certificates on boot):
+  - `YOUR_DOMAIN` (site + editor + API, one origin)
   - `api.YOUR_DOMAIN`
   - `storage.YOUR_DOMAIN`
+  - `www.YOUR_DOMAIN` (optional; redirects to the root)
 
 Why the storage hostname must be public: photo bytes never pass through the
 API — the browser uploads straight to storage with presigned URLs, so the
@@ -47,9 +49,11 @@ curl https://api.YOUR_DOMAIN/health   # {"status":"ok"}
 curl https://api.YOUR_DOMAIN/ready    # checks db/redis/storage; expect 200
 ```
 
-Open **`https://api.YOUR_DOMAIN/editor/`** — the editor is served by the API
-itself (same origin, zero CORS setup) and should let you create a book,
-upload photos and order end to end. Test a payment with:
+Open **`https://YOUR_DOMAIN`** — the whole frontend ships in the image: the
+marketing site (all five languages) at `/`, the editor at `/editor/`, both
+same-origin with the API, zero CORS setup. Every "Create your book" button
+works immediately: create a book, upload photos, order end to end. Test a
+payment with:
 
 ```bash
 curl -X POST https://api.YOUR_DOMAIN/api/v1/payments/dev/webhook \
@@ -57,10 +61,12 @@ curl -X POST https://api.YOUR_DOMAIN/api/v1/payments/dev/webhook \
      -d '{"event_id":"t1","action":"pay","human_ref":"<ORDER_REF>","amount_minor":<AMOUNT>}'
 ```
 
-## Connecting the GitHub Pages site
+## GitHub Pages (now optional)
 
-The site's "Create your book" buttons open the Pages copy of the editor. To
-point it at your VPS, set in `editor/config.js`:
+The VPS serves the complete product, so the Pages copy at
+`furqatbek.github.io/memo-book` is optional — keep it as a mirror, or
+retire it and use `https://YOUR_DOMAIN` as the only address. To make the
+Pages copy's editor work against the VPS, set in `editor/config.js`:
 
 ```js
 apiBase: 'https://api.YOUR_DOMAIN',
@@ -68,8 +74,9 @@ apiBase: 'https://api.YOUR_DOMAIN',
 
 commit, push — the Pages workflow redeploys. (`CORS_ORIGINS` and
 `STORAGE_CORS_ORIGINS` in `.env` already allow the Pages origin.)
-Alternatively skip Pages for the editor entirely and link the site's
-buttons to `https://api.YOUR_DOMAIN/editor/`.
+
+Frontend updates reach the VPS with a redeploy:
+`git pull && docker compose -f docker-compose.prod.yml up -d --build`.
 
 ## Operations
 

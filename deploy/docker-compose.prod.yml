@@ -29,6 +29,7 @@ services:
     env_file: .env
     environment:
       EDITOR_DIR: /app/editor
+      SITE_DIR: /app/site
     # Migrations run once at boot; safe for a single instance. --proxy-headers:
     # real client IPs from Caddy, so per-IP rate limits key on the visitor,
     # not the proxy (the api port is only reachable from the compose network).

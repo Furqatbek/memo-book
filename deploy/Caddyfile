@@ -1,10 +1,15 @@
-# Two hostnames, automatic HTTPS (Let's Encrypt):
-#   api.DOMAIN     -> FastAPI (editor served same-origin at /editor)
+# Three hostnames, automatic HTTPS (Let's Encrypt):
+#   DOMAIN         -> the whole product: site at /, editor at /editor, API
+#   api.DOMAIN     -> same backend (stable name for an externally-hosted editor)
 #   storage.DOMAIN -> MinIO (presigned upload/download URLs point here)
 
-api.{$DOMAIN} {
+{$DOMAIN}, api.{$DOMAIN} {
 	encode gzip
 	reverse_proxy api:8000
+}
+
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
 }
 
 storage.{$DOMAIN} {
