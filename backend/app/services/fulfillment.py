@@ -15,9 +15,26 @@ from app.domain.states import OrderStatus
 from app.models.order import Order
 from app.models.payment import PdfArtifact
 from app.services.orders import apply_transition
-from app.services.render import render_interior
+from app.services.render import render_cover, render_interior
 
 log = structlog.get_logger()
+
+
+async def _existing_artifact(session: AsyncSession, order_id: uuid.UUID,
+                             kind: str) -> PdfArtifact | None:
+    return (await session.execute(
+        select(PdfArtifact).where(PdfArtifact.order_id == order_id,
+                                  PdfArtifact.kind == kind)
+    )).scalar_one_or_none()
+
+
+def _add_artifact(session: AsyncSession, order_id: uuid.UUID, meta: dict) -> None:
+    session.add(PdfArtifact(
+        order_id=order_id, kind=meta["kind"], storage_key=meta["storage_key"],
+        sha256=meta["sha256"], page_count=meta["page_count"],
+        size_bytes=meta["bytes"], render_ms=meta["render_ms"],
+        created_at=datetime.now(UTC),
+    ))
 
 
 async def run_order_render(session: AsyncSession, order_id: uuid.UUID) -> None:
@@ -25,11 +42,10 @@ async def run_order_render(session: AsyncSession, order_id: uuid.UUID) -> None:
         select(Order).where(Order.id == order_id)
     )).scalar_one()
 
-    existing = (await session.execute(
-        select(PdfArtifact).where(PdfArtifact.order_id == order_id,
-                                  PdfArtifact.kind == "interior")
-    )).scalar_one_or_none()
-    if order.status == OrderStatus.RENDERED.value and existing is not None:
+    have_interior = await _existing_artifact(session, order_id, "interior")
+    have_cover = await _existing_artifact(session, order_id, "cover")
+    if (order.status == OrderStatus.RENDERED.value
+            and have_interior is not None and have_cover is not None):
         return  # idempotent: already rendered
 
     if order.status in (OrderStatus.PAID.value, OrderStatus.RENDER_FAILED.value):
@@ -41,7 +57,8 @@ async def run_order_render(session: AsyncSession, order_id: uuid.UUID) -> None:
         return
 
     try:
-        meta = await render_interior(session, order.book_id)
+        interior_meta = await render_interior(session, order.book_id)
+        cover_meta = await render_cover(session, order.book_id)
     except Exception as exc:  # noqa: BLE001 — job boundary
         apply_transition(session, order, OrderStatus.RENDER_FAILED, str(exc)[:500])
         await session.commit()
@@ -50,13 +67,13 @@ async def run_order_render(session: AsyncSession, order_id: uuid.UUID) -> None:
                   error=str(exc))
         return
 
-    if existing is None:
-        session.add(PdfArtifact(
-            order_id=order_id, kind="interior", storage_key=meta["storage_key"],
-            sha256=meta["sha256"], page_count=meta["page_count"],
-            size_bytes=meta["bytes"], render_ms=meta["render_ms"],
-            created_at=datetime.now(UTC),
-        ))
-    apply_transition(session, order, OrderStatus.RENDERED, "interior rendered")
+    if have_interior is None:
+        _add_artifact(session, order_id, interior_meta)
+    if have_cover is None:
+        _add_artifact(session, order_id, cover_meta)
+    apply_transition(session, order, OrderStatus.RENDERED,
+                     "interior + cover rendered")
     await session.commit()
-    log.info("render.rendered", order=order.human_ref, sha256=meta["sha256"])
+    log.info("render.rendered", order=order.human_ref,
+             interior_sha256=interior_meta["sha256"],
+             cover_sha256=cover_meta["sha256"])

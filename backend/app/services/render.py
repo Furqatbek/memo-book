@@ -97,3 +97,49 @@ async def render_interior(session: AsyncSession, book_id: uuid.UUID) -> dict:
     }
     log.info("render.interior_done", book_id=str(book_id), **meta)
     return meta
+
+
+async def render_cover(session: AsyncSession, book_id: uuid.UUID) -> dict:
+    """Render the hardcover wrap as its own artifact (spec Part 7 step 7)."""
+    from app.render.cover import build_cover_pdf
+
+    book, photos = await _load_book_and_photos(session, book_id)
+    cover = book.layout.get("cover", {}) or {}
+    photo_id = cover.get("photo_id")
+    photo_bytes = None
+    if photo_id:
+        photo = photos.get(photo_id)
+        if photo is None:
+            raise RenderError(f"cover references unavailable photo {photo_id}")
+        photo_bytes = await anyio.to_thread.run_sync(
+            storage.get_bytes, photo.original_key
+        )
+
+    started = time.monotonic()
+
+    def build() -> bytes:
+        return build_cover_pdf(cover, book.page_count, photo_bytes,
+                               cache_tag=f"{book_id}-cover")
+
+    pdf_bytes = await anyio.to_thread.run_sync(build)
+
+    settings = get_settings()
+    if settings.render_color_mode == "cmyk":
+        pdf_bytes = await anyio.to_thread.run_sync(
+            convert_pdf_to_cmyk, pdf_bytes, settings.icc_profile_path or None
+        )
+
+    render_ms = int((time.monotonic() - started) * 1000)
+    key = f"books/{book_id}/render/cover.pdf"
+    await anyio.to_thread.run_sync(storage.put_bytes, key, pdf_bytes, "application/pdf")
+    meta = {
+        "storage_key": key,
+        "kind": "cover",
+        "page_count": 1,
+        "bytes": len(pdf_bytes),
+        "sha256": hashlib.sha256(pdf_bytes).hexdigest(),
+        "render_ms": render_ms,
+        "color_mode": settings.render_color_mode,
+    }
+    log.info("render.cover_done", book_id=str(book_id), **meta)
+    return meta

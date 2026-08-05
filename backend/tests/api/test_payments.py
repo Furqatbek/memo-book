@@ -63,13 +63,17 @@ class TestHappyPath:
         await db.refresh(book)
         assert book.status == "ordered"
 
-        artifact = (await db.execute(select(PdfArtifact).where(
-            PdfArtifact.order_id == order.id))).scalar_one()
-        assert artifact.kind == "interior"
-        assert artifact.page_count == 16
-        assert artifact.size_bytes > 0
-        pdf = await anyio.to_thread.run_sync(storage.get_bytes, artifact.storage_key)
-        assert pdf.startswith(b"%PDF")
+        artifacts = {a.kind: a for a in (await db.execute(
+            select(PdfArtifact).where(PdfArtifact.order_id == order.id)
+        )).scalars()}
+        assert set(artifacts) == {"interior", "cover"}
+        assert artifacts["interior"].page_count == 16
+        assert artifacts["cover"].page_count == 1
+        for artifact in artifacts.values():
+            assert artifact.size_bytes > 0
+            pdf = await anyio.to_thread.run_sync(storage.get_bytes,
+                                                 artifact.storage_key)
+            assert pdf.startswith(b"%PDF")
 
         events = (await db.execute(
             select(OrderEvent).where(OrderEvent.order_id == order.id)
@@ -94,7 +98,7 @@ class TestIdempotency:
         order = await order_row(db, ref)
         artifacts = (await db.execute(select(PdfArtifact).where(
             PdfArtifact.order_id == order.id))).scalars().all()
-        assert len(artifacts) == 1  # exactly one render
+        assert len(artifacts) == 2  # exactly one render: one interior + one cover
 
         payment_events = (await db.execute(select(PaymentEvent))).scalars().all()
         assert len(payment_events) == 1  # one idempotency row
@@ -113,7 +117,7 @@ class TestIdempotency:
         order = await order_row(db, ref)
         artifacts = (await db.execute(select(PdfArtifact).where(
             PdfArtifact.order_id == order.id))).scalars().all()
-        assert len(artifacts) == 1
+        assert len(artifacts) == 2  # still one interior + one cover
 
 
 class TestSecurity:

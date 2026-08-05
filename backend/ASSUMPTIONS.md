@@ -176,3 +176,12 @@ Amount-mismatch events are recorded in the audit table but change nothing.
 (200), the order lands in `render_failed` with the operator alert logged, and
 `render_failed → rendering` remains the retry path. Spec's "render fails 3×"
 retry counter is left to the RQ worker's retry policy at deploy time.
+
+**A38 — Cover design and geometry (MVP).** The wrap sheet is
+[wrap 16mm][back][spine][front][wrap 16mm]; the 16mm turn-in is a PLACEHOLDER
+to confirm with the printer alongside the spine table. Front art fills the
+front panel plus the right/top/bottom wrap so turned-in edges continue the
+design; the back panel and spine stay white in MVP. Title/subtitle are vector
+text centred on the front panel (white with a soft shadow over a photo, dark
+on white otherwise). `rendered` now requires BOTH artifacts; one render
+produces exactly one interior and one cover.
