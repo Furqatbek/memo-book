@@ -4,6 +4,7 @@
 const STRINGS = {
   en: {
     'app.title': 'Book editor',
+    'nav.home': 'Home',
     'start.title': 'Start your book',
     'start.subtitle': 'Pick a size — you can change it any time.',
     'start.pages': 'pages',
@@ -93,6 +94,7 @@ const STRINGS = {
 
   ru: {
     'app.title': 'Редактор книги',
+    'nav.home': 'На главную',
     'start.title': 'Начните свою книгу',
     'start.subtitle': 'Выберите размер — его можно изменить в любой момент.',
     'start.pages': 'страниц',
@@ -182,6 +184,7 @@ const STRINGS = {
 
   uz: {
     'app.title': 'Kitob muharriri',
+    'nav.home': 'Bosh sahifa',
     'start.title': 'Kitobingizni boshlang',
     'start.subtitle': 'Hajmni tanlang — uni istalgan payt oʼzgartirish mumkin.',
     'start.pages': 'sahifa',
@@ -271,6 +274,7 @@ const STRINGS = {
 
   'uz-cyrl': {
     'app.title': 'Китоб муҳаррири',
+    'nav.home': 'Бош саҳифа',
     'start.title': 'Китобингизни бошланг',
     'start.subtitle': 'Ҳажмни танланг — уни исталган пайт ўзгартириш мумкин.',
     'start.pages': 'саҳифа',
@@ -360,6 +364,7 @@ const STRINGS = {
 
   kaa: {
     'app.title': 'Kitap redaktorı',
+    'nav.home': 'Bas bet',
     'start.title': 'Kitabıńızdı baslań',
     'start.subtitle': 'Kólemin saylań — onı qálegen waqıtta ózgertiwge boladı.',
     'start.pages': 'bet',
@@ -504,6 +509,10 @@ export function applyStatic() {
   }
   for (const el of document.querySelectorAll('[data-i18n-ph]')) {
     el.placeholder = t(el.dataset.i18nPh);
+  }
+  for (const el of document.querySelectorAll('[data-i18n-title]')) {
+    el.title = t(el.dataset.i18nTitle);
+    el.setAttribute('aria-label', t(el.dataset.i18nTitle));
   }
 }
 

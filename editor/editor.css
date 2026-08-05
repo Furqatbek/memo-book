@@ -394,3 +394,8 @@ select {
 /* brand links back to the site home */
 a.brand { color: inherit; text-decoration: none; }
 a.brand:hover { color: var(--primary); }
+.home-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  text-decoration: none; color: inherit;
+}
+.icon-btn.home-link { justify-content: center; flex: none; width: 36px; height: 36px; }
