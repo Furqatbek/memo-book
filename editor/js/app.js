@@ -1515,7 +1515,20 @@ function showOrder() {
   $('or-dev').classList.toggle('hidden', !(pending && dev.includes('dev')));
   $('or-pay-note').classList.toggle('hidden', !pending);
   renderTimeline(S.order.status);
+  updateArtifacts(null);   // until the next poll confirms
   pollOrder();
+}
+
+/* Dev environments include print-PDF links in the status payload. */
+function updateArtifacts(r) {
+  const box = $('or-files');
+  const urls = r && r.artifact_urls;
+  box.classList.toggle('hidden', !urls);
+  if (!urls) return;
+  $('or-file-interior').classList.toggle('hidden', !urls.interior);
+  if (urls.interior) $('or-file-interior').href = urls.interior;
+  $('or-file-cover').classList.toggle('hidden', !urls.cover);
+  if (urls.cover) $('or-file-cover').href = urls.cover;
 }
 
 function renderTimeline(status) {
@@ -1538,6 +1551,7 @@ async function pollOrder() {
   if (!S.order || !$('screen-order').classList.contains('active')) return;
   try {
     const r = await api.orderStatus(S.order.ref, S.order.phone);
+    updateArtifacts(r);
     if (r.status !== S.order.status) {
       S.order.status = r.status;
       store('mb-order', S.order);

@@ -212,7 +212,7 @@ async def public_status(session: AsyncSession, human_ref: str, phone: str) -> di
     book = (await session.execute(
         select(Book).where(Book.id == order.book_id)
     )).scalar_one()
-    return {
+    payload = {
         "human_ref": order.human_ref,
         "status": order.status,
         "page_count": book.page_count,
@@ -221,3 +221,19 @@ async def public_status(session: AsyncSession, human_ref: str, phone: str) -> di
         "created_at": order.created_at,
         "paid_at": order.paid_at,
     }
+    # DEV ENVIRONMENTS ONLY: hand the print PDFs to the order screen so
+    # local testing needs no scripts. In production (ENV=prod) the files
+    # reach the operator via Telegram, never the public status page.
+    from app.config import get_settings
+
+    if get_settings().env == "dev":
+        from app import storage
+        from app.models.payment import PdfArtifact
+
+        artifacts = (await session.execute(
+            select(PdfArtifact).where(PdfArtifact.order_id == order.id)
+        )).scalars()
+        urls = {a.kind: storage.presign_get(a.storage_key) for a in artifacts}
+        if urls:
+            payload["artifact_urls"] = urls
+    return payload

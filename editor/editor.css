@@ -473,3 +473,6 @@ a.brand:hover { color: var(--primary); }
 .textbox.sel .tb-scale { display: block; }
 .pv-cover img { border: 2px solid var(--primary); }
 .pv-cover figcaption { color: var(--primary); font-weight: 600; }
+.or-files { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.or-file-links { display: flex; gap: 10px; flex-wrap: wrap; }
+.or-file-links .btn { text-decoration: none; }

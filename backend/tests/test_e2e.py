@@ -126,11 +126,13 @@ async def test_full_journey(client, db, monkeypatch):
     assert "http" in text and ref in text
     assert "%PDF" not in text
 
-    # 15. Public status lookup by ref + phone.
+    # 15. Public status lookup by ref + phone. Dev env also hands the
+    #     print-PDF links to the order screen (prod never does).
     status = (await client.get(f"/api/v1/orders/{ref}",
                                params={"phone": "998901234567"})).json()
     assert status["status"] == "rendered"
     assert status["page_count"] == 16
+    assert set(status["artifact_urls"]) == {"interior", "cover"}
 
 
 async def test_unhappy_path_shortfall_blocks_checkout(client, db):
