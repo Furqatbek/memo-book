@@ -11,9 +11,12 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import queue
 from app.domain.states import OrderStatus
+from app.models.book import Book
 from app.models.order import Order
 from app.models.payment import PdfArtifact
+from app.services import outbox
 from app.services.orders import apply_transition
 from app.services.render import render_cover, render_interior
 
@@ -73,7 +76,22 @@ async def run_order_render(session: AsyncSession, order_id: uuid.UUID) -> None:
         _add_artifact(session, order_id, cover_meta)
     apply_transition(session, order, OrderStatus.RENDERED,
                      "interior + cover rendered")
+    # NOTIFY_PRODUCTION effect: the outbox row commits in the SAME
+    # transaction as the rendered transition (spec Part 8) — a Telegram
+    # outage can neither roll back the render nor lose the notification.
+    book = (await session.execute(
+        select(Book).where(Book.id == order.book_id)
+    )).scalar_one()
+    outbox.enqueue(session, outbox.TOPIC_ORDER_RENDERED,
+                   outbox.rendered_payload(order, book,
+                                           interior_meta["storage_key"],
+                                           cover_meta["storage_key"]))
     await session.commit()
     log.info("render.rendered", order=order.human_ref,
              interior_sha256=interior_meta["sha256"],
              cover_sha256=cover_meta["sha256"])
+
+    if queue.eager():
+        await outbox.deliver_pending(session)
+    # In worker deployments the standalone outbox worker delivers on its
+    # own cadence — nothing to enqueue here.

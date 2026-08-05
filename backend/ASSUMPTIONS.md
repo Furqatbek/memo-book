@@ -185,3 +185,16 @@ design; the back panel and spine stay white in MVP. Title/subtitle are vector
 text centred on the front panel (white with a soft shadow over a photo, dark
 on white otherwise). `rendered` now requires BOTH artifacts; one render
 produces exactly one interior and one cover.
+
+**A39 — Outbox delivery model.** `enqueue` only adds the row; the caller's
+commit makes the state change and the message atomic. Delivery: exponential
+backoff 30s·2^n capped at 1h, gives up (`failed`) after 8 attempts with the
+error recorded. In eager mode a delivery pass runs right after fulfillment;
+in production `python -m app.workers.outbox` polls every 10s. Presigned
+artifact links are generated at DELIVERY time so retries carry fresh 7-day
+URLs, not expired ones.
+
+**A40 — The Telegram payload contains PII (name, phone) and is never
+logged**; log events carry only the order reference and message id.
+Credentials missing = delivery failure = retry, so messages queued before
+the bot is configured are sent once it is.
