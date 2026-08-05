@@ -65,6 +65,7 @@ These placeholders appear in **all five** language pages (`index.html`,
 |---|---|
 | `apiBase: ''` in `editor/config.js` | The deployed backend URL (until then the editor shows "not connected yet") |
 | `hello@example.com` | Real email address |
+| `+998 XX XXX-XX-XX` (and its `tel:` link) | Real phone number |
 | `https://t.me/XXXXXXXXX` | Real Telegram username |
 
 And two content gates:
