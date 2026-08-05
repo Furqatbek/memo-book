@@ -27,9 +27,12 @@ PAGE_H_PT = CANVAS_H_MM * MM_TO_PT
 
 FONT_DIR = Path(__file__).parent / "fonts"
 
-# User-selectable families. Legacy layouts store "Inter" — normalized to
-# sans. Registered PDF font names stay stable (they are embedded in the
-# output bytes, which must be deterministic).
+# User-selectable families. Every file is repo-pinned and verified to cover
+# ALL site scripts (Latin + Uzbek okina, Cyrillic incl. қ/ғ/ҳ/ў, Karakalpak
+# á/ǵ/ı/ń) — see tests/render/test_fonts.py. Unknown names normalize to
+# sans; "Inter" (the historical default) resolves to the real Inter family.
+# Registered PDF font names stay stable (they are embedded in the output
+# bytes, which must be deterministic).
 FAMILIES = {
     "sans": ("MemoBookSans", "DejaVuSans.ttf",
              "MemoBookSans-Bold", "DejaVuSans-Bold.ttf"),
@@ -37,6 +40,12 @@ FAMILIES = {
               "MemoBookSerif-Bold", "DejaVuSerif-Bold.ttf"),
     "mono": ("MemoBookMono", "DejaVuSansMono.ttf",
              "MemoBookMono-Bold", "DejaVuSansMono-Bold.ttf"),
+    "inter": ("MemoBookInter", "Inter-Regular.ttf",
+              "MemoBookInter-Bold", "Inter-Bold.ttf"),
+    "montserrat": ("MemoBookMontserrat", "Montserrat-Regular.ttf",
+                   "MemoBookMontserrat-Bold", "Montserrat-Bold.ttf"),
+    "notoserif": ("MemoBookNotoSerif", "NotoSerif-Regular.ttf",
+                  "MemoBookNotoSerif-Bold", "NotoSerif-Bold.ttf"),
 }
 FONT_REGULAR = "MemoBookSans"
 FONT_BOLD = "MemoBookSans-Bold"

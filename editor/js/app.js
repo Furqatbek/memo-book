@@ -14,12 +14,19 @@ const INSET = { x_mm: 12, y_mm: 12, w_mm: TRIM_W - 24, h_mm: TRIM_H - 24 };
 const ORDER_FLOW = ['pending_payment', 'paid', 'rendering', 'rendered',
                     'sent_to_production', 'shipped', 'delivered'];
 const USABLE = new Set(['ready', 'duplicate']);
-/* Editor approximations of the three print families (DejaVu Sans/Serif/Mono
-   on the server) — the watermarked preview shows the real print fonts. */
+/* The six print families — served as local woff2 (same files the renderer
+   embeds), with system fallbacks while they load. */
 const FONTS = {
-  sans: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif",
-  serif: "Georgia, 'Times New Roman', serif",
-  mono: "'Courier New', Courier, monospace",
+  sans: "'DejaVu Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif",
+  serif: "'DejaVu Serif', Georgia, 'Times New Roman', serif",
+  mono: "'DejaVu Sans Mono', 'Courier New', Courier, monospace",
+  inter: "'Inter', -apple-system, BlinkMacSystemFont, Arial, sans-serif",
+  montserrat: "'Montserrat', -apple-system, Arial, sans-serif",
+  notoserif: "'Noto Serif', Georgia, serif",
+};
+const FONT_LABELS = {
+  sans: 'Sans', serif: 'Serif', mono: 'Mono',
+  inter: 'Inter', montserrat: 'Montserrat', notoserif: 'Noto Serif',
 };
 const fontKey = (name) => (FONTS[String(name || '').toLowerCase()]
   ? String(name).toLowerCase() : 'sans');
@@ -850,11 +857,11 @@ function renderSelToolbar() {
     const tb = page.texts.find((x) => x.id === S.sel.id);
     if (!tb) { bar.classList.add('hidden'); return; }
     const fontSel = h('select', { 'aria-label': 'Font' });
-    for (const f of ['sans', 'serif', 'mono']) {
+    for (const f of Object.keys(FONTS)) {
       fontSel.append(h('option', {
         value: f, selected: fontKey(tb.font) === f ? '' : null,
         style: `font-family:${FONTS[f]}`,
-      }, f));
+      }, FONT_LABELS[f]));
     }
     fontSel.addEventListener('change', () => {
       tb.font = fontSel.value;
@@ -895,11 +902,11 @@ function renderSelToolbar() {
   } else if (S.sel.kind === 'cover') {
     const cover = S.book.layout.cover;
     const fontSel = h('select', { 'aria-label': 'Font' });
-    for (const f of ['sans', 'serif', 'mono']) {
+    for (const f of Object.keys(FONTS)) {
       fontSel.append(h('option', {
         value: f, selected: fontKey(cover.title_font) === f ? '' : null,
         style: `font-family:${FONTS[f]}`,
-      }, f));
+      }, FONT_LABELS[f]));
     }
     fontSel.addEventListener('change', () => {
       cover.title_font = fontSel.value;

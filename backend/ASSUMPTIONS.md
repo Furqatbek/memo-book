@@ -261,3 +261,16 @@ body and resize in width, and a double-click/double-tap creates a focused
 text box at that point ("type anywhere"). The autosave engine only adopts
 the server's clamped document between edits — never while a caret, colour
 input or drag holds references into the layout tree.
+
+**A50 — Font families are coverage-gated.** A font ships only if it covers
+every script a customer can type: Latin, Russian Cyrillic, Uzbek Latin
+(okina U+02BB), Uzbek Cyrillic extensions (қ ғ ҳ ў) and Karakalpak
+(á ǵ ı ń ó ú) — enforced by a fontTools cmap test over every bundled TTF.
+Six families pass and ship (DejaVu Sans/Serif/Mono, Inter, Montserrat,
+Noto Serif); popular candidates that miss glyphs (Playfair, Lora, Caveat,
+Comfortaa, PT Serif, Nunito, Rubik) are rejected rather than risking tofu
+boxes in a printed book. "Inter" — the historical stored default — now
+resolves to the real Inter family; the golden raster was regenerated and
+visually inspected for that change. The editor serves the same fonts as
+woff2 so the canvas, the watermarked preview, and the print PDF all show
+identical glyphs.

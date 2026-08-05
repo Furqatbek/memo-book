@@ -37,6 +37,7 @@ dev = [
     "moto[s3,server]>=5.0",  # server extra: scripts/devserver.py runs S3 in-process
     "pypdf>=4.2",
     "pymupdf~=1.28.0",  # pinned: the golden-raster test depends on its output
+    "fonttools>=4.50",  # glyph-coverage regression test for shipped fonts
 ]
 
 [tool.setuptools.packages.find]
