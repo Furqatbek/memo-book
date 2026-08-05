@@ -1549,11 +1549,15 @@ async function pollOrder() {
 }
 
 async function devPayNow() {
-  const secret = (window.MEMOBOOK && window.MEMOBOOK.devPaymentSecret)
-    || prompt(t('order.devHint'));
-  if (!secret) return;
   const btn = $('or-dev-pay');
   btn.disabled = true;
+  let secret = (window.MEMOBOOK && window.MEMOBOOK.devPaymentSecret) || '';
+  if (!secret) {
+    const cfg = await api.devConfig();   // dev environments: zero typing
+    secret = (cfg && cfg.dev_payment_secret) || '';
+  }
+  if (!secret) secret = (prompt(t('order.devHint')) || '').trim();
+  if (!secret) { btn.disabled = false; return; }
   try {
     await api.devPay(S.order.ref, S.order.amount_minor, secret);
     await pollOrder();

@@ -115,6 +115,11 @@ export const checkout = (c, form) =>
 export const orderStatus = (ref, phone) =>
   request('GET', `${V}/orders/${encodeURIComponent(ref)}?phone=${encodeURIComponent(phone)}`);
 
+/* Dev environments only: the API hands over the simulated-payment
+   signature (404 in production). */
+export const devConfig = () =>
+  request('GET', `${V}/payments/dev/config`).catch(() => null);
+
 export const devPay = (ref, amountMinor, secret) =>
   request('POST', `${V}/payments/dev/webhook`, {
     signature: secret,
