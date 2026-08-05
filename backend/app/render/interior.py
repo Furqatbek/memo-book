@@ -80,7 +80,9 @@ def _register_fonts() -> None:
 def _draw_text(c: pdfcanvas.Canvas, text: dict) -> None:
     """Text boxes are vector (never rasterised) and were clamped to the safe
     area on save; coordinates are trim-origin mm, PDF space is bleed-origin
-    points with a bottom-left origin."""
+    points with a bottom-left origin. Rotation is clockwise degrees about
+    the box centre (the editor's CSS convention); the unrotated path is
+    left byte-identical to keep existing renders deterministic."""
     font_size = float(text.get("size_pt", 11))
     c.setFont(font_name(text.get("font")), font_size)
     c.setFillColor(HexColor(text.get("color", "#1a1a1a")))
@@ -92,6 +94,25 @@ def _draw_text(c: pdfcanvas.Canvas, text: dict) -> None:
 
     content = text.get("content", "")
     align = text.get("align", "left")
+    rotation = float(text.get("rotation", 0) or 0) % 360
+
+    if rotation:
+        box_h_pt = float(text.get("h_mm", 10)) * MM_TO_PT
+        centre_x = x_pt + box_w_pt / 2
+        centre_y = PAGE_H_PT - ((text["y_mm"] + BLEED_MM) * MM_TO_PT) - box_h_pt / 2
+        rel_y = box_h_pt / 2 - font_size   # same baseline, box-local
+        c.saveState()
+        c.translate(centre_x, centre_y)
+        c.rotate(-rotation)   # PDF rotates counter-clockwise; editor clockwise
+        if align == "center":
+            c.drawCentredString(0, rel_y, content)
+        elif align == "right":
+            c.drawRightString(box_w_pt / 2, rel_y, content)
+        else:
+            c.drawString(-box_w_pt / 2, rel_y, content)
+        c.restoreState()
+        return
+
     if align == "center":
         c.drawCentredString(x_pt + box_w_pt / 2, y_pt, content)
     elif align == "right":

@@ -89,3 +89,28 @@ def test_cover_title_uses_family():
              "title_size_pt": 28, "title_font": "mono"}
     pdf = build_cover_pdf(cover, 16, None, cache_tag="fonts-cover")
     assert b"DejaVuSansMono-Bold" in pdf
+
+
+def rotated_page(rotation: float) -> dict:
+    return {"index": 0, "placements": [],
+            "texts": [{"id": "t", "x_mm": 40, "y_mm": 90, "w_mm": 70, "h_mm": 12,
+                       "content": "Aylantirilgan matn", "font": "sans",
+                       "size_pt": 14, "align": "center", "color": "#1a1a1a",
+                       "rotation": rotation}]}
+
+
+def test_rotated_text_renders_and_differs():
+    import fitz
+
+    straight = build_pdf([rotated_page(0)], lambda pid: b"", cache_tag="rot-0")
+    rotated = build_pdf([rotated_page(37.5)], lambda pid: b"", cache_tag="rot-37")
+    assert rotated != straight
+    doc = fitz.open(stream=rotated, filetype="pdf")
+    words = {w[4] for w in doc[0].get_text("words")}
+    assert "Aylantirilgan" in words          # still real vector text
+
+
+def test_rotated_text_preview_renders():
+    for rot in (0, 37.5, -90, 180):
+        jpeg = render_preview_page(rotated_page(rot), {})
+        assert jpeg[:2] == b"\xff\xd8"

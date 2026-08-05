@@ -46,6 +46,10 @@ class TextBoxDoc(BaseModel):
     size_pt: float = Field(default=11, ge=4, le=144)
     align: Literal["left", "center", "right"] = "left"
     color: str = Field(default="#1a1a1a", pattern=r"^#[0-9a-fA-F]{6}$")
+    # Degrees, clockwise, about the box centre (matches CSS rotate()).
+    # The safe-area clamp applies to the unrotated box; a rotated box's
+    # corners may extend slightly past it — accepted for MVP.
+    rotation: float = Field(default=0, ge=-360, le=360)
 
     @model_validator(mode="after")
     def _clamp_to_safe_area(self):

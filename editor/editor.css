@@ -415,3 +415,19 @@ a.brand:hover { color: var(--primary); }
 @font-face { font-family: 'Noto Serif'; src: url('fonts/NotoSerif-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Noto Serif'; src: url('fonts/NotoSerif-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
 .tray-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* text rotate / scale handles */
+.tb-rotate {
+  position: absolute; top: -40px; left: 50%; margin-left: -12px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--primary); color: var(--primary);
+  display: none; align-items: center; justify-content: center;
+  font-size: .95rem; cursor: grab; user-select: none; touch-action: none; z-index: 5;
+}
+.textbox.sel .tb-rotate { display: flex; }
+.tb-scale {
+  position: absolute; right: -8px; bottom: -8px; width: 14px; height: 14px;
+  background: var(--primary); border: 2px solid #fff; border-radius: 50%;
+  cursor: nwse-resize; display: none; touch-action: none; z-index: 5;
+}
+.textbox.sel .tb-scale { display: block; }

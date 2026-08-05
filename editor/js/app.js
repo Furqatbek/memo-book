@@ -726,7 +726,8 @@ function makeTextBox(tb, scale) {
     style: `left:${pct(tb.x_mm + BLEED, CANVAS_W)};top:${pct(tb.y_mm + BLEED, CANVAS_H)};` +
            `width:${pct(tb.w_mm, CANVAS_W)};min-height:${pct(tb.h_mm, CANVAS_H)};` +
            `font-size:${tb.size_pt * PT_MM * scale}px;text-align:${tb.align};color:${tb.color};` +
-           `font-family:${fontStack(tb.font)}`,
+           `font-family:${fontStack(tb.font)}` +
+           (tb.rotation ? `;transform:rotate(${tb.rotation}deg)` : ''),
   });
   const content = h('div', {
     class: 'textbox-content',
@@ -772,10 +773,12 @@ function makeTextBox(tb, scale) {
     e.preventDefault();
     e.stopPropagation();
     const scale2 = canvasScale();
-    const sx = e.clientX, ow = tb.w_mm;
+    const sx = e.clientX, sy = e.clientY, ow = tb.w_mm;
+    const rad = ((tb.rotation || 0) * Math.PI) / 180;
     S.dragging = true;
     const move = (ev) => {
-      tb.w_mm = clamp(ow + (ev.clientX - sx) / scale2, 20, TRIM_W - SAFE - tb.x_mm);
+      const d = (ev.clientX - sx) * Math.cos(rad) + (ev.clientY - sy) * Math.sin(rad);
+      tb.w_mm = clamp(ow + d / scale2, 20, TRIM_W - SAFE - tb.x_mm);
       box.style.width = pct(tb.w_mm, CANVAS_W);
     };
     const up = () => {
@@ -788,8 +791,84 @@ function makeTextBox(tb, scale) {
     window.addEventListener('pointerup', up);
   });
 
-  box.append(handle, content, resize);
+  const rotate = h('div', { class: 'tb-rotate' }, '⟳');
+  rotate.addEventListener('pointerdown', (e) => {
+    if (S.locked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    startTextRotate(e, box, tb);
+  });
+
+  const scaleH = h('div', { class: 'tb-scale' });
+  scaleH.addEventListener('pointerdown', (e) => {
+    if (S.locked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    startTextScale(e, box, tb);
+  });
+
+  box.append(rotate, handle, content, resize, scaleH);
   return box;
+}
+
+/* Rotate about the box centre; angles are clockwise degrees like CSS.
+   Snaps to the compass points within 5°. */
+function startTextRotate(e, box, tb) {
+  S.dragging = true;
+  const r = box.getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const start = (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI;
+  const orig = tb.rotation || 0;
+  const move = (ev) => {
+    const a = (Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180) / Math.PI;
+    let rot = orig + (a - start);
+    rot = ((rot + 180) % 360 + 360) % 360 - 180;
+    for (const snapTo of [0, 90, 180, -90, -180]) {
+      if (Math.abs(rot - snapTo) < 5) { rot = snapTo === -180 ? 180 : snapTo; break; }
+    }
+    tb.rotation = Math.round(rot * 10) / 10;
+    box.style.transform = tb.rotation ? `rotate(${tb.rotation}deg)` : '';
+  };
+  const up = () => {
+    S.dragging = false;
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    markDirty();
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+}
+
+/* Corner drag scales the font (and the box with it), keeping the centre. */
+function startTextScale(e, box, tb) {
+  S.dragging = true;
+  const r = box.getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const d0 = Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy));
+  const o = { size: tb.size_pt, w: tb.w_mm, h: tb.h_mm, x: tb.x_mm, y: tb.y_mm };
+  const scale = canvasScale();
+  const move = (ev) => {
+    const f = clamp(Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0, 0.25, 6);
+    tb.size_pt = clamp(Math.round(o.size * f), 4, 144);
+    tb.w_mm = clamp(o.w * f, 15, TRIM_W - 2 * SAFE);
+    tb.h_mm = Math.max(5, o.h * f);
+    tb.x_mm = clamp(o.x + (o.w - tb.w_mm) / 2, SAFE, Math.max(SAFE, TRIM_W - SAFE - tb.w_mm));
+    tb.y_mm = clamp(o.y + (o.h - tb.h_mm) / 2, SAFE, Math.max(SAFE, TRIM_H - SAFE - tb.h_mm));
+    box.style.left = pct(tb.x_mm + BLEED, CANVAS_W);
+    box.style.top = pct(tb.y_mm + BLEED, CANVAS_H);
+    box.style.width = pct(tb.w_mm, CANVAS_W);
+    box.style.minHeight = pct(tb.h_mm, CANVAS_H);
+    box.style.fontSize = `${tb.size_pt * PT_MM * scale}px`;
+  };
+  const up = () => {
+    S.dragging = false;
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    markDirty();
+    renderSelToolbar();   // sync the pt select with the new size
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
 }
 
 /* Shared text-box move logic; resolves to true if the pointer actually
@@ -911,7 +990,9 @@ function renderSelToolbar() {
       renderCanvas(true);
     });
     const size = h('select', { 'aria-label': 'Size' });
-    for (const v of [9, 11, 14, 18, 24, 32]) {
+    const sizes = [9, 11, 14, 18, 24, 32];
+    if (!sizes.includes(tb.size_pt)) sizes.push(tb.size_pt);
+    for (const v of sizes.sort((a, b) => a - b)) {
       size.append(h('option', { value: v, selected: tb.size_pt === v ? '' : null }, `${v} pt`));
     }
     size.addEventListener('change', () => {

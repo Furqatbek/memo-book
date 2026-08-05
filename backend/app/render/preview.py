@@ -34,10 +34,33 @@ def _draw_texts(img: Image.Image, page: dict) -> None:
         w = text["w_mm"] * PX_PER_MM * PREVIEW_SCALE
         content = text.get("content", "")
         align = text.get("align", "left")
+        color = text.get("color", "#1a1a1a")
+        rotation = float(text.get("rotation", 0) or 0) % 360
+
+        if rotation:
+            # PIL can't draw rotated text: render the box onto a transparent
+            # layer, rotate it clockwise (negative angle in PIL terms), and
+            # composite centred on the box centre — mirroring the PDF.
+            h = text.get("h_mm", 10) * PX_PER_MM * PREVIEW_SCALE
+            w_px, h_px = max(1, round(w)), max(size_px, round(h))
+            pad = size_px
+            layer = Image.new("RGBA", (w_px + 2 * pad, h_px + 2 * pad), (0, 0, 0, 0))
+            ldraw = ImageDraw.Draw(layer)
+            tx = pad
+            if align in ("center", "right"):
+                text_w = ldraw.textlength(content, font=font)
+                tx = pad + ((w_px - text_w) / 2 if align == "center" else w_px - text_w)
+            ldraw.text((tx, pad), content, font=font, fill=color)
+            layer = layer.rotate(-rotation, expand=True, resample=Image.BICUBIC)
+            cx, cy = x + w_px / 2, y + h_px / 2
+            img.paste(layer, (round(cx - layer.width / 2), round(cy - layer.height / 2)),
+                      layer)
+            continue
+
         if align in ("center", "right"):
             text_w = draw.textlength(content, font=font)
             x = x + (w - text_w) / 2 if align == "center" else x + w - text_w
-        draw.text((x, y), content, font=font, fill=text.get("color", "#1a1a1a"))
+        draw.text((x, y), content, font=font, fill=color)
 
 
 def _watermark(img: Image.Image) -> Image.Image:

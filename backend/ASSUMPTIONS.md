@@ -274,3 +274,14 @@ resolves to the real Inter family; the golden raster was regenerated and
 visually inspected for that change. The editor serves the same fonts as
 woff2 so the canvas, the watermarked preview, and the print PDF all show
 identical glyphs.
+
+**A51 — Text rotation.** Text boxes carry `rotation` (clockwise degrees
+about the box centre, the CSS convention; ±360 range). The interior PDF
+rotates the same vector text via a canvas transform — the unrotated path is
+byte-identical to before, keeping existing renders and the golden raster
+stable — and the 72dpi preview rasterises the box onto a transparent layer,
+rotates, and composites at the centre. The safe-area clamp applies to the
+unrotated box: a rotated box's corners may extend slightly past the safe
+margin, accepted for MVP. In the editor, a ⟳ handle rotates (snapping
+within 5° of the compass points) and a corner dot scales the font and box
+together about the centre.
