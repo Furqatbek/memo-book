@@ -26,17 +26,45 @@ PAGE_W_PT = CANVAS_W_MM * MM_TO_PT
 PAGE_H_PT = CANVAS_H_MM * MM_TO_PT
 
 FONT_DIR = Path(__file__).parent / "fonts"
+
+# User-selectable families. Legacy layouts store "Inter" — normalized to
+# sans. Registered PDF font names stay stable (they are embedded in the
+# output bytes, which must be deterministic).
+FAMILIES = {
+    "sans": ("MemoBookSans", "DejaVuSans.ttf",
+             "MemoBookSans-Bold", "DejaVuSans-Bold.ttf"),
+    "serif": ("MemoBookSerif", "DejaVuSerif.ttf",
+              "MemoBookSerif-Bold", "DejaVuSerif-Bold.ttf"),
+    "mono": ("MemoBookMono", "DejaVuSansMono.ttf",
+             "MemoBookMono-Bold", "DejaVuSansMono-Bold.ttf"),
+}
 FONT_REGULAR = "MemoBookSans"
 FONT_BOLD = "MemoBookSans-Bold"
 
 _fonts_registered = False
 
 
+def normalize_family(name: str | None) -> str:
+    key = str(name or "").strip().lower()
+    return key if key in FAMILIES else "sans"
+
+
+def font_name(family: str | None, bold: bool = False) -> str:
+    fam = FAMILIES[normalize_family(family)]
+    return fam[2] if bold else fam[0]
+
+
+def family_ttf(family: str | None, bold: bool = False) -> Path:
+    fam = FAMILIES[normalize_family(family)]
+    return FONT_DIR / (fam[3] if bold else fam[1])
+
+
 def _register_fonts() -> None:
     global _fonts_registered
     if not _fonts_registered:
-        pdfmetrics.registerFont(TTFont(FONT_REGULAR, str(FONT_DIR / "DejaVuSans.ttf")))
-        pdfmetrics.registerFont(TTFont(FONT_BOLD, str(FONT_DIR / "DejaVuSans-Bold.ttf")))
+        for regular, regular_ttf, bold, bold_ttf in FAMILIES.values():
+            pdfmetrics.registerFont(TTFont(regular, str(FONT_DIR / regular_ttf)))
+            pdfmetrics.registerFont(TTFont(bold, str(FONT_DIR / bold_ttf)))
         _fonts_registered = True
 
 
@@ -45,7 +73,7 @@ def _draw_text(c: pdfcanvas.Canvas, text: dict) -> None:
     area on save; coordinates are trim-origin mm, PDF space is bleed-origin
     points with a bottom-left origin."""
     font_size = float(text.get("size_pt", 11))
-    c.setFont(FONT_REGULAR, font_size)
+    c.setFont(font_name(text.get("font")), font_size)
     c.setFillColor(HexColor(text.get("color", "#1a1a1a")))
 
     x_pt = (text["x_mm"] + BLEED_MM) * MM_TO_PT

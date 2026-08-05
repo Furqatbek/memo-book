@@ -23,10 +23,9 @@ from app.config import get_settings
 from app.domain.geometry import TRIM_H_MM, TRIM_W_MM, mm_to_px
 from app.render.compose import RenderError, _fit_cover, hex_to_rgb
 from app.render.interior import (
-    FONT_BOLD,
-    FONT_REGULAR,
     MM_TO_PT,
     _register_fonts,
+    font_name,
 )
 
 WRAP_MM = 16.0  # PLACEHOLDER turn-in margin — confirm with the printer
@@ -119,10 +118,11 @@ def _draw_cover_text(c: pdfcanvas.Canvas, cover: dict, geo: CoverGeometry,
         c.setFillColor(main)
         c.drawCentredString(center_x_pt, y_pt, text)
 
+    family = cover.get("title_font")
     if title:
-        centred(title, FONT_BOLD, title_size, total_h_pt * 0.40)
+        centred(title, font_name(family, bold=True), title_size, total_h_pt * 0.40)
     if subtitle:
-        centred(subtitle, FONT_REGULAR, subtitle_size,
+        centred(subtitle, font_name(family), subtitle_size,
                 total_h_pt * 0.40 - title_size * 1.5)
 
 

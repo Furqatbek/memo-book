@@ -23,11 +23,12 @@ def _draw_texts(img: Image.Image, page: dict) -> None:
     """Approximate the vector text of the print PDF on the raster preview.
     At 72 DPI one PDF point equals one pixel, so size_pt maps directly."""
     from app.domain.geometry import BLEED_MM, PX_PER_MM
+    from app.render.interior import family_ttf
 
     draw = ImageDraw.Draw(img)
     for text in page.get("texts", []):
         size_px = max(6, round(float(text.get("size_pt", 11))))
-        font = ImageFont.truetype(str(FONT_PATH.parent / "DejaVuSans.ttf"), size_px)
+        font = ImageFont.truetype(str(family_ttf(text.get("font"))), size_px)
         x = (text["x_mm"] + BLEED_MM) * PX_PER_MM * PREVIEW_SCALE
         y = (text["y_mm"] + BLEED_MM) * PX_PER_MM * PREVIEW_SCALE
         w = text["w_mm"] * PX_PER_MM * PREVIEW_SCALE

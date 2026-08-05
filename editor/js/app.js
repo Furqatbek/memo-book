@@ -14,6 +14,16 @@ const INSET = { x_mm: 12, y_mm: 12, w_mm: TRIM_W - 24, h_mm: TRIM_H - 24 };
 const ORDER_FLOW = ['pending_payment', 'paid', 'rendering', 'rendered',
                     'sent_to_production', 'shipped', 'delivered'];
 const USABLE = new Set(['ready', 'duplicate']);
+/* Editor approximations of the three print families (DejaVu Sans/Serif/Mono
+   on the server) — the watermarked preview shows the real print fonts. */
+const FONTS = {
+  sans: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif",
+  serif: "Georgia, 'Times New Roman', serif",
+  mono: "'Courier New', Courier, monospace",
+};
+const fontKey = (name) => (FONTS[String(name || '').toLowerCase()]
+  ? String(name).toLowerCase() : 'sans');
+const fontStack = (name) => FONTS[fontKey(name)];
 
 const S = {
   creds: null, book: null, photos: [], uploads: [],
@@ -512,6 +522,7 @@ function renderCover(canvas) {
     placeholder: t('cover.titlePh'),
   });
   title.style.fontSize = `${cover.title_size_pt * PT_MM * scale}px`;
+  title.style.fontFamily = fontStack(cover.title_font);
   title.style.color = textColor;
   title.addEventListener('input', () => {
     cover.title = title.value;
@@ -522,6 +533,7 @@ function renderCover(canvas) {
     placeholder: t('cover.subtitlePh'),
   });
   subtitle.style.fontSize = `${0.5 * cover.title_size_pt * PT_MM * scale}px`;
+  subtitle.style.fontFamily = fontStack(cover.title_font);
   subtitle.style.color = textColor;
   subtitle.addEventListener('input', () => {
     cover.subtitle = subtitle.value;
@@ -664,7 +676,8 @@ function makeTextBox(tb, scale) {
     'data-id': tb.id,
     style: `left:${pct(tb.x_mm + BLEED, CANVAS_W)};top:${pct(tb.y_mm + BLEED, CANVAS_H)};` +
            `width:${pct(tb.w_mm, CANVAS_W)};min-height:${pct(tb.h_mm, CANVAS_H)};` +
-           `font-size:${tb.size_pt * PT_MM * scale}px;text-align:${tb.align};color:${tb.color}`,
+           `font-size:${tb.size_pt * PT_MM * scale}px;text-align:${tb.align};color:${tb.color};` +
+           `font-family:${fontStack(tb.font)}`,
   });
   const content = h('div', {
     class: 'textbox-content',
@@ -836,6 +849,18 @@ function renderSelToolbar() {
     const page = S.book.layout.pages[S.page];
     const tb = page.texts.find((x) => x.id === S.sel.id);
     if (!tb) { bar.classList.add('hidden'); return; }
+    const fontSel = h('select', { 'aria-label': 'Font' });
+    for (const f of ['sans', 'serif', 'mono']) {
+      fontSel.append(h('option', {
+        value: f, selected: fontKey(tb.font) === f ? '' : null,
+        style: `font-family:${FONTS[f]}`,
+      }, f));
+    }
+    fontSel.addEventListener('change', () => {
+      tb.font = fontSel.value;
+      markDirty();
+      renderCanvas(true);
+    });
     const size = h('select', { 'aria-label': 'Size' });
     for (const v of [9, 11, 14, 18, 24, 32]) {
       size.append(h('option', { value: v, selected: tb.size_pt === v ? '' : null }, `${v} pt`));
@@ -851,7 +876,7 @@ function renderSelToolbar() {
       markDirty();
       renderCanvas(true);
     });
-    bar.append(size);
+    bar.append(fontSel, size);
     for (const [al, label] of [['left', '⇤'], ['center', '↔'], ['right', '⇥']]) {
       bar.append(h('button', {
         class: 'btn small' + (tb.align === al ? ' active' : ''),
@@ -869,6 +894,18 @@ function renderSelToolbar() {
     }, t('tool.remove')));
   } else if (S.sel.kind === 'cover') {
     const cover = S.book.layout.cover;
+    const fontSel = h('select', { 'aria-label': 'Font' });
+    for (const f of ['sans', 'serif', 'mono']) {
+      fontSel.append(h('option', {
+        value: f, selected: fontKey(cover.title_font) === f ? '' : null,
+        style: `font-family:${FONTS[f]}`,
+      }, f));
+    }
+    fontSel.addEventListener('change', () => {
+      cover.title_font = fontSel.value;
+      markDirty();
+      renderCanvas(true);
+    });
     const size = h('select', { 'aria-label': t('tool.titleSize') });
     for (const v of [20, 28, 36]) {
       size.append(h('option', { value: v, selected: cover.title_size_pt === v ? '' : null }, `${v} pt`));
@@ -878,7 +915,7 @@ function renderSelToolbar() {
       markDirty();
       renderCanvas(true);
     });
-    bar.append(size, h('button', {
+    bar.append(fontSel, size, h('button', {
       class: 'btn small danger',
       onclick: () => {
         cover.photo_id = null;
@@ -906,7 +943,7 @@ function addTextBoxAt(cx, cy) {
     x_mm: clamp(cx - w / 2, SAFE, TRIM_W - SAFE - w),
     y_mm: clamp(cy - hgt / 2, SAFE, TRIM_H - SAFE - hgt),
     w_mm: w, h_mm: hgt,
-    content: '', font: 'Inter', size_pt: 14, align: 'center', color: '#1a1a1a',
+    content: '', font: 'sans', size_pt: 14, align: 'center', color: '#1a1a1a',
   };
   page.texts.push(tb);
   S.sel = { kind: 'text', id: tb.id };
@@ -1240,6 +1277,10 @@ function bind() {
     if (e.target.closest('.placement, .textbox, .cover-img, .rs, .tb-handle, .tb-resize')) {
       return;   // interactions on elements manage selection themselves
     }
+    // The canvas re-rendered during this gesture (e.g. type-anywhere just
+    // created a box) — this click's target is gone; don't undo the selection.
+    if (!e.target.isConnected) return;
+    if (canvasEditingFocus()) return;   // caret just landed in a text box
     if (S.sel) { S.sel = null; renderCanvas(true); }
   });
   // "Type anywhere": double-click / double-tap adds a text box at that point.
