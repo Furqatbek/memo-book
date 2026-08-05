@@ -194,21 +194,27 @@ class TestCmyk:
 class TestResources:
     async def test_96_pages_within_memory_and_time_budget(self, client, db):
         """Proves the one-page-at-a-time discipline (spec: this test is the
-        reason the discipline survives refactoring). Peak RSS sampled during
-        the render must stay under 512MB."""
+        reason the discipline survives refactoring). The render's own memory
+        growth over the pre-render baseline must stay under 512MB — measured
+        as a delta because the shared pytest process carries the allocator
+        high-water of every earlier test (the broken ImageReader path added
+        ~1GB of delta, which this still catches)."""
         book_id = await seed_rendered_book(db, client, 96, photo_pixels=(1200, 800))
 
-        peak = {"rss_mb": 0.0}
+        def rss_mb() -> float:
+            with open("/proc/self/status") as f:
+                for line in f:
+                    if line.startswith("VmRSS:"):
+                        return int(line.split()[1]) / 1024
+            return 0.0
+
+        baseline = rss_mb()
+        peak = {"rss_mb": baseline}
         stop = threading.Event()
 
         def sample():
             while not stop.is_set():
-                with open("/proc/self/status") as f:
-                    for line in f:
-                        if line.startswith("VmRSS:"):
-                            peak["rss_mb"] = max(peak["rss_mb"],
-                                                 int(line.split()[1]) / 1024)
-                            break
+                peak["rss_mb"] = max(peak["rss_mb"], rss_mb())
                 time.sleep(0.05)
 
         sampler = threading.Thread(target=sample, daemon=True)
@@ -221,4 +227,7 @@ class TestResources:
 
         assert meta["page_count"] == 96
         assert elapsed < 180, f"96-page render took {elapsed:.0f}s"
-        assert peak["rss_mb"] < 512, f"peak RSS {peak['rss_mb']:.0f}MB"
+        delta = peak["rss_mb"] - baseline
+        assert delta < 512, (f"render grew RSS by {delta:.0f}MB "
+                             f"(baseline {baseline:.0f}MB, "
+                             f"peak {peak['rss_mb']:.0f}MB)")
