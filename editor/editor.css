@@ -1,4 +1,4 @@
-/* Silkbound editor. Same design language as the site: white, #2456d6 accent. */
+/* RS Pixel editor. Same design language as the site: white, #2456d6 accent. */
 :root {
   --primary: #2456d6;
   --primary-dark: #1a41a8;
@@ -390,3 +390,7 @@ select {
   .pv-footer { justify-content: stretch; flex-direction: column; align-items: stretch; }
   .pv-footer .btn { width: 100%; }
 }
+
+/* brand links back to the site home */
+a.brand { color: inherit; text-decoration: none; }
+a.brand:hover { color: var(--primary); }
