@@ -271,6 +271,10 @@ select {
 .cover-titles.sel { outline: 1.5px dashed var(--primary); outline-offset: 6px; }
 .cover-titles.sel .tb-rotate { display: flex; }
 .cover-titles.sel .tb-scale { display: block; }
+.cover-titles.sel .tb-handle { display: block; }
+.cover-titles .tb-handle { top: -26px; left: -6px; }
+.cover-titles.flip .tb-handle { top: auto; bottom: -28px; }
+.cover-titles.flip .tb-rotate { top: auto; bottom: -48px; }
 .cover-titles input {
   background: transparent; border: 0; outline: none;
   text-align: center; color: #fff; width: 100%; font-weight: 700;

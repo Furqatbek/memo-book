@@ -570,7 +570,8 @@ function renderCover(canvas) {
   const rot = cover.title_rotation || 0;
   const selected = S.sel && S.sel.kind === 'cover';
 
-  const titles = h('div', { class: 'cover-titles' + (selected ? ' sel' : '') });
+  const titles = h('div', { class: 'cover-titles' + (selected ? ' sel' : '')
+    + (cy < 28 ? ' flip' : '') });
   titles.style.left = pct(cx + BLEED, CANVAS_W);
   titles.style.top = pct(cy + BLEED, CANVAS_H);
   titles.style.transform = 'translate(-50%, -50%)' + (rot ? ` rotate(${rot}deg)` : '');
@@ -602,11 +603,9 @@ function renderCover(canvas) {
   }
   titles.append(title, subtitle);
 
-  // Drag the block anywhere; a still click starts typing in the title.
-  titles.addEventListener('pointerdown', (e) => {
-    if (S.locked || !e.isPrimary) return;
-    if (document.activeElement === title || document.activeElement === subtitle) return;
-    if (e.target.closest('.tb-rotate, .tb-scale')) return;
+  // Shared drag starter — used by the block body (when not typing) and by
+  // the ⠿ handle (always, even while the caret is in an input).
+  const beginDrag = (e, focusOnStillClick) => {
     e.preventDefault();
     e.stopPropagation();
     S.dragging = true;
@@ -630,7 +629,7 @@ function renderCover(canvas) {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       if (moved) markDirty();
-      else if (titles.isConnected) {
+      else if (focusOnStillClick && titles.isConnected) {
         select({ kind: 'cover' });
         // Synchronous: typing may start immediately after the tap.
         const el = document.querySelector('.cover-title');
@@ -639,7 +638,24 @@ function renderCover(canvas) {
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+  };
+
+  // Drag the block anywhere; a still click starts typing in the title.
+  titles.addEventListener('pointerdown', (e) => {
+    if (S.locked || !e.isPrimary) return;
+    if (document.activeElement === title || document.activeElement === subtitle) return;
+    if (e.target.closest('.tb-rotate, .tb-scale, .tb-handle')) return;
+    beginDrag(e, true);
   });
+
+  // The ⠿ handle: always drags — including mid-typing, where the body
+  // gives way to text editing.
+  const moveHandle = h('div', { class: 'tb-handle' }, '⠿');
+  moveHandle.addEventListener('pointerdown', (e) => {
+    if (S.locked || !e.isPrimary) return;
+    beginDrag(e, false);
+  });
+  titles.append(moveHandle);
 
   if (selected && !S.locked) {
     const rotate = h('div', { class: 'tb-rotate' }, '⟳');
