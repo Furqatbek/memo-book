@@ -209,3 +209,15 @@ sent-flags commit atomically with the outbox row (R7 idempotency).
 are deleted: a crash between the two leaves a re-runnable cleanup, never a
 live draft with missing photos. Photo/order rows are kept after expiry for
 audit; only storage objects are removed.
+
+**A43 — Rate limiting is in-process** (per-IP sliding window, per-endpoint
+limits in config). Sufficient for a single-instance MVP; the dependency
+surface stays identical when the backing store moves to Redis for horizontal
+scaling. Tests disable it globally and re-enable it in dedicated tests.
+
+**A44 — Smoke scope.** The deploy smoke covers health/ready, book creation,
+a real presigned PUT + ingest, Telegram getMe and `alembic check`. The
+spec's "single-page render end to end" is intentionally NOT smoked: rendering
+triggers only via payment (R8), and a dev-payment smoke would create paid
+orders in production. Render health is covered by CI's full pipeline tests
+and the render_failed alerting path.

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import queue
 from app.db.session import get_session
+from app.rate_limit import rate_limit
 from app.services import photos as svc
 
 router = APIRouter(prefix="/api/v1/books/{book_id}/photos", tags=["photos"])
@@ -30,7 +31,9 @@ class UploadUrlResponse(BaseModel):
     storage_key: str
 
 
-@router.post("/upload-url", response_model=UploadUrlResponse)
+@router.post("/upload-url", response_model=UploadUrlResponse,
+             dependencies=[rate_limit("upload-url",
+                                      lambda s: s.rate_limit_upload_url_per_min)])
 async def upload_url(book_id: uuid.UUID, body: UploadUrlRequest, session: Session,
                      x_edit_token: EditToken):
     photo, url = await svc.issue_upload_url(

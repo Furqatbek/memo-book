@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.models.book import Book
+from app.rate_limit import rate_limit
 from app.schemas.book import (
     BookResponse,
     ChangePageCountRequest,
@@ -45,7 +46,9 @@ def _book_response(book: Book) -> dict:
     }
 
 
-@router.post("", response_model=CreateBookResponse, status_code=201)
+@router.post("", response_model=CreateBookResponse, status_code=201,
+             dependencies=[rate_limit("book-create",
+                                      lambda s: s.rate_limit_book_create_per_min)])
 async def create_book(body: CreateBookRequest, session: Session):
     book = await svc.create_book(session, body.page_count)
     return {**_book_response(book), "edit_token": book.edit_token}

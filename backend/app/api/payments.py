@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.domain.errors import DomainError, ErrorCode
+from app.rate_limit import rate_limit
 from app.services.payments import handle_webhook
 
 router = APIRouter(prefix="/api/v1/payments", tags=["payments"])
@@ -14,7 +15,9 @@ router = APIRouter(prefix="/api/v1/payments", tags=["payments"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 
-@router.post("/{provider}/webhook")
+@router.post("/{provider}/webhook",
+             dependencies=[rate_limit("webhook",
+                                      lambda s: s.rate_limit_webhook_per_min)])
 async def webhook(provider: str, request: Request, session: Session):
     try:
         body = await request.json()

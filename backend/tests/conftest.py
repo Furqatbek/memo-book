@@ -87,6 +87,7 @@ async def client(sessionmaker, s3, monkeypatch):
     from app.main import create_app
 
     monkeypatch.setenv("TASK_EAGER", "true")  # queue jobs run inline in tests
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")  # dedicated tests re-enable
     get_settings.cache_clear()
     app = create_app()
 

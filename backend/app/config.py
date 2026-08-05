@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # Run queue jobs inline instead of enqueueing to RQ (tests, simple dev).
     task_eager: bool = False
 
+    # --- Rate limiting (Milestone 13; per IP, per minute) ---
+    rate_limit_enabled: bool = True
+    rate_limit_book_create_per_min: int = 30
+    rate_limit_upload_url_per_min: int = 240
+    rate_limit_webhook_per_min: int = 120
+
     # --- Payments (Milestone 9) ---
     # Dev mode: the "dev" provider treats any correctly-signed webhook as a
     # completed payment. Disable and integrate a real acquirer for production.
