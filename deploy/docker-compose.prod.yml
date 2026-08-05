@@ -54,7 +54,10 @@ services:
     restart: unless-stopped
     env_file: .env
     command: rq worker ingest preview render --url ${REDIS_URL}
-    depends_on: [redis, postgres, minio-init]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      minio-init: { condition: service_completed_successfully }
 
   outbox:
     build:
@@ -63,7 +66,8 @@ services:
     restart: unless-stopped
     env_file: .env
     command: python -m app.workers.outbox
-    depends_on: [postgres]
+    depends_on:
+      postgres: { condition: service_healthy }
 
   lifecycle:
     build:
@@ -73,7 +77,8 @@ services:
     env_file: .env
     # R6 expiry + R7 reminders, once a day.
     command: sh -c "while true; do python -m app.workers.lifecycle; sleep 86400; done"
-    depends_on: [postgres]
+    depends_on:
+      postgres: { condition: service_healthy }
 
   postgres:
     image: postgres:16

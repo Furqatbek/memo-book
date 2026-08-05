@@ -39,6 +39,7 @@ x-app: &app
 services:
   api:
     <<: *app
+    restart: unless-stopped
     ports: ["8000:8000"]
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     depends_on:
@@ -53,16 +54,23 @@ services:
 
   worker:
     <<: *app
+    restart: unless-stopped
     command: rq worker ingest preview render --url redis://redis:6379/0
-    depends_on: [redis, postgres, minio-init]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      minio-init: { condition: service_completed_successfully }
 
   outbox:
     <<: *app
+    restart: unless-stopped
     command: python -m app.workers.outbox
-    depends_on: [postgres]
+    depends_on:
+      postgres: { condition: service_healthy }
 
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: memobook
       POSTGRES_PASSWORD: localdev
@@ -77,9 +85,11 @@ services:
 
   redis:
     image: redis:7
+    restart: unless-stopped
 
   minio:
     image: minio/minio
+    restart: unless-stopped
     command: server /data
     ports: ["9000:9000"]
     environment:
