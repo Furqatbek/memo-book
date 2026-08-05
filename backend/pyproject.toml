@@ -34,7 +34,7 @@ dev = [
     "hypothesis>=6.100",
     "ruff>=0.5",
     "aiosqlite>=0.20",
-    "moto[s3]>=5.0",
+    "moto[s3,server]>=5.0",  # server extra: scripts/devserver.py runs S3 in-process
     "pypdf>=4.2",
     "pymupdf~=1.28.0",  # pinned: the golden-raster test depends on its output
 ]

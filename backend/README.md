@@ -46,6 +46,9 @@ Part 9.5 end-to-end journey test, smoke + load scripts).
 8. ✅ README local setup in under ten commands
 9. ✅ Every environment variable documented in `.env.example`
 
+The frontend editor lives in [`../editor`](../editor/README.md) and consumes
+this API (`CORS_ORIGINS` / `EDITOR_DIR` in `.env.example` wire it up).
+
 ## Operations
 
 ```bash
@@ -55,6 +58,8 @@ python -m app.workers.outbox            # notification delivery loop
 python -m app.workers.lifecycle         # nightly via cron (expiry+reminders)
 python scripts/smoke.py <base_url>      # post-deploy smoke (<30s, exit!=0 = roll back)
 python scripts/loadtest.py <base_url>   # pre-launch load test (NOT in CI)
+python scripts/devserver.py --fresh     # dev: whole stack, no Docker (SQLite +
+                                        #   in-process S3 + editor at /editor)
 ```
 
 ## Go-live blockers (config only)
@@ -65,6 +70,9 @@ python scripts/loadtest.py <base_url>   # pre-launch load test (NOT in CI)
   `DEV_PAYMENTS_ENABLED=false`
 - Telegram bot credentials; email transport for reminders (A41)
 - One genuine iPhone HEIC in the test fixtures (A18)
+- Point the deployed editor at the deployed API: `apiBase` in
+  `editor/config.js`, `CORS_ORIGINS` here, and a bucket CORS rule for
+  browser uploads (A48)
 
 ## Local setup
 

@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # --- Frontend editor ---
+    # Comma-separated origins allowed to call the API from a browser
+    # (e.g. "https://furqatbek.github.io"). Empty = no cross-origin access;
+    # an editor served from this same origin (EDITOR_DIR) needs none.
+    cors_origins: str = ""
+    # Serve the static editor from this directory at /editor. Dev convenience —
+    # in production the editor is a static site on its own host/CDN.
+    editor_dir: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

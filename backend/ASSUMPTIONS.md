@@ -221,3 +221,30 @@ spec's "single-page render end to end" is intentionally NOT smoked: rendering
 triggers only via payment (R8), and a dev-payment smoke would create paid
 orders in production. Render health is covered by CI's full pipeline tests
 and the render_failed alerting path.
+
+**A45 — The editor (`../editor`) is a static, no-build vanilla-JS app.** Same
+stack as the marketing site: no framework, no bundler, ES modules straight to
+the browser, deployable to GitHub Pages next to the site. The API base URL is
+deploy-time config (`editor/config.js`), overridable per browser with
+`?api=…` for staging. One JS payload serves all five languages (shared
+`sb-lang` choice with the site).
+
+**A46 — Editor MVP scope mirrors the backend MVP.** One placement per page
+(full-page / with-margin presets + fill/fit toggle) matching the ≤1-placement
+layout rule; free drag-and-resize of placements arrives with multi-photo
+pages. Text boxes are draggable and clamp client-side to the same safe area
+the server enforces. Autosave PATCHes the whole layout with `If-Match`; on
+conflict the server document wins (single-user drafts make real conflicts
+rare).
+
+**A47 — The dev "simulate payment" button lives in the ORDER screen, not the
+API.** It posts the same dev webhook an acquirer would, using a signature the
+operator types (or `devPaymentSecret` in `config.js` for local dev only). No
+secret ships in the deployed editor; with `DEV_PAYMENTS_ENABLED=false` the
+button's webhook is refused like any other unsigned call.
+
+**A48 — devserver CORS shim.** `scripts/devserver.py` strips the query string
+from `OPTIONS` requests before they reach moto: real S3/MinIO never
+authenticate CORS preflights, moto does (and 403s, since the presigned
+signature is bound to PUT). Dev-only; production storage needs a bucket CORS
+rule allowing `PUT` from the editor origin instead.
