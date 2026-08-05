@@ -135,7 +135,10 @@ export const devPay = (ref, amountMinor, secret) =>
 export async function putObject(url, file, mime) {
   const resp = await fetch(url, {
     method: 'PUT',
-    headers: { 'Content-Type': mime },
+    // The extra header is unsigned and ignored by S3/MinIO; it stops
+    // ngrok's free-tier browser interstitial from swallowing the upload
+    // when storage is exposed through a tunnel.
+    headers: { 'Content-Type': mime, 'ngrok-skip-browser-warning': '1' },
     body: file,
   });
   if (!resp.ok) throw new ApiError(resp.status, 'UPLOAD_FAILED', null, {});

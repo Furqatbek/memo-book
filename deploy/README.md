@@ -37,6 +37,31 @@ Common pitfall: cloning without `-b claude/memo-book-project-duulu7` checks
 out `main`, which does not contain the editor or this deploy directory —
 the image build then fails at `COPY editor`.
 
+### Showing local mode over the internet (ngrok)
+
+Photo bytes go browser → storage directly, so ONE tunnel to :8000 is not
+enough — uploads will hit `localhost:9000` on the visitor's device and
+fail with `ERR_CONNECTION_REFUSED`. Run TWO tunnels and tell the stack
+its public storage address:
+
+```yaml
+# ngrok config (v3):
+tunnels:
+  app:     { proto: http, addr: 8000 }
+  storage: { proto: http, addr: 9000 }
+```
+
+```bash
+ngrok start --all      # note both public URLs, then:
+S3_PUBLIC_URL=https://<storage-tunnel-url>     docker compose -f docker-compose.local.yml up -d
+# share https://<app-tunnel-url>/editor/
+```
+
+Upload URLs are signed against `S3_PUBLIC_URL`, so restart after setting
+it (photos that failed before the restart need re-uploading). ngrok is
+fine for a quick demo; for anything real, the VPS path below exists
+precisely because storage needs a stable public hostname.
+
 ## Prerequisites
 
 - A VPS (2 vCPU / 4GB RAM is comfortable; renders are the heavy part),
