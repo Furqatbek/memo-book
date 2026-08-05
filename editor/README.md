@@ -1,8 +1,10 @@
 # Silkbound book editor
 
 The self-serve editor: start a blank book, upload photos (single or bulk),
-place them on pages or auto-fill chronologically, add text, design the cover,
-preview every page, check out, track the order. Talks to the backend API
+place them on pages or auto-fill chronologically, then edit freely — drag
+and corner-resize photos, double-click anywhere to type, drag text boxes
+around, pick page/cover/title/text colours — preview every page, check out,
+track the order. Talks to the backend API
 (contract: [`../backend/API.md`](../backend/API.md)).
 
 Static and build-free — plain HTML/CSS + ES modules, same stack as the

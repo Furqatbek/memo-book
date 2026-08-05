@@ -59,6 +59,9 @@ class TextBoxDoc(BaseModel):
         return self
 
 
+HEX_COLOR = r"^#[0-9a-fA-F]{6}$"
+
+
 class CoverDoc(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -67,12 +70,16 @@ class CoverDoc(BaseModel):
     subtitle: str = Field(default="", max_length=200)
     title_font: str = Field(default="Inter", max_length=64)
     title_size_pt: float = Field(default=28, ge=4, le=144)
+    # None = automatic (white with shadow over a photo, dark ink otherwise).
+    title_color: str | None = Field(default=None, pattern=HEX_COLOR)
+    bg_color: str = Field(default="#ffffff", pattern=HEX_COLOR)
 
 
 class PageDoc(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     index: int = Field(ge=0)
+    bg_color: str = Field(default="#ffffff", pattern=HEX_COLOR)
     placements: list[PlacementDoc] = Field(default_factory=list)
     texts: list[TextBoxDoc] = Field(default_factory=list, max_length=20)
 

@@ -17,7 +17,7 @@ const USABLE = new Set(['ready', 'duplicate']);
 
 const S = {
   creds: null, book: null, photos: [], uploads: [],
-  page: -1, sel: null, locked: false,
+  page: -1, sel: null, locked: false, dragging: false,
   dirty: false, saving: false, saveQueued: false, saveTimer: null,
   photoTimer: null, orderTimer: null, previewTimer: null,
   order: null,
@@ -109,8 +109,11 @@ async function saveNow() {
   try {
     const r = await api.patchLayout(S.creds, snapshot, S.book.layout_version);
     S.book.layout_version = r.layout_version;
-    if (!S.dirty) {
-      S.book.layout = r.layout;   // adopt server-side clamps
+    // Adopt the server's clamped document ONLY when nothing is mid-edit:
+    // swapping the tree while a colour input, caret, or drag holds a
+    // reference to the old objects would silently discard those edits.
+    if (!S.dirty && !S.dragging && !canvasEditingFocus()) {
+      S.book.layout = r.layout;
       renderCanvas();
       renderFilm();
     }
@@ -406,10 +409,38 @@ function placeOnPage(photoId, index, advance) {
 
 const pct = (mm, total) => `${((mm) / total) * 100}%`;
 
+function canvasScale() {   // px per mm
+  return $('page-canvas').clientWidth / CANVAS_W;
+}
+
+/* Pointer event -> trim-origin mm coordinates on the page canvas. */
+function evToMM(e) {
+  const r = $('page-canvas').getBoundingClientRect();
+  const s = r.width / CANVAS_W;
+  return { x: (e.clientX - r.left) / s - BLEED, y: (e.clientY - r.top) / s - BLEED };
+}
+
+function focusSelText() {
+  // Synchronous: the box exists as soon as renderCanvas returns, and typing
+  // may start immediately after the tap that created it.
+  const el = document.querySelector('.textbox.sel .textbox-content');
+  if (!el) return;
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 function canvasEditingFocus() {
-  const canvas = $('page-canvas');
   const a = document.activeElement;
-  return a && canvas.contains(a);
+  if (!a) return false;
+  // Canvas text/caret, colour tools, and the selection toolbar all hold live
+  // references into the layout tree — don't rebuild under them.
+  return ['page-canvas', 'page-tools', 'sel-toolbar']
+    .some((id) => $(id).contains(a));
 }
 
 function renderCanvas(force) {
@@ -419,12 +450,51 @@ function renderCanvas(force) {
   updatePageLabel();
   if (S.page === -1) renderCover(canvas);
   else renderPage(canvas);
+  renderPageTools();
   renderSelToolbar();
+}
+
+/* Always-available colour controls for the current page / the cover. */
+function renderPageTools() {
+  const box = $('page-tools');
+  box.innerHTML = '';
+  if (S.locked) return;
+  const colorInput = (value, label, oninput, onchange) => {
+    const input = h('input', { type: 'color', value, title: label, 'aria-label': label });
+    input.addEventListener('input', () => oninput(input.value));
+    if (onchange) input.addEventListener('change', () => onchange(input.value));
+    return h('label', { class: 'color-tool', title: label },
+             input, h('span', {}, label));
+  };
+  if (S.page === -1) {
+    const cover = S.book.layout.cover;
+    box.append(colorInput(cover.bg_color || '#ffffff', t('tool.coverColor'), (v) => {
+      cover.bg_color = v;
+      $('page-canvas').style.background = v;
+      markDirty();
+    }, () => renderCanvas()));
+    box.append(colorInput(cover.title_color || (cover.photo_id ? '#ffffff' : '#1a1a1a'),
+                          t('tool.titleColor'), (v) => {
+      cover.title_color = v;
+      for (const inp of document.querySelectorAll('.cover-titles input')) {
+        inp.style.color = v;
+      }
+      markDirty();
+    }));
+  } else {
+    const page = S.book.layout.pages[S.page];
+    box.append(colorInput(page.bg_color || '#ffffff', t('tool.pageColor'), (v) => {
+      page.bg_color = v;
+      $('page-canvas').style.background = v;
+      markDirty();
+    }, () => renderFilm()));
+  }
 }
 
 function renderCover(canvas) {
   canvas.className = 'page-canvas cover-mode';
   const cover = S.book.layout.cover;
+  canvas.style.background = cover.bg_color || '#eceff4';
   const photo = cover.photo_id ? photoById(cover.photo_id) : null;
   if (photo && photo.display_url) {
     canvas.append(h('img', {
@@ -435,12 +505,14 @@ function renderCover(canvas) {
     canvas.append(h('div', { class: 'canvas-empty' }, t('canvas.empty')));
   }
   const scale = canvas.clientWidth / CANVAS_W;   // px per mm
+  const textColor = cover.title_color || (photo ? '#ffffff' : '#1a1a1a');
   const titles = h('div', { class: 'cover-titles' });
   const title = h('input', {
     class: 'cover-title', value: cover.title, maxlength: '200',
     placeholder: t('cover.titlePh'),
   });
   title.style.fontSize = `${cover.title_size_pt * PT_MM * scale}px`;
+  title.style.color = textColor;
   title.addEventListener('input', () => {
     cover.title = title.value;
     markDirty();
@@ -450,6 +522,7 @@ function renderCover(canvas) {
     placeholder: t('cover.subtitlePh'),
   });
   subtitle.style.fontSize = `${0.5 * cover.title_size_pt * PT_MM * scale}px`;
+  subtitle.style.color = textColor;
   subtitle.addEventListener('input', () => {
     cover.subtitle = subtitle.value;
     markDirty();
@@ -461,6 +534,7 @@ function renderCover(canvas) {
 function renderPage(canvas) {
   canvas.className = 'page-canvas page-mode';
   const page = S.book.layout.pages[S.page];
+  canvas.style.background = page.bg_color || '#ffffff';
 
   canvas.append(
     h('div', {
@@ -475,21 +549,7 @@ function renderPage(canvas) {
 
   const pl = page.placements[0];
   if (pl) {
-    const photo = photoById(pl.photo_id);
-    const box = h('div', {
-      class: 'placement' + (isSel('placement', 0) ? ' sel' : ''),
-      style: `left:${pct(pl.x_mm + BLEED, CANVAS_W)};top:${pct(pl.y_mm + BLEED, CANVAS_H)};` +
-             `width:${pct(pl.w_mm, CANVAS_W)};height:${pct(pl.h_mm, CANVAS_H)}`,
-      onclick: (e) => { e.stopPropagation(); select({ kind: 'placement', idx: 0 }); },
-    });
-    if (photo && photo.display_url) {
-      box.append(h('img', {
-        src: photo.display_url, alt: '', style: `object-fit:${pl.fit}`, draggable: 'false',
-      }));
-    } else {
-      box.append(h('span', { class: 'spin' }));
-    }
-    canvas.append(box);
+    canvas.append(makePlacement(pl));
   } else {
     canvas.append(h('div', { class: 'canvas-empty' }, t('canvas.empty')));
   }
@@ -500,9 +560,108 @@ function renderPage(canvas) {
   }
 }
 
+function placeRect(el, r) {
+  el.style.left = pct(r.x_mm + BLEED, CANVAS_W);
+  el.style.top = pct(r.y_mm + BLEED, CANVAS_H);
+  el.style.width = pct(r.w_mm, CANVAS_W);
+  el.style.height = pct(r.h_mm, CANVAS_H);
+}
+
+function makePlacement(pl) {
+  const photo = photoById(pl.photo_id);
+  const box = h('div', {
+    class: 'placement' + (isSel('placement', 0) ? ' sel' : ''),
+  });
+  placeRect(box, pl);
+  if (photo && photo.display_url) {
+    box.append(h('img', {
+      src: photo.display_url, alt: '', style: `object-fit:${pl.fit}`, draggable: 'false',
+    }));
+  } else {
+    box.append(h('span', { class: 'spin' }));
+  }
+
+  // Drag to move; a still tap/click just selects.
+  box.addEventListener('pointerdown', (e) => {
+    if (S.locked || e.target.classList.contains('rs')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const scale = canvasScale();
+    const sx = e.clientX, sy = e.clientY, ox = pl.x_mm, oy = pl.y_mm;
+    let moved = false;
+    S.dragging = true;
+    const move = (ev) => {
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
+      if (!moved) { moved = true; select({ kind: 'placement', idx: 0 }, true); box.classList.add('sel'); }
+      pl.x_mm = clamp(ox + (ev.clientX - sx) / scale,
+                      -BLEED, Math.max(-BLEED, CANVAS_W - BLEED - pl.w_mm));
+      pl.y_mm = clamp(oy + (ev.clientY - sy) / scale,
+                      -BLEED, Math.max(-BLEED, CANVAS_H - BLEED - pl.h_mm));
+      placeRect(box, pl);
+    };
+    const up = () => {
+      S.dragging = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (moved) markDirty();
+      // A still tap selects — unless something (e.g. type-anywhere on this
+      // same tap) already re-rendered and replaced this element.
+      else if (box.isConnected) select({ kind: 'placement', idx: 0 });
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+
+  if (isSel('placement', 0) && !S.locked) {
+    for (const corner of ['nw', 'ne', 'sw', 'se']) {
+      const handle = h('div', { class: `rs ${corner}` });
+      handle.addEventListener('pointerdown',
+        (e) => startPlacementResize(e, box, pl, corner));
+      box.append(handle);
+    }
+  }
+  return box;
+}
+
+function startPlacementResize(e, box, pl, corner) {
+  e.preventDefault();
+  e.stopPropagation();
+  const scale = canvasScale();
+  const sx = e.clientX, sy = e.clientY;
+  const o = { x: pl.x_mm, y: pl.y_mm, w: pl.w_mm, h: pl.h_mm };
+  const MIN = 20;
+  S.dragging = true;
+  const move = (ev) => {
+    const dx = (ev.clientX - sx) / scale, dy = (ev.clientY - sy) / scale;
+    let { x, y, w, h } = { x: o.x, y: o.y, w: o.w, h: o.h };
+    if (corner.includes('e')) w = o.w + dx;
+    if (corner.includes('s')) h = o.h + dy;
+    if (corner.includes('w')) w = o.w - dx;
+    if (corner.includes('n')) h = o.h - dy;
+    w = clamp(w, MIN, CANVAS_W);
+    h = clamp(h, MIN, CANVAS_H);
+    if (corner.includes('w')) x = o.x + (o.w - w);
+    if (corner.includes('n')) y = o.y + (o.h - h);
+    x = clamp(x, -BLEED, CANVAS_W - BLEED - w);
+    y = clamp(y, -BLEED, CANVAS_H - BLEED - h);
+    Object.assign(pl, { x_mm: x, y_mm: y, w_mm: w, h_mm: h });
+    placeRect(box, pl);
+  };
+  const up = () => {
+    S.dragging = false;
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    markDirty();
+    renderSelToolbar();
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+}
+
 function makeTextBox(tb, scale) {
   const box = h('div', {
     class: 'textbox' + (isSel('text', tb.id) ? ' sel' : ''),
+    'data-id': tb.id,
     style: `left:${pct(tb.x_mm + BLEED, CANVAS_W)};top:${pct(tb.y_mm + BLEED, CANVAS_H)};` +
            `width:${pct(tb.w_mm, CANVAS_W)};min-height:${pct(tb.h_mm, CANVAS_H)};` +
            `font-size:${tb.size_pt * PT_MM * scale}px;text-align:${tb.align};color:${tb.color}`,
@@ -517,38 +676,90 @@ function makeTextBox(tb, scale) {
     markDirty();
   });
   content.addEventListener('focus', () => select({ kind: 'text', id: tb.id }, true));
-  box.addEventListener('click', (e) => {
-    e.stopPropagation();
-    select({ kind: 'text', id: tb.id });
-  });
-  const handle = h('div', { class: 'tb-handle' }, '⠿');
-  attachDrag(handle, tb);
-  box.append(handle, content);
-  return box;
-}
 
-function attachDrag(handle, tb) {
+  // Drag anywhere on the box to move it; a still click starts editing.
+  // While the caret is inside, pointer events do native text selection and
+  // the ⠿ handle moves the box instead.
+  box.addEventListener('pointerdown', (e) => {
+    if (S.locked) return;
+    if (document.activeElement === content) return;
+    if (e.target.closest('.tb-handle, .tb-resize')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const moved = startTextDrag(e, box, tb);
+    moved.then((didMove) => {
+      if (!didMove) {
+        S.sel = { kind: 'text', id: tb.id };
+        renderCanvas(true);
+        focusSelText();
+      }
+    });
+  });
+
+  const handle = h('div', { class: 'tb-handle' }, '⠿');
   handle.addEventListener('pointerdown', (e) => {
     if (S.locked) return;
     e.preventDefault();
     e.stopPropagation();
-    const canvas = $('page-canvas');
-    const scale = canvas.clientWidth / CANVAS_W;
-    const startX = e.clientX, startY = e.clientY;
-    const origX = tb.x_mm, origY = tb.y_mm;
+    startTextDrag(e, box, tb);
+  });
+
+  const resize = h('div', { class: 'tb-resize' });
+  resize.addEventListener('pointerdown', (e) => {
+    if (S.locked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const scale2 = canvasScale();
+    const sx = e.clientX, ow = tb.w_mm;
+    S.dragging = true;
     const move = (ev) => {
-      tb.x_mm = clamp(origX + (ev.clientX - startX) / scale,
+      tb.w_mm = clamp(ow + (ev.clientX - sx) / scale2, 20, TRIM_W - SAFE - tb.x_mm);
+      box.style.width = pct(tb.w_mm, CANVAS_W);
+    };
+    const up = () => {
+      S.dragging = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      markDirty();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+
+  box.append(handle, content, resize);
+  return box;
+}
+
+/* Shared text-box move logic; resolves to true if the pointer actually
+   dragged (vs a still click). */
+function startTextDrag(e, box, tb) {
+  return new Promise((resolve) => {
+    const scale = canvasScale();
+    const sx = e.clientX, sy = e.clientY, ox = tb.x_mm, oy = tb.y_mm;
+    let moved = false;
+    S.dragging = true;
+    const move = (ev) => {
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
+      if (!moved) {
+        moved = true;
+        S.sel = { kind: 'text', id: tb.id };
+        highlightSel();
+        box.classList.add('sel');
+        renderSelToolbar();
+      }
+      tb.x_mm = clamp(ox + (ev.clientX - sx) / scale,
                       SAFE, Math.max(SAFE, TRIM_W - SAFE - tb.w_mm));
-      tb.y_mm = clamp(origY + (ev.clientY - startY) / scale,
+      tb.y_mm = clamp(oy + (ev.clientY - sy) / scale,
                       SAFE, Math.max(SAFE, TRIM_H - SAFE - tb.h_mm));
-      const box = handle.parentElement;
       box.style.left = pct(tb.x_mm + BLEED, CANVAS_W);
       box.style.top = pct(tb.y_mm + BLEED, CANVAS_H);
     };
     const up = () => {
+      S.dragging = false;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      markDirty();
+      if (moved) markDirty();
+      resolve(moved);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -572,6 +783,11 @@ function highlightSel() {
   for (const el of document.querySelectorAll('.textbox, .placement')) {
     el.classList.remove('sel');
   }
+  if (!S.sel) return;
+  const el = S.sel.kind === 'placement'
+    ? document.querySelector('.placement')
+    : document.querySelector(`.textbox[data-id="${S.sel.id}"]`);
+  if (el) el.classList.add('sel');
 }
 
 /* ---------- selection toolbar ---------- */
@@ -676,18 +892,27 @@ function renderSelToolbar() {
 }
 
 function addTextBox() {
+  addTextBoxAt(TRIM_W / 2, 177);   // classic caption spot near the bottom
+}
+
+/* "Type anywhere": create a text box centred on a point (trim mm), focused. */
+function addTextBoxAt(cx, cy) {
   if (S.page === -1 || S.locked) return;
   const page = S.book.layout.pages[S.page];
   if (page.texts.length >= 20) return;
+  const w = 70, hgt = 14;
   const tb = {
     id: `t${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`,
-    x_mm: 20, y_mm: 170, w_mm: TRIM_W - 40, h_mm: 14,
+    x_mm: clamp(cx - w / 2, SAFE, TRIM_W - SAFE - w),
+    y_mm: clamp(cy - hgt / 2, SAFE, TRIM_H - SAFE - hgt),
+    w_mm: w, h_mm: hgt,
     content: '', font: 'Inter', size_pt: 14, align: 'center', color: '#1a1a1a',
   };
   page.texts.push(tb);
   S.sel = { kind: 'text', id: tb.id };
   markDirty();
   renderCanvas(true);
+  focusSelText();
 }
 
 /* ---------- filmstrip ---------- */
@@ -708,6 +933,9 @@ function renderFilm() {
 }
 
 function filmItem(index, photo, label, empty) {
+  const bg = index === -1
+    ? (S.book.layout.cover.bg_color || '#ffffff')
+    : (S.book.layout.pages[index].bg_color || '#ffffff');
   const item = h('button', {
     class: 'film-item' + (S.page === index ? ' active' : '') + (empty ? ' empty' : ''),
     onclick: () => { S.page = index; S.sel = null; renderCanvas(true); renderFilm(); },
@@ -722,6 +950,7 @@ function filmItem(index, photo, label, empty) {
     },
   });
   const thumb = h('div', { class: 'film-thumb' });
+  thumb.style.background = bg;
   if (photo && photo.thumb_url) thumb.append(h('img', { src: photo.thumb_url, alt: '' }));
   item.append(thumb, h('span', { class: 'film-label' }, label));
   return item;
@@ -1007,8 +1236,30 @@ function bind() {
     if (saved) { S.order = saved; showOrder(); }
   });
   const canvasWrap = $('canvas-wrap');
-  canvasWrap.addEventListener('click', () => {
+  canvasWrap.addEventListener('click', (e) => {
+    if (e.target.closest('.placement, .textbox, .cover-img, .rs, .tb-handle, .tb-resize')) {
+      return;   // interactions on elements manage selection themselves
+    }
     if (S.sel) { S.sel = null; renderCanvas(true); }
+  });
+  // "Type anywhere": double-click / double-tap adds a text box at that point.
+  // Hand-rolled detection — selection re-renders the canvas DOM between the
+  // two clicks, which breaks native dblclick, and mobile double-tap needs it.
+  const lastTap = { t: 0, x: 0, y: 0 };
+  $('page-canvas').addEventListener('pointerup', (e) => {
+    if (S.locked || S.page === -1) return;
+    if (e.target.closest('.textbox, .rs, .tb-handle, .tb-resize')) { lastTap.t = 0; return; }
+    const now = performance.now();
+    const isDouble = now - lastTap.t < 400
+      && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 8;
+    lastTap.t = now;
+    lastTap.x = e.clientX;
+    lastTap.y = e.clientY;
+    if (isDouble) {
+      lastTap.t = 0;
+      const p = evToMM(e);
+      addTextBoxAt(p.x, p.y);
+    }
   });
   canvasWrap.addEventListener('dragover', (e) => e.preventDefault());
   canvasWrap.addEventListener('drop', (e) => {

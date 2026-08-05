@@ -21,7 +21,7 @@ from reportlab.pdfgen import canvas as pdfcanvas
 
 from app.config import get_settings
 from app.domain.geometry import TRIM_H_MM, TRIM_W_MM, mm_to_px
-from app.render.compose import RenderError, _fit_cover
+from app.render.compose import RenderError, _fit_cover, hex_to_rgb
 from app.render.interior import (
     FONT_BOLD,
     FONT_REGULAR,
@@ -67,7 +67,7 @@ def _compose_cover_raster(cover: dict, geo: CoverGeometry,
                           photo_bytes: bytes | None) -> bytes:
     w_px = mm_to_px(geo.total_w_mm)
     h_px = mm_to_px(geo.total_h_mm)
-    canvas = Image.new("RGB", (w_px, h_px), (255, 255, 255))
+    canvas = Image.new("RGB", (w_px, h_px), hex_to_rgb(cover.get("bg_color")))
 
     if photo_bytes is not None:
         try:
@@ -102,7 +102,12 @@ def _draw_cover_text(c: pdfcanvas.Canvas, cover: dict, geo: CoverGeometry,
     title_size = float(cover.get("title_size_pt") or 28)
     subtitle_size = max(10.0, title_size * 0.5)
 
-    main = Color(1, 1, 1) if over_photo else HexColor("#1a1a1a")
+    # Explicit title_color wins; otherwise automatic per background.
+    custom = cover.get("title_color")
+    if custom:
+        main = HexColor(custom)
+    else:
+        main = Color(1, 1, 1) if over_photo else HexColor("#1a1a1a")
     shadow = Color(0, 0, 0, alpha=0.55)
 
     def centred(text: str, font: str, size: float, y_pt: float) -> None:

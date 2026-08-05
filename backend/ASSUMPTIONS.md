@@ -248,3 +248,16 @@ from `OPTIONS` requests before they reach moto: real S3/MinIO never
 authenticate CORS preflights, moto does (and 403s, since the presigned
 signature is bound to PUT). Dev-only; production storage needs a bucket CORS
 rule allowing `PUT` from the editor origin instead.
+
+**A49 — Free-form editing and colours.** Pages and the cover carry
+`bg_color` (and the cover `title_color`) — schema-validated `#rrggbb`,
+defaulting to white so pre-existing layouts and the golden-raster test are
+byte-identical. The renderer fills the page canvas, contain-letterboxing and
+rotation gaps with the page colour; an explicit cover `title_color`
+overrides the automatic white-over-photo/ink-over-plain choice. In the
+editor, photos drag and corner-resize freely within the bleed canvas
+(client-side clamps mirror `validate_placement`), text boxes drag by their
+body and resize in width, and a double-click/double-tap creates a focused
+text box at that point ("type anywhere"). The autosave engine only adopts
+the server's clamped document between edits — never while a caret, colour
+input or drag holds references into the layout tree.

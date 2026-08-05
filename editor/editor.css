@@ -204,11 +204,25 @@ select {
 .guide.trim { border: 1px solid rgba(36,86,214,.35); }
 .guide.safe { border: 1px dashed rgba(36,86,214,.22); }
 .placement { position: absolute; z-index: 1; display: flex; align-items: center;
-  justify-content: center; background: var(--bg); }
-.placement img { width: 100%; height: 100%; display: block; }
+  justify-content: center; background: rgba(0,0,0,.04); cursor: move;
+  touch-action: none; }
+.placement img { width: 100%; height: 100%; display: block; pointer-events: none; }
 .placement.sel { outline: 2px solid var(--primary); outline-offset: -2px; z-index: 2; }
-.textbox { position: absolute; z-index: 4; line-height: 1.3; }
+.rs {
+  position: absolute; width: 14px; height: 14px; background: #fff;
+  border: 2px solid var(--primary); border-radius: 3px; z-index: 5;
+  touch-action: none;
+}
+/* Inset inside the box: at full bleed the box touches the canvas edge, and
+   overflow:hidden would clip (and un-hit-test) outward-hanging handles. */
+.rs.nw { top: 2px; left: 2px; cursor: nwse-resize; }
+.rs.se { bottom: 2px; right: 2px; cursor: nwse-resize; }
+.rs.ne { top: 2px; right: 2px; cursor: nesw-resize; }
+.rs.sw { bottom: 2px; left: 2px; cursor: nesw-resize; }
+.textbox { position: absolute; z-index: 4; line-height: 1.3; cursor: move;
+  touch-action: none; }
 .textbox .textbox-content { outline: none; min-height: 1em; }
+.textbox .textbox-content:focus { cursor: text; }
 .textbox .textbox-content:empty::before {
   content: attr(data-ph); color: rgba(107,114,128,.6);
 }
@@ -219,6 +233,26 @@ select {
   display: none; user-select: none; touch-action: none;
 }
 .textbox.sel .tb-handle { display: block; }
+.tb-resize {
+  position: absolute; right: -8px; top: 50%; margin-top: -9px; width: 12px;
+  height: 18px; background: #fff; border: 2px solid var(--primary);
+  border-radius: 3px; cursor: ew-resize; display: none; z-index: 5;
+  touch-action: none;
+}
+.textbox.sel .tb-resize { display: block; }
+
+/* colour tools in the stage toolbar */
+.page-tools { display: flex; gap: 8px; align-items: center; }
+.color-tool {
+  display: inline-flex; gap: 6px; align-items: center; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: #fff; padding: 3px 8px 3px 3px; font-size: .82rem;
+  color: var(--muted);
+}
+.color-tool input[type=color] {
+  width: 26px; height: 26px; border: 0; border-radius: 6px; padding: 0;
+  background: none; cursor: pointer;
+}
 
 /* cover mode */
 .page-canvas.cover-mode { background: #eceff4; }
@@ -348,6 +382,8 @@ select {
   .tray-hint { display: none; }
   .ed-bar .btn { padding: 8px 10px; font-size: .88rem; }
   .ed-brand { display: none; }
+  .color-tool span { display: none; }
+  .color-tool { padding: 3px; }
 }
 @media (max-width: 560px) {
   .tier-grid { grid-template-columns: repeat(2, 1fr); }

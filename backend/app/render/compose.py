@@ -17,6 +17,17 @@ class RenderError(Exception):
         self.reason = reason
 
 
+def hex_to_rgb(value: str | None) -> tuple[int, int, int]:
+    """Layout colours are schema-validated #rrggbb; anything else means an
+    older stored layout without the field — default to white."""
+    if isinstance(value, str) and len(value) == 7 and value.startswith("#"):
+        try:
+            return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
+        except ValueError:
+            pass
+    return (255, 255, 255)
+
+
 def _fit_cover(img: Image.Image, tw: int, th: int) -> Image.Image:
     scale = max(tw / img.width, th / img.height)
     resized = img.resize((max(1, round(img.width * scale)),
@@ -26,11 +37,12 @@ def _fit_cover(img: Image.Image, tw: int, th: int) -> Image.Image:
     return resized.crop((left, top, left + tw, top + th))
 
 
-def _fit_contain(img: Image.Image, tw: int, th: int) -> Image.Image:
+def _fit_contain(img: Image.Image, tw: int, th: int,
+                 bg: tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
     scale = min(tw / img.width, th / img.height)
     resized = img.resize((max(1, round(img.width * scale)),
                           max(1, round(img.height * scale))), Image.LANCZOS)
-    background = Image.new("RGB", (tw, th), (255, 255, 255))
+    background = Image.new("RGB", (tw, th), bg)
     background.paste(resized, ((tw - resized.width) // 2, (th - resized.height) // 2))
     return background
 
@@ -46,7 +58,8 @@ def compose_page(page: dict, photo_bytes: dict[str, bytes],
     """
     cw = max(1, round(CANVAS_W_PX * scale))
     ch = max(1, round(CANVAS_H_PX * scale))
-    canvas = Image.new("RGB", (cw, ch), (255, 255, 255))
+    bg = hex_to_rgb(page.get("bg_color"))
+    canvas = Image.new("RGB", (cw, ch), bg)
 
     for placement in page.get("placements", []):
         pid = placement["photo_id"]
@@ -65,14 +78,14 @@ def compose_page(page: dict, photo_bytes: dict[str, bytes],
 
         rotation = float(placement.get("rotation", 0)) % 360
         if rotation:
-            img = img.rotate(-rotation, expand=True, fillcolor=(255, 255, 255))
+            img = img.rotate(-rotation, expand=True, fillcolor=bg)
 
         rect = placement_to_px(RectMM(placement["x_mm"], placement["y_mm"],
                                       placement["w_mm"], placement["h_mm"]))
         tw = max(1, round(rect.w * scale))
         th = max(1, round(rect.h * scale))
         if placement.get("fit", "cover") == "contain":
-            fitted = _fit_contain(img, tw, th)
+            fitted = _fit_contain(img, tw, th, bg)
         else:
             fitted = _fit_cover(img, tw, th)
         canvas.paste(fitted, (round(rect.x * scale), round(rect.y * scale)))
