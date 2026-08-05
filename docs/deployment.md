@@ -57,6 +57,19 @@ ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw enable
 
 ## Step 3 — Configure
 
+**Shortcut:** steps 3 and 4 collapse into one command that installs
+Docker, clones the repo, generates every secret, and starts the stack
+(safe to re-run later — that's also how you deploy updates):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Furqatbek/memo-book/claude/memo-book-project-duulu7/deploy/bootstrap.sh \
+    | bash -s -- yourdomain.uz
+```
+
+Afterwards edit `/opt/memo-book/deploy/.env` for Telegram credentials and
+real prices, then `docker compose -f docker-compose.prod.yml up -d`.
+The manual route:
+
 ```bash
 git clone https://github.com/Furqatbek/memo-book.git
 cd memo-book/deploy

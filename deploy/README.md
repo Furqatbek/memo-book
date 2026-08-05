@@ -39,6 +39,16 @@ URL the backend signs has to be reachable from customers' browsers.
 
 ## Steps
 
+**One command** (installs Docker, clones, generates secrets, starts,
+verifies — safe to re-run for updates):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Furqatbek/memo-book/claude/memo-book-project-duulu7/deploy/bootstrap.sh \
+    | bash -s -- yourdomain.uz
+```
+
+Or manually:
+
 ```bash
 git clone https://github.com/Furqatbek/memo-book.git && cd memo-book/deploy
 cp .env.prod.example .env
