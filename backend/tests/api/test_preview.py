@@ -111,8 +111,8 @@ class TestPreview:
         book = await make_book(client, 16)
         state = (await client.get(f"/api/v1/books/{book['book_id']}/preview",
                                   headers=auth(book))).json()
-        assert state == {"status": "none", "page_urls": [], "stale": False,
-                         "page_count": 16, "layout_version": 1}
+        assert state == {"status": "none", "cover_url": None, "page_urls": [],
+                         "stale": False, "page_count": 16, "layout_version": 1}
 
     async def test_wrong_token_404(self, client):
         book = await make_book(client, 16)
@@ -130,3 +130,33 @@ class TestPreview:
             storage.object_exists, f"books/{book_id}/render/interior.pdf"
         )
         assert not exists  # preview wrote nothing into the render namespace
+
+
+class TestCoverPreview:
+    async def test_cover_url_present_and_watermarked(self, client, db):
+        book = (await client.post("/api/v1/books", json={"page_count": 16})).json()
+        headers = {"X-Edit-Token": book["edit_token"]}
+        layout = book["layout"]
+        layout["cover"]["title"] = "Sayohat"
+        layout["cover"]["bg_color"] = "#204060"
+        await client.patch(f"/api/v1/books/{book['book_id']}/layout", json=layout,
+                           headers={**headers, "If-Match": "1"})
+        await client.post(f"/api/v1/books/{book['book_id']}/preview", headers=headers)
+        state = (await client.get(f"/api/v1/books/{book['book_id']}/preview",
+                                  headers=headers)).json()
+        assert state["status"] == "ready"
+        assert state["cover_url"]
+
+        import io
+
+        import httpx
+        from PIL import Image
+
+        from app import storage
+        key = f"books/{book['book_id']}/preview/cover.jpg"
+        img = Image.open(io.BytesIO(storage.get_bytes(key)))
+        assert img.format == "JPEG"
+        # background colour shows in a corner (behind the watermark tint)
+        r, _g, b = img.convert("RGB").getpixel((3, 3))
+        assert b > r  # blue-ish background, not white
+        assert httpx.URL(state["cover_url"])  # presigned, parseable

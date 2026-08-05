@@ -1446,6 +1446,11 @@ async function pollPreview() {
     $('pv-stale').classList.toggle('hidden', !r.stale);
     const grid = $('pv-grid');
     grid.innerHTML = '';
+    if (r.cover_url) {
+      grid.append(h('figure', { class: 'pv-page pv-cover' },
+        h('img', { src: r.cover_url, alt: t('page.cover') }),
+        h('figcaption', {}, t('page.cover'))));
+    }
     r.page_urls.forEach((url, i) => {
       grid.append(h('figure', { class: 'pv-page' },
         h('img', { src: url, alt: `Page ${i + 1}`, loading: 'lazy' }),

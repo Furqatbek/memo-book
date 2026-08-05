@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import storage
 from app.models.book import Book
 from app.models.photo import Photo
-from app.render.preview import render_preview_page
+from app.render.preview import render_preview_cover, render_preview_page
 from app.services.books import get_book_authed
 from app.services.placement import USABLE_STATUSES
 
@@ -24,6 +24,10 @@ PREVIEW_FAILED = "failed"
 
 def _page_key(book_id: uuid.UUID, index: int) -> str:
     return f"books/{book_id}/preview/page-{index}.jpg"
+
+
+def _cover_key(book_id: uuid.UUID) -> str:
+    return f"books/{book_id}/preview/cover.jpg"
 
 
 async def request_preview(session: AsyncSession, book_id: uuid.UUID,
@@ -50,6 +54,22 @@ async def run_preview(session: AsyncSession, book_id: uuid.UUID) -> None:
     layout_version = book.layout_version
 
     try:
+        cover = book.layout.get("cover", {})
+        cover_photo = photos.get(cover.get("photo_id") or "")
+        cover_bytes = None
+        if cover_photo is not None:
+            cover_bytes = await anyio.to_thread.run_sync(
+                storage.get_bytes, cover_photo.original_key
+            )
+        cover_jpeg = await anyio.to_thread.run_sync(
+            render_preview_cover, cover, cover_bytes
+        )
+        del cover_bytes
+        await anyio.to_thread.run_sync(
+            storage.put_bytes, _cover_key(book_id), cover_jpeg, "image/jpeg"
+        )
+        del cover_jpeg
+
         for page in book.layout["pages"]:
             photo_bytes: dict[str, bytes] = {}
             for placement in page.get("placements", []):
@@ -86,13 +106,17 @@ async def preview_state(session: AsyncSession, book_id: uuid.UUID,
         and book.preview_layout_version != book.layout_version
     )
     page_urls: list[str] = []
+    cover_url: str | None = None
     if status == PREVIEW_READY:
         page_urls = [
             storage.presign_get(_page_key(book_id, i))
             for i in range(book.page_count)
         ]
+        if storage.object_exists(_cover_key(book_id)):   # previews from before
+            cover_url = storage.presign_get(_cover_key(book_id))
     return {
         "status": status,
+        "cover_url": cover_url,
         "page_urls": page_urls,
         "stale": stale,
         "page_count": book.page_count,

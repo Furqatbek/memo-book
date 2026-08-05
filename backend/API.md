@@ -290,9 +290,13 @@ watermarked blanks) at 72dpi with a `PREVIEW` watermark.
 
 ```json
 { "status": "ready",
+  "cover_url": "https://…cover.jpg…",
   "page_urls": ["https://…page-0.jpg…", "… one per page …"],
   "stale": false, "page_count": 16, "layout_version": 4 }
 ```
+
+`cover_url` is a watermarked render of the cover front (photo, background
+colour, positioned title) so the customer confirms the cover too.
 
 `stale: true` the moment the layout changes after rendering — checkout will
 refuse a stale preview, so re-render before confirming.

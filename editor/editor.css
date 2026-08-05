@@ -471,3 +471,5 @@ a.brand:hover { color: var(--primary); }
   cursor: nwse-resize; display: none; touch-action: none; z-index: 5;
 }
 .textbox.sel .tb-scale { display: block; }
+.pv-cover img { border: 2px solid var(--primary); }
+.pv-cover figcaption { color: var(--primary); font-weight: 600; }
