@@ -37,28 +37,27 @@ Common pitfall: cloning without `-b claude/memo-book-project-duulu7` checks
 out `main`, which does not contain the editor or this deploy directory —
 the image build then fails at `COPY editor`.
 
-### Showing local mode over the internet (ngrok)
+### Showing local mode over the internet (jprq, ngrok, any tunnel)
 
 Photo bytes go browser → storage directly, so ONE tunnel to :8000 is not
 enough — uploads will hit `localhost:9000` on the visitor's device and
-fail with `ERR_CONNECTION_REFUSED`. Run TWO tunnels and tell the stack
-its public storage address:
-
-```yaml
-# ngrok config (v3):
-tunnels:
-  app:     { proto: http, addr: 8000 }
-  storage: { proto: http, addr: 9000 }
-```
+fail with `ERR_CONNECTION_REFUSED`. Run TWO tunnels — app (:8000) and
+storage (:9000) — and tell the stack its public storage address:
 
 ```bash
-ngrok start --all      # note both public URLs, then:
-S3_PUBLIC_URL=https://<storage-tunnel-url>     docker compose -f docker-compose.local.yml up -d
-# share https://<app-tunnel-url>/editor/
+# jprq (two terminals):          # or ngrok (config with two tunnels):
+jprq http 8000                   #   tunnels:
+jprq http 9000                   #     app:     { proto: http, addr: 8000 }
+                                 #     storage: { proto: http, addr: 9000 }
+                                 #   then: ngrok start --all
+
+S3_PUBLIC_URL=https://<the-9000-tunnel-url> \
+    docker compose -f docker-compose.local.yml up -d
+# share https://<the-8000-tunnel-url>/editor/
 ```
 
 Upload URLs are signed against `S3_PUBLIC_URL`, so restart after setting
-it (photos that failed before the restart need re-uploading). ngrok is
+it (photos that failed before the restart need re-uploading). Tunnels are
 fine for a quick demo; for anything real, the VPS path below exists
 precisely because storage needs a stable public hostname.
 
