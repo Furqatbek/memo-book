@@ -1,0 +1,104 @@
+# Whole stack on YOUR OWN machine with Docker — no domain, no TLS, no .env:
+#
+#   cd deploy
+#   docker compose -f docker-compose.local.yml up -d --build
+#   → http://localhost:8000            (site; editor at /editor/)
+#
+# Fixed dev credentials, localhost only — never expose this to the internet
+# (use docker-compose.prod.yml + a domain for that).
+#
+# Networking note: presigned photo-upload URLs must work from your BROWSER
+# (localhost:9000) and from the API container (which would resolve
+# "localhost" to itself). The extra_hosts entry points the container's
+# "localhost" at the Docker host, whose published :9000 is MinIO — so one
+# endpoint works for both. In-container health checks use 127.0.0.1, which
+# /etc/hosts does not affect.
+
+name: memobook-local
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+  environment: &app-env
+    ENV: dev
+    DATABASE_URL: postgresql+asyncpg://memobook:localdev@postgres:5432/memobook
+    REDIS_URL: redis://redis:6379/0
+    S3_ENDPOINT_URL: http://localhost:9000
+    S3_ACCESS_KEY: memobook
+    S3_SECRET_KEY: localdev-minio
+    S3_BUCKET: memobook
+    TASK_EAGER: "false"
+    DEV_PAYMENTS_ENABLED: "true"
+    DEV_PAYMENT_SECRET: dev-secret-change-me
+    EDITOR_DIR: /app/editor
+    SITE_DIR: /app/site
+  extra_hosts:
+    - "localhost:host-gateway"
+
+services:
+  api:
+    <<: *app
+    ports: ["8000:8000"]
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      minio-init: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    <<: *app
+    command: rq worker ingest preview render --url redis://redis:6379/0
+    depends_on: [redis, postgres, minio-init]
+
+  outbox:
+    <<: *app
+    command: python -m app.workers.outbox
+    depends_on: [postgres]
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: memobook
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: memobook
+    volumes:
+      - local_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memobook"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+
+  minio:
+    image: minio/minio
+    command: server /data
+    ports: ["9000:9000"]
+    environment:
+      MINIO_ROOT_USER: memobook
+      MINIO_ROOT_PASSWORD: localdev-minio
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+    volumes:
+      - local_minio:/data
+
+  minio-init:
+    image: minio/mc
+    depends_on: [minio]
+    entrypoint: >
+      sh -c "
+      until mc alias set local http://minio:9000 memobook localdev-minio; do sleep 1; done &&
+      mc mb --ignore-existing local/memobook &&
+      mc anonymous set none local/memobook
+      "
+
+volumes:
+  local_pg:
+  local_minio:

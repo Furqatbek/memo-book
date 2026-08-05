@@ -21,6 +21,22 @@ MinIO is "S3" in protocol only — the backend already speaks that protocol,
 and the bytes sit in a plain directory on your VPS. No cloud account, no
 external provider, no per-GB bills.
 
+## Running on your own machine (no domain, no TLS)
+
+The production compose needs a domain for HTTPS. For a laptop/desktop with
+Docker, use the local variant — no configuration at all:
+
+```bash
+git clone -b claude/memo-book-project-duulu7 https://github.com/Furqatbek/memo-book.git
+cd memo-book/deploy
+docker compose -f docker-compose.local.yml up -d --build
+# → http://localhost:8000  (site; editor at /editor/)
+```
+
+Common pitfall: cloning without `-b claude/memo-book-project-duulu7` checks
+out `main`, which does not contain the editor or this deploy directory —
+the image build then fails at `COPY editor`.
+
 ## Prerequisites
 
 - A VPS (2 vCPU / 4GB RAM is comfortable; renders are the heavy part),
