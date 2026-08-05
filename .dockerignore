@@ -1,0 +1,10 @@
+# Build context is the repo root (deploy/Dockerfile copies backend/ + editor/).
+.git
+backend/.venv
+backend/dev.db
+backend/.pytest_cache
+backend/.hypothesis
+backend/.ruff_cache
+backend/tests
+**/__pycache__
+*.egg-info

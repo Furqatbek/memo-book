@@ -52,5 +52,13 @@ jobs:
       - name: Lint
         run: ruff check app tests
 
+      - name: Migrations run against real Postgres (the deploy boot command)
+        env:
+          DATABASE_URL: postgresql+asyncpg://memobook:memobook@localhost:5432/memobook
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+
       - name: Test
         run: pytest -q

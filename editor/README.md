@@ -36,8 +36,10 @@ origin, no CORS) and runs a moto S3 with bucket CORS so browser uploads work.
 ## Deploying
 
 The Pages workflow publishes `editor/` next to the site; every "Create your
-book" button on the site points here. For the editor to function in
-production:
+book" button on the site points here. The backend deploys to a single VPS,
+fully self-hosted — see [`../deploy/README.md`](../deploy/README.md); the
+API also serves this editor same-origin at `/editor`, which needs no CORS
+at all. For an editor hosted on another origin (like Pages) to function:
 
 1. Deploy the backend somewhere reachable.
 2. Set `apiBase` in `config.js` to that URL (or open with `?api=https://…`

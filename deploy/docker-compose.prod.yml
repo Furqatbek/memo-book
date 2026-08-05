@@ -1,0 +1,125 @@
+# Production stack for a single VPS — everything self-hosted, no external
+# services. Storage is MinIO: an S3-compatible server running HERE, with the
+# bytes in a local Docker volume on this machine.
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# Copy .env.prod.example to .env first and fill in the secrets.
+
+name: memobook
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api, minio]
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      EDITOR_DIR: /app/editor
+    # Migrations run once at boot; safe for a single instance. --proxy-headers:
+    # real client IPs from Caddy, so per-IP rate limits key on the visitor,
+    # not the proxy (the api port is only reachable from the compose network).
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000
+             --proxy-headers --forwarded-allow-ips='*'"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      minio-init: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    command: rq worker ingest preview render --url ${REDIS_URL}
+    depends_on: [redis, postgres, minio-init]
+
+  outbox:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    command: python -m app.workers.outbox
+    depends_on: [postgres]
+
+  lifecycle:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    # R6 expiry + R7 reminders, once a day.
+    command: sh -c "while true; do python -m app.workers.lifecycle; sleep 86400; done"
+    depends_on: [postgres]
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: memobook
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: memobook
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memobook"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # Browsers PUT photo bytes straight to storage; allow the editor origins.
+      MINIO_API_CORS_ALLOW_ORIGIN: ${STORAGE_CORS_ORIGINS}
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc
+    depends_on: [minio]
+    entrypoint: >
+      sh -c "
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do sleep 1; done &&
+      mc mb --ignore-existing local/memobook &&
+      mc anonymous set none local/memobook
+      "
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pg_data:
+  redis_data:
+  minio_data:

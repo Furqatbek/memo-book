@@ -1,0 +1,14 @@
+# Two hostnames, automatic HTTPS (Let's Encrypt):
+#   api.DOMAIN     -> FastAPI (editor served same-origin at /editor)
+#   storage.DOMAIN -> MinIO (presigned upload/download URLs point here)
+
+api.{$DOMAIN} {
+	encode gzip
+	reverse_proxy api:8000
+}
+
+storage.{$DOMAIN} {
+	# Photo uploads are up to 25MB; no request body limit needed (Caddy
+	# streams by default). Presigned URLs carry their own auth.
+	reverse_proxy minio:9000
+}
