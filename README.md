@@ -1,4 +1,4 @@
-# Silkbound — Travel Photo Books, Designed by You
+# RS Pixel — Travel Photo Books, Designed by You
 
 Landing page for a travel photo-book service: customers design their own book
 in an online editor (upload photos, lay out pages, add text, design the
@@ -11,8 +11,8 @@ printed in Uzbekistan, delivered in about 30 days.
 > remains useful for production specs (lay-flat binding, paper, printer
 > vetting) and market history.
 
-> **"Silkbound" is a working name.** A global find-and-replace of `Silkbound`
-> across `index.html` and `ru/index.html` renames the site.
+> **Brand:** RS Pixel — "Remember Smiles in Pixel" (chosen by the owner,
+> Aug 2026).
 
 ## What's here
 
@@ -27,7 +27,9 @@ printed in Uzbekistan, delivered in about 30 days.
 | `assets/lang.js` | Device-language detection: first visit to the root page redirects to the matching language version; an explicit pick in the language menu is stored and always wins; runs once per session so the back button works. No JS → the site just stays on the opened page. |
 | `editor/` | **The book editor** — static five-language app; every "Create your book" button opens it ([`editor/README.md`](editor/README.md)) |
 | `backend/` | **The API** — books, uploads, print-PDF rendering, orders, payments ([`backend/README.md`](backend/README.md), [`backend/API.md`](backend/API.md)) |
-| `deploy/` | **Single-VPS deployment**, fully self-hosted incl. photo storage ([`deploy/README.md`](deploy/README.md)) |
+| `deploy/` | **Single-VPS deployment files**, fully self-hosted incl. photo storage |
+| `docs/deployment.md` | **The deployment guide** — empty server to taking orders, step by step |
+| `docs/printer-questions.md` | Technical questions for the printer (EN + RU), keyed to config values |
 | `docs/printer-rfq.md` | Written lay-flat spec + RU quote-request letter for Tashkent printers |
 | `docs/operator-pitch.md` | Archive of the earlier tour-operator channel plan (not reflected on the site) |
 | `memory-book-project-brief.md` | Original project brief (see note above) |
@@ -51,7 +53,8 @@ edit, push, done. When a custom domain is chosen, uncomment and fill the
 
 The backend (which the editor needs to function) deploys to a single VPS
 with everything self-hosted — Postgres, Redis, and MinIO file storage on the
-same machine: see [`deploy/README.md`](deploy/README.md).
+same machine. Full walkthrough: [`docs/deployment.md`](docs/deployment.md);
+the compose/Caddy files live in [`deploy/`](deploy/README.md).
 
 ## Before going live for real customers
 
@@ -63,7 +66,6 @@ These placeholders appear in **all five** language pages (`index.html`,
 | `apiBase: ''` in `editor/config.js` | The deployed backend URL (until then the editor shows "not connected yet") |
 | `hello@example.com` | Real email address |
 | `https://t.me/XXXXXXXXX` | Real Telegram username |
-| `Silkbound` | Final brand name, when chosen |
 
 And two content gates:
 

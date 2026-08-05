@@ -498,7 +498,7 @@ export function t(key, vars) {
 /* Fill every element carrying data-i18n / data-i18n-ph. */
 export function applyStatic() {
   document.documentElement.lang = lang;
-  document.title = `Silkbound — ${t('app.title')}`;
+  document.title = `RS Pixel — ${t('app.title')}`;
   for (const el of document.querySelectorAll('[data-i18n]')) {
     el.textContent = t(el.dataset.i18n);
   }

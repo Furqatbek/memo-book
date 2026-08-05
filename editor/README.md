@@ -1,4 +1,4 @@
-# Silkbound book editor
+# RS Pixel book editor
 
 The self-serve editor: start a blank book, upload photos (single or bulk),
 place them on pages or auto-fill chronologically, then edit freely — drag

@@ -1,5 +1,10 @@
 # Deploying to a single VPS (fully self-hosted)
 
+> **Full step-by-step walkthrough** (server prep, Telegram bot, pilot
+> payment flow, order-status updates, troubleshooting):
+> [`../docs/deployment.md`](../docs/deployment.md). This file is the quick
+> reference living next to the compose/Caddy/env files.
+
 Everything runs on your own machine — nothing external:
 
 | Piece | What runs it | Where the data lives |

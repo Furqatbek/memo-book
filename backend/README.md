@@ -57,6 +57,8 @@ rq worker ingest preview render         # job workers (RQ)
 python -m app.workers.outbox            # notification delivery loop
 python -m app.workers.lifecycle         # nightly via cron (expiry+reminders)
 python scripts/smoke.py <base_url>      # post-deploy smoke (<30s, exit!=0 = roll back)
+python scripts/order_status.py REF sent_to_production|shipped|delivered
+                                        # operator: advance an order (audited)
 python scripts/loadtest.py <base_url>   # pre-launch load test (NOT in CI)
 python scripts/devserver.py --fresh     # dev: whole stack, no Docker (SQLite +
                                         #   in-process S3 + editor at /editor)
