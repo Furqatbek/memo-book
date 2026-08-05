@@ -67,6 +67,7 @@ These placeholders appear in **all five** language pages (`index.html`,
 | `hello@example.com` | Real email address |
 | `+998 XX XXX-XX-XX` (and its `tel:` link) | Real phone number |
 | `https://t.me/XXXXXXXXX` | Real Telegram username |
+| `https://instagram.com/XXXXXXXXX` | Real Instagram profile |
 
 And two content gates:
 

@@ -414,3 +414,4 @@ a.brand:hover { color: var(--primary); }
 @font-face { font-family: 'Montserrat'; src: url('fonts/Montserrat-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
 @font-face { font-family: 'Noto Serif'; src: url('fonts/NotoSerif-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Noto Serif'; src: url('fonts/NotoSerif-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+.tray-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

@@ -292,6 +292,7 @@ function renderTray() {
   updateEligibility();
   $('tray-count').textContent =
     t('tray.count', { ready: usableCount(), need: S.book.page_count });
+  $('btn-delete-all').classList.toggle('hidden', S.locked || S.photos.length === 0);
   const grid = $('tray-grid');
   grid.innerHTML = '';
   const placed = placedIds();
@@ -357,6 +358,47 @@ async function removePhoto(p) {
     touched = true;
   }
   if (touched) markDirty();
+  renderAll();
+}
+
+async function deleteAllPhotos() {
+  if (S.locked || !S.photos.length) return;
+  if (!confirm(t('confirm.deleteAll'))) return;
+  const btn = $('btn-delete-all');
+  btn.disabled = true;
+  const queue = S.photos.map((p) => p.photo_id);
+  let failed = 0;
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    for (;;) {
+      const id = queue.shift();
+      if (!id) return;
+      try {
+        await api.deletePhoto(S.creds, id);
+      } catch (e) {
+        failed += 1;
+      }
+    }
+  }));
+  try {
+    const r = await api.listPhotos(S.creds);
+    S.photos = r.photos;
+  } catch (e) { /* keep local view; poll will catch up */ }
+  const remaining = new Set(S.photos.map((p) => p.photo_id));
+  let touched = false;
+  for (const page of S.book.layout.pages) {
+    const before = page.placements.length;
+    page.placements = page.placements.filter((pl) => remaining.has(pl.photo_id));
+    if (page.placements.length !== before) touched = true;
+  }
+  if (S.book.layout.cover.photo_id && !remaining.has(S.book.layout.cover.photo_id)) {
+    S.book.layout.cover.photo_id = null;
+    touched = true;
+  }
+  S.uploads = [];
+  S.sel = null;
+  if (touched) markDirty();
+  btn.disabled = false;
+  if (failed) toast(t('err.generic'), 'warn');
   renderAll();
 }
 
@@ -1271,6 +1313,7 @@ function bind() {
     zone.classList.remove('over');
     startUploads(e.dataTransfer.files);
   });
+  $('btn-delete-all').addEventListener('click', deleteAllPhotos);
   $('btn-add-text').addEventListener('click', addTextBox);
   $('btn-autofill').addEventListener('click', autoFill);
   $('btn-preview').addEventListener('click', openPreview);
