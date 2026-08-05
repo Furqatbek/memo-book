@@ -233,6 +233,9 @@ select {
   display: none; user-select: none; touch-action: none;
 }
 .textbox.sel .tb-handle { display: block; }
+/* Near the page top the canvas would clip top-side handles — flip them below. */
+.textbox.flip .tb-handle { top: auto; bottom: -24px; }
+.textbox.flip .tb-rotate { top: auto; bottom: -44px; }
 .tb-resize {
   position: absolute; right: -8px; top: 50%; margin-top: -9px; width: 12px;
   height: 18px; background: #fff; border: 2px solid var(--primary);
@@ -370,25 +373,53 @@ select {
   .ed-main { flex-direction: column-reverse; }
   .tray {
     width: 100%; border-right: 0; border-top: 1px solid var(--line);
-    flex-direction: column; max-height: 34dvh;
+    flex-direction: column; max-height: 30dvh; padding: 8px 10px; gap: 8px;
   }
-  .tray-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+  .upload-zone {
+    flex-direction: row; justify-content: center; gap: 8px; padding: 8px 10px;
+  }
+  .tray-grid { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
   .ph-del { opacity: 1; }
-  .page-canvas { width: min(100%, calc((66dvh - 230px) * 154 / 216)); min-width: 200px; }
+  .page-canvas {
+    width: min(100%, calc((100dvh - 430px) * 154 / 216));
+    min-width: 180px;
+  }
   .canvas-wrap { padding: 6px 10px; }
-  .stage-toolbar { padding: 6px 10px; }
-  .filmstrip { padding: 6px 10px; }
-  .film-item { width: 44px; }
+  .stage-toolbar { padding: 6px 10px; gap: 6px; }
+  .filmstrip { padding: 4px 10px 8px; gap: 6px; }
+  .film-item { width: 38px; }
+  .film-label { font-size: .66rem; }
   .tray-hint { display: none; }
   .ed-bar .btn { padding: 8px 10px; font-size: .88rem; }
   .ed-brand { display: none; }
   .color-tool span { display: none; }
   .color-tool { padding: 3px; }
 }
+
+/* Touch devices: finger-sized handles */
+@media (pointer: coarse) {
+  .rs { width: 20px; height: 20px; }
+  .tb-scale { width: 20px; height: 20px; right: -10px; bottom: -10px; }
+  .tb-resize { width: 16px; height: 26px; right: -10px; }
+  .tb-rotate { width: 32px; height: 32px; margin-left: -16px; top: -46px; }
+  .textbox.flip .tb-rotate { top: auto; bottom: -46px; }
+}
 @media (max-width: 560px) {
   .tier-grid { grid-template-columns: repeat(2, 1fr); }
   .pv-footer { justify-content: stretch; flex-direction: column; align-items: stretch; }
   .pv-footer .btn { width: 100%; }
+  /* Top bar: wrap instead of clipping — the primary action must never be
+     half-visible (Russian labels are long). It grows to fill its row. */
+  .ed-bar { flex-wrap: wrap; overflow-x: visible; padding: 8px 10px; gap: 6px; }
+  .ed-bar .btn { padding: 7px 9px; font-size: .84rem; }
+  .ed-bar .btn.primary { flex: 1 1 auto; text-align: center; }
+  .ed-bar .icon-btn { width: 32px; height: 32px; }
+  .ed-bar select { padding: 6px 6px; font-size: .84rem; }
+  .save-state { font-size: .78rem; }
+  .stage-toolbar select, .sel-toolbar select { padding: 5px 4px; font-size: .82rem; }
+  .sel-toolbar { padding: 3px 4px; gap: 4px; }
+  .btn.small { padding: 5px 8px; font-size: .82rem; }
+  .upload-zone .muted { display: none; }
 }
 
 /* brand links back to the site home */

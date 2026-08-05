@@ -721,7 +721,8 @@ function startPlacementResize(e, box, pl, corner) {
 
 function makeTextBox(tb, scale) {
   const box = h('div', {
-    class: 'textbox' + (isSel('text', tb.id) ? ' sel' : ''),
+    class: 'textbox' + (isSel('text', tb.id) ? ' sel' : '')
+      + (tb.y_mm < 18 ? ' flip' : ''),
     'data-id': tb.id,
     style: `left:${pct(tb.x_mm + BLEED, CANVAS_W)};top:${pct(tb.y_mm + BLEED, CANVAS_H)};` +
            `width:${pct(tb.w_mm, CANVAS_W)};min-height:${pct(tb.h_mm, CANVAS_H)};` +
