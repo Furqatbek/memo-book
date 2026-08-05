@@ -56,6 +56,11 @@ S3_PUBLIC_URL=https://<the-9000-tunnel-url> \
 # share https://<the-8000-tunnel-url>/editor/
 ```
 
+Windows PowerShell has no `VAR=value command` prefix — set the variable
+first (`$env:S3_PUBLIC_URL = "https://…"`) and then run the compose
+command; or put `S3_PUBLIC_URL=https://…` in a `deploy/.env` file
+(git-ignored), which works in every shell.
+
 Upload URLs are signed against `S3_PUBLIC_URL`, so restart after setting
 it (photos that failed before the restart need re-uploading). Tunnels are
 fine for a quick demo; for anything real, the VPS path below exists
