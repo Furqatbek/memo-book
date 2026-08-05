@@ -20,6 +20,15 @@ from app.services.telegram import send_production_notification
 log = structlog.get_logger()
 
 TOPIC_ORDER_RENDERED = "order.rendered"
+TOPIC_BOOK_REMINDER = "book.reminder"
+
+
+def _send_reminder(payload: dict) -> None:
+    from app.services.email import build_reminder, send_email
+
+    subject, text = build_reminder(payload)
+    send_email(payload["email"], subject, text)
+
 
 BACKOFF_BASE_S = 30
 BACKOFF_CAP_S = 3600
@@ -28,6 +37,7 @@ MAX_ATTEMPTS = 8
 # topic -> synchronous handler(payload). Handlers raise to signal failure.
 HANDLERS: dict[str, Callable[[dict], None]] = {
     TOPIC_ORDER_RENDERED: send_production_notification,
+    TOPIC_BOOK_REMINDER: _send_reminder,
 }
 
 

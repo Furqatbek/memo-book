@@ -198,3 +198,14 @@ URLs, not expired ones.
 logged**; log events carry only the order reference and message id.
 Credentials missing = delivery failure = retry, so messages queued before
 the bot is configured are sent once it is.
+
+**A41 — Email transport is a seam.** No SMTP/API provider is integrated;
+`send_email` raises, so reminder deliveries retry through the outbox and end
+in `failed` with "not configured" until credentials exist — nothing is lost.
+Reminders flow through the outbox to inherit at-least-once + backoff, and the
+sent-flags commit atomically with the outbox row (R7 idempotency).
+
+**A42 — Expiry ordering.** The expired status commits BEFORE storage objects
+are deleted: a crash between the two leaves a re-runnable cleanup, never a
+live draft with missing photos. Photo/order rows are kept after expiry for
+audit; only storage objects are removed.
