@@ -14,6 +14,10 @@ const INSET = { x_mm: 12, y_mm: 12, w_mm: TRIM_W - 24, h_mm: TRIM_H - 24 };
 const ORDER_FLOW = ['pending_payment', 'paid', 'rendering', 'rendered',
                     'sent_to_production', 'shipped', 'delivered'];
 const USABLE = new Set(['ready', 'duplicate']);
+const INGESTING = new Set(['pending', 'processing']);
+// A photo still "processing" after this long is dead (lost job, crashed
+// worker): show it as failed and stop polling for it.
+const INGEST_STALL_MS = 3 * 60 * 1000;
 /* The six print families — served as local woff2 (same files the renderer
    embeds), with system fallbacks while they load. */
 const FONTS = {
@@ -38,6 +42,7 @@ const S = {
   selecting: false, selected: new Set(),
   dirty: false, saving: false, saveQueued: false, saveTimer: null,
   photoTimer: null, orderTimer: null, previewTimer: null,
+  pollIdle: 0, pendingSince: new Map(),
   order: null,
 };
 
@@ -347,10 +352,10 @@ function renderTray() {
     if (p.thumb_url) {
       card.append(h('img', { src: p.thumb_url, alt: '', loading: 'lazy' }));
     }
-    if (p.status === 'pending' || p.status === 'processing') {
-      card.append(h('span', { class: 'spin' }));
-    } else if (p.status === 'failed') {
+    if (p.status === 'failed' || ingestStuck(p)) {
       card.append(h('span', { class: 'badge err' }, t('tray.failed')));
+    } else if (INGESTING.has(p.status)) {
+      card.append(h('span', { class: 'spin' }));
     } else {
       if (p.status === 'duplicate') card.append(h('span', { class: 'badge' }, t('tray.duplicate')));
       if (p.resolution_status && p.resolution_status !== 'ok') {
@@ -448,21 +453,55 @@ function schedulePhotoPoll() {
   S.photoTimer = setTimeout(pollPhotos, 1500);
 }
 
+function ingestStuck(p) {
+  return INGESTING.has(p.status)
+    && Date.now() - (S.pendingSince.get(p.photo_id) || Date.now()) >= INGEST_STALL_MS;
+}
+
+// Statuses only — presigned thumb URLs differ on every response, so they
+// must stay out of this or every poll would count as a change.
+function photoFingerprint() {
+  return S.photos.map((p) =>
+    `${p.photo_id}:${p.status}:${p.resolution_status || ''}:${ingestStuck(p) ? 1 : 0}`).join('|');
+}
+
 async function pollPhotos() {
   S.photoTimer = null;
   if (!S.creds) return;
+  const before = photoFingerprint();
   try {
     const r = await api.listPhotos(S.creds);
     S.photos = r.photos;
+  } catch (e) { /* transient; next poll retries */ }
+  const now = Date.now();
+  for (const p of S.photos) {
+    if (!INGESTING.has(p.status)) {
+      S.pendingSince.delete(p.photo_id);
+    } else if (!S.pendingSince.has(p.photo_id)) {
+      // Seed from the server timestamp so photos that stalled before this
+      // page load are flagged immediately, not 3 minutes from now.
+      const started = Date.parse(p.uploaded_at || '');
+      S.pendingSince.set(p.photo_id, Number.isFinite(started) ? started : now);
+    }
+  }
+  // Re-render only on real change — rebuilding the tray refetches every
+  // thumbnail (fresh presigned URLs), which reads as flicker.
+  if (photoFingerprint() !== before) {
+    S.pollIdle = 0;
     if ($('screen-editor').classList.contains('active')) {
       renderTray();
       renderFilm();
       renderCanvas();
     }
-  } catch (e) { /* transient; next poll retries */ }
-  const busy = S.photos.some((p) => p.status === 'pending' || p.status === 'processing')
+  } else {
+    S.pollIdle += 1;
+  }
+  const busy = S.photos.some((p) => INGESTING.has(p.status) && !ingestStuck(p))
     || S.uploads.some((j) => j.status === 'queued' || j.status === 'uploading');
-  if (busy) schedulePhotoPoll();
+  if (busy) {
+    // Back off while nothing changes: 1.5s -> 3s -> ... -> 10s max.
+    S.photoTimer = setTimeout(pollPhotos, Math.min(1500 * (S.pollIdle + 1), 10000));
+  }
 }
 
 function startUploads(files) {
