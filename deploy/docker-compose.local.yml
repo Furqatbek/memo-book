@@ -101,21 +101,19 @@ services:
       MINIO_API_CORS_ALLOW_ORIGIN: "*"
     volumes:
       - local_minio:/data
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:9000/minio/health/live"]
-      interval: 5s
-      timeout: 3s
-      retries: 24
 
   minio-init:
     image: minio/mc
-    depends_on:
-      minio: { condition: service_healthy }
+    depends_on: [minio]
+    # Retries the WHOLE sequence until MinIO answers and the bucket exists —
+    # this one-shot job can only ever finish successfully (Exited 0).
     entrypoint: >
       sh -c "
-      until mc alias set local http://minio:9000 memobook localdev-minio; do sleep 1; done &&
-      mc mb --ignore-existing local/memobook &&
-      mc anonymous set none local/memobook
+      until mc alias set local http://minio:9000 memobook localdev-minio &&
+            mc mb --ignore-existing local/memobook &&
+            mc anonymous set none local/memobook; do
+        echo 'minio not ready yet — retrying in 2s'; sleep 2;
+      done
       "
 
 volumes:
