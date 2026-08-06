@@ -14,8 +14,10 @@ COPY backend/alembic.ini ./
 COPY backend/alembic ./alembic
 COPY backend/scripts ./scripts
 # Editable install keeps the source tree (incl. the repo-pinned render fonts)
-# exactly as laid out here.
-RUN pip install --no-cache-dir -e .
+# exactly as laid out here. Generous timeout/retries + a build cache mount so
+# a slow or flaky link to PyPI resumes instead of failing the whole build.
+ENV PIP_DEFAULT_TIMEOUT=120 PIP_RETRIES=10
+RUN --mount=type=cache,target=/root/.cache/pip pip install -e .
 
 # The whole frontend ships in the image and is served by the API — the
 # editor at /editor (EDITOR_DIR) and the marketing site, all five language
