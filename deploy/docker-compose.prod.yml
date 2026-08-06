@@ -112,10 +112,16 @@ services:
       MINIO_API_CORS_ALLOW_ORIGIN: ${STORAGE_CORS_ORIGINS}
     volumes:
       - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
 
   minio-init:
     image: minio/mc
-    depends_on: [minio]
+    depends_on:
+      minio: { condition: service_healthy }
     entrypoint: >
       sh -c "
       until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do sleep 1; done &&
