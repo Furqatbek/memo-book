@@ -80,8 +80,13 @@
         </label>
         <div class="tray-row">
           <div id="tray-count" class="tray-count"></div>
-          <button id="btn-delete-all" class="btn small danger hidden"
-                  data-i18n="tray.deleteAll"></button>
+          <div class="tray-actions">
+            <button id="btn-select-mode" class="btn small hidden"
+                    data-i18n="tray.select"></button>
+            <button id="btn-delete-sel" class="btn small danger hidden"></button>
+            <button id="btn-delete-all" class="btn small danger hidden"
+                    data-i18n="tray.deleteAll"></button>
+          </div>
         </div>
         <div id="tray-grid" class="tray-grid"></div>
         <p class="muted tray-hint" data-i18n="tray.hint"></p>

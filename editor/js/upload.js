@@ -41,7 +41,20 @@ export async function runJobs(jobs, creds, onChange) {
         const issued = await api.uploadUrl(creds, {
           filename: job.name, mime: job.mime, bytes: job.file.size,
         });
-        await api.putObject(issued.upload_url, job.file, job.mime);
+        // Flaky links (tunnels, mobile networks) get three tries before
+        // the card goes red.
+        let lastError = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            await api.putObject(issued.upload_url, job.file, job.mime);
+            lastError = null;
+            break;
+          } catch (e) {
+            lastError = e;
+            await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          }
+        }
+        if (lastError) throw lastError;
         await api.completePhoto(creds, issued.photo_id);
         job.photo_id = issued.photo_id;
         job.status = 'processing';

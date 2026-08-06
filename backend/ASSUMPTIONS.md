@@ -295,3 +295,17 @@ the ⟳ handle and scales via the corner dot, exactly like page text. Touch:
 a two-finger pinch resizes photos (about their centre) and scales text /
 the cover title, with the twist of the same gesture rotating text — built
 on pointer events so single-finger drags stand down while a pinch is live.
+
+**A53 — Split storage endpoints (internal vs public).** The backend talks
+to object storage via `S3_ENDPOINT_URL` (in Docker: `http://minio:9000`
+over the compose network) while browser-facing presigned URLs are signed
+against `S3_PUBLIC_URL` (empty = same as the internal one, which keeps
+bare local dev unchanged). This matters whenever the public address is not
+reachable — or only slowly reachable — from inside the containers: with a
+tunnel or a domain in front of MinIO, ingest/preview no longer hairpin
+every photo through the internet, they read the object store directly.
+Presigning is region/keys-based, not a network call, so signatures from
+the public-URL client stay valid for the same bucket. The editor also
+retries each storage PUT three times with backoff — tunnels and mobile
+networks drop connections mid-upload, and one flaky request should not
+red-flag the whole file.

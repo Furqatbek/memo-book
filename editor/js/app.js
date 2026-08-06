@@ -35,6 +35,7 @@ const fontStack = (name) => FONTS[fontKey(name)];
 const S = {
   creds: null, book: null, photos: [], uploads: [],
   page: -1, sel: null, locked: false, dragging: false,
+  selecting: false, selected: new Set(),
   dirty: false, saving: false, saveQueued: false, saveTimer: null,
   photoTimer: null, orderTimer: null, previewTimer: null,
   order: null,
@@ -292,7 +293,14 @@ function renderTray() {
   updateEligibility();
   $('tray-count').textContent =
     t('tray.count', { ready: usableCount(), need: S.book.page_count });
-  $('btn-delete-all').classList.toggle('hidden', S.locked || S.photos.length === 0);
+  const none = S.locked || S.photos.length === 0;
+  $('btn-delete-all').classList.toggle('hidden', none || S.selecting);
+  $('btn-select-mode').classList.toggle('hidden', none);
+  $('btn-select-mode').classList.toggle('active', S.selecting);
+  const delSel = $('btn-delete-sel');
+  delSel.classList.toggle('hidden', !S.selecting);
+  delSel.textContent = t('tray.deleteSel', { n: S.selected.size });
+  delSel.disabled = S.selected.size === 0;
   const grid = $('tray-grid');
   grid.innerHTML = '';
   const placed = placedIds();
@@ -301,18 +309,40 @@ function renderTray() {
   for (const job of S.uploads) {
     if (job.photo_id && known.has(job.photo_id)) continue;   // server card exists
     const card = h('div', { class: `ph-card job ${job.status}` });
-    if (job.status === 'failed') card.append(h('span', { class: 'badge err' }, t('tray.failed')));
-    else card.append(h('span', { class: 'spin' }), h('span', { class: 'badge' }, t('tray.processing')));
+    if (job.status === 'failed') {
+      card.append(h('span', { class: 'badge err' }, t('tray.failed')));
+      card.append(h('button', {
+        class: 'ph-del', 'aria-label': t('tool.remove'),
+        onclick: (e) => {
+          e.stopPropagation();
+          S.uploads = S.uploads.filter((j) => j !== job);
+          renderTray();
+        },
+      }, '×'));
+    } else {
+      card.append(h('span', { class: 'spin' }), h('span', { class: 'badge' }, t('tray.processing')));
+    }
     card.append(h('span', { class: 'ph-name' }, job.name));
     grid.append(card);
   }
 
   for (const p of S.photos) {
     const card = h('div', {
-      class: 'ph-card' + (USABLE.has(p.status) ? '' : ' pending'),
-      draggable: USABLE.has(p.status) && !S.locked ? 'true' : null,
+      class: 'ph-card' + (USABLE.has(p.status) ? '' : ' pending')
+        + (S.selecting && S.selected.has(p.photo_id) ? ' picked' : ''),
+      title: p.width && p.height ? `${p.width}×${p.height} px` : null,
+      draggable: USABLE.has(p.status) && !S.locked && !S.selecting ? 'true' : null,
       ondragstart: (e) => e.dataTransfer.setData('text/mb-photo', p.photo_id),
-      onclick: () => { if (USABLE.has(p.status) && !S.locked) placePhoto(p); },
+      onclick: () => {
+        if (S.locked) return;
+        if (S.selecting) {
+          if (S.selected.has(p.photo_id)) S.selected.delete(p.photo_id);
+          else S.selected.add(p.photo_id);
+          renderTray();
+          return;
+        }
+        if (USABLE.has(p.status)) placePhoto(p);
+      },
     });
     if (p.thumb_url) {
       card.append(h('img', { src: p.thumb_url, alt: '', loading: 'lazy' }));
@@ -361,12 +391,9 @@ async function removePhoto(p) {
   renderAll();
 }
 
-async function deleteAllPhotos() {
-  if (S.locked || !S.photos.length) return;
-  if (!confirm(t('confirm.deleteAll'))) return;
-  const btn = $('btn-delete-all');
+async function deletePhotoIds(ids, btn) {
   btn.disabled = true;
-  const queue = S.photos.map((p) => p.photo_id);
+  const queue = [...ids];
   let failed = 0;
   await Promise.all(Array.from({ length: 4 }, async () => {
     for (;;) {
@@ -394,12 +421,26 @@ async function deleteAllPhotos() {
     S.book.layout.cover.photo_id = null;
     touched = true;
   }
-  S.uploads = [];
   S.sel = null;
+  S.selected.clear();
+  S.selecting = false;
   if (touched) markDirty();
   btn.disabled = false;
   if (failed) toast(t('err.generic'), 'warn');
   renderAll();
+}
+
+async function deleteAllPhotos() {
+  if (S.locked || !S.photos.length) return;
+  if (!confirm(t('confirm.deleteAll'))) return;
+  S.uploads = [];
+  await deletePhotoIds(S.photos.map((p) => p.photo_id), $('btn-delete-all'));
+}
+
+async function deleteSelectedPhotos() {
+  if (S.locked || !S.selected.size) return;
+  if (!confirm(t('confirm.deleteSel', { n: S.selected.size }))) return;
+  await deletePhotoIds([...S.selected], $('btn-delete-sel'));
 }
 
 function schedulePhotoPoll() {
@@ -1492,6 +1533,8 @@ async function submitCheckout(e) {
       openPreview();
     } else if (err.code === 'PHOTOS_INSUFFICIENT' || err.code === 'PAGES_INCOMPLETE') {
       toast(err.message || t('err.generic'), 'warn');
+      S.page = firstEmptyPage();   // show exactly what is blocking the order
+      S.sel = null;
       enterEditor();
     } else if (err.code === 'BOOK_LOCKED') {
       const saved = load('mb-order');
@@ -1653,6 +1696,12 @@ function bind() {
     startUploads(e.dataTransfer.files);
   });
   $('btn-delete-all').addEventListener('click', deleteAllPhotos);
+  $('btn-select-mode').addEventListener('click', () => {
+    S.selecting = !S.selecting;
+    S.selected.clear();
+    renderTray();
+  });
+  $('btn-delete-sel').addEventListener('click', deleteSelectedPhotos);
   $('btn-add-text').addEventListener('click', addTextBox);
   $('btn-autofill').addEventListener('click', autoFill);
   $('btn-preview').addEventListener('click', openPreview);

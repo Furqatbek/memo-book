@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     s3_endpoint_url: str = "http://localhost:9000"
+    # Public storage URL browsers use (presigned upload/display links).
+    # Empty = same as s3_endpoint_url. Split them when the internal address
+    # differs from the public one (compose networks, tunnels, VPS).
+    s3_public_url: str = ""
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"
     s3_bucket: str = "memobook"

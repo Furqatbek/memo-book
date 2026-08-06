@@ -30,6 +30,7 @@ services:
     environment:
       EDITOR_DIR: /app/editor
       SITE_DIR: /app/site
+      S3_ENDPOINT_URL: http://minio:9000
     # Migrations run once at boot; safe for a single instance. --proxy-headers:
     # real client IPs from Caddy, so per-IP rate limits key on the visitor,
     # not the proxy (the api port is only reachable from the compose network).
@@ -53,6 +54,8 @@ services:
       dockerfile: deploy/Dockerfile
     restart: unless-stopped
     env_file: .env
+    environment:
+      S3_ENDPOINT_URL: http://minio:9000
     command: rq worker ingest preview render --url ${REDIS_URL}
     depends_on:
       postgres: { condition: service_healthy }
@@ -65,6 +68,8 @@ services:
       dockerfile: deploy/Dockerfile
     restart: unless-stopped
     env_file: .env
+    environment:
+      S3_ENDPOINT_URL: http://minio:9000
     command: python -m app.workers.outbox
     depends_on:
       postgres: { condition: service_healthy }
@@ -75,6 +80,8 @@ services:
       dockerfile: deploy/Dockerfile
     restart: unless-stopped
     env_file: .env
+    environment:
+      S3_ENDPOINT_URL: http://minio:9000
     # R6 expiry + R7 reminders, once a day.
     command: sh -c "while true; do python -m app.workers.lifecycle; sleep 86400; done"
     depends_on:
