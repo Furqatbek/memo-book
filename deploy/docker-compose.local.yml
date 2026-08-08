@@ -91,7 +91,11 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio
+    # Pinned to the last ubi8-based builds: newer MinIO images (ubi9) need
+    # the x86-64-v2 instruction set, which budget/older VPS CPUs (qemu64)
+    # lack — they die with "Fatal glibc error: CPU does not support
+    # x86-64-v2". These serve the same S3 API we use.
+    image: minio/minio:RELEASE.2023-05-04T21-44-30Z
     restart: unless-stopped
     command: server /data
     ports: ["9000:9000"]
@@ -103,7 +107,7 @@ services:
       - local_minio:/data
 
   minio-init:
-    image: minio/mc
+    image: minio/mc:RELEASE.2023-05-04T18-10-16Z
     depends_on: [minio]
     # Retries the WHOLE sequence until MinIO answers and the bucket exists —
     # this one-shot job can only ever finish successfully (Exited 0).
