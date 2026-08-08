@@ -1,15 +1,19 @@
 """API request/response models for the books endpoints."""
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.schemas.layout import LayoutDoc
 
+BookType = Literal["love", "travel", "birthday", "memory"]
+
 
 class CreateBookRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     page_count: int
+    book_type: BookType | None = None
 
 
 class ChangePageCountRequest(BaseModel):

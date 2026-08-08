@@ -70,8 +70,11 @@ const V = '/api/v1';
 
 export const prices = () => request('GET', `${V}/prices`, {});
 
-export const createBook = (pageCount) =>
-  request('POST', `${V}/books`, { body: { page_count: pageCount } });
+export const createBook = (pageCount, bookType) =>
+  request('POST', `${V}/books`, {
+    body: bookType ? { page_count: pageCount, book_type: bookType }
+      : { page_count: pageCount },
+  });
 
 export const getBook = (c) =>
   request('GET', `${V}/books/${c.book_id}`, { token: c.edit_token });

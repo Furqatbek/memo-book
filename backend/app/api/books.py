@@ -50,7 +50,7 @@ def _book_response(book: Book) -> dict:
              dependencies=[rate_limit("book-create",
                                       lambda s: s.rate_limit_book_create_per_min)])
 async def create_book(body: CreateBookRequest, session: Session):
-    book = await svc.create_book(session, body.page_count)
+    book = await svc.create_book(session, body.page_count, body.book_type)
     return {**_book_response(book), "edit_token": book.edit_token}
 
 

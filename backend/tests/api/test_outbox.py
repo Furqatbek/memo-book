@@ -58,10 +58,31 @@ class TestOutboxHappyPath:
         assert ref in text
         assert "Aziza Karimova" in text
         assert "+998 90 123-45-67" in text
+        assert "Address: Tashkent, Chilonzor 5, dom 12, kv 34" in text
+        assert "Email: aziza@example.com" in text
         assert "Pages: 16" in text
         assert text.count("http") >= 2
         assert "interior.pdf" in text and "cover.pdf" in text
         assert "%PDF" not in text
+        # No type was picked for this book — no dangling Type line.
+        assert "Type:" not in text
+
+    async def test_book_type_reaches_the_printer(
+            self, client, db, telegram_capture):
+        import uuid as uuid_mod
+
+        from app.models.book import Book
+
+        book_id, _, checkout = await checked_out(client, db)
+        book = (await db.execute(
+            select(Book).where(Book.id == uuid_mod.UUID(book_id))
+        )).scalar_one()
+        book.book_type = "travel"
+        await db.commit()
+        await send(client, pay_event(checkout["human_ref"],
+                                     checkout["amount_minor"]))
+        [text] = telegram_capture
+        assert "Type: ✈️ Travel book" in text
 
     async def test_links_are_time_limited_signed_urls(
             self, client, db, telegram_capture):

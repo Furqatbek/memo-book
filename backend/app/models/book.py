@@ -18,6 +18,9 @@ class Book(Base):
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     edit_token: Mapped[str] = mapped_column(sa.String(64), unique=True, index=True)
     page_count: Mapped[int] = mapped_column(sa.Integer)
+    # Occasion picked in the editor (love/travel/birthday/memory); shown to
+    # the print operator. Nullable: books predating the picker have none.
+    book_type: Mapped[str | None] = mapped_column(sa.String(16), nullable=True)
     status: Mapped[str] = mapped_column(sa.String(16), default=BookStatus.DRAFT.value)
     layout: Mapped[dict] = mapped_column(JSONDoc)
     layout_version: Mapped[int] = mapped_column(sa.Integer, default=1)

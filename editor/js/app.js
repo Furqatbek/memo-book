@@ -263,7 +263,7 @@ async function enterStart() {
 
 async function startNewBook(tier) {
   try {
-    const b = await api.createBook(tier);
+    const b = await api.createBook(tier, S.bookType);
     S.creds = { book_id: b.book_id, edit_token: b.edit_token };
     store('mb-book', S.creds);
     S.book = b;

@@ -34,12 +34,14 @@ def _not_found() -> DomainError:
     return DomainError(ErrorCode.NOT_FOUND, "book not found")
 
 
-async def create_book(session: AsyncSession, page_count: int) -> Book:
+async def create_book(session: AsyncSession, page_count: int,
+                      book_type: str | None = None) -> Book:
     validate_tier(page_count)
     now = _now()
     book = Book(
         edit_token=secrets.token_urlsafe(EDIT_TOKEN_BYTES),
         page_count=page_count,
+        book_type=book_type,
         status=BookStatus.DRAFT.value,
         layout=empty_layout(page_count),
         layout_version=1,

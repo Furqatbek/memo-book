@@ -322,3 +322,10 @@ render trigger are exactly the acquirer path, so swapping in Payme/Click
 later changes nothing about fulfilment. Telegram credentials are wired
 with `scripts/telegram_check.py` (getMe + test send; lists visible chat
 ids when TELEGRAM_CHAT_ID is empty).
+
+**A55 — Book occasion travels to the printer.** The editor's occasion
+picker (love/travel/birthday/memory) is stored on the book
+(`books.book_type`, nullable — older books have none) and rides the
+rendered-order payload into the Telegram notification, alongside the
+customer's delivery address and email. The message shows a human label
+("✈️ Travel book"); an unset type simply omits the line.

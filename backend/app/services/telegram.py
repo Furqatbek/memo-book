@@ -14,6 +14,13 @@ from app.domain.money import from_minor
 
 ARTIFACT_URL_EXPIRY_S = 7 * 24 * 3600  # spec Part 11: 7 days for artifacts
 
+BOOK_TYPE_LABELS = {
+    "love": "❤️ Love story",
+    "travel": "✈️ Travel book",
+    "birthday": "🎂 Birthday",
+    "memory": "📸 Memory book",
+}
+
 
 class TelegramError(Exception):
     pass
@@ -28,14 +35,20 @@ def build_production_message(payload: dict) -> str:
                                     expires_in=ARTIFACT_URL_EXPIRY_S)
     major, minor_part = from_minor(int(payload["amount_minor"]))
     amount = f"{major:,}".replace(",", " ") + (f".{minor_part:02d}" if minor_part else "")
-    return (
-        f"📖 New order {payload['human_ref']}\n"
-        f"Customer: {payload['customer_name']}, {payload['customer_phone']}\n"
-        f"Pages: {payload['page_count']}\n"
-        f"Amount: {amount} {payload.get('currency', 'UZS')}\n"
-        f"Interior PDF (7-day link):\n{interior_url}\n"
-        f"Cover PDF (7-day link):\n{cover_url}"
-    )
+    lines = [f"📖 New order {payload['human_ref']}"]
+    book_type = BOOK_TYPE_LABELS.get(payload.get("book_type") or "")
+    if book_type:
+        lines.append(f"Type: {book_type}")
+    lines.append(f"Pages: {payload['page_count']}")
+    lines.append(f"Customer: {payload['customer_name']}, {payload['customer_phone']}")
+    if payload.get("customer_address"):
+        lines.append(f"Address: {payload['customer_address']}")
+    if payload.get("customer_email"):
+        lines.append(f"Email: {payload['customer_email']}")
+    lines.append(f"Amount: {amount} {payload.get('currency', 'UZS')}")
+    lines.append(f"Interior PDF (7-day link):\n{interior_url}")
+    lines.append(f"Cover PDF (7-day link):\n{cover_url}")
+    return "\n".join(lines)
 
 
 def _post_telegram(text: str) -> None:
