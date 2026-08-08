@@ -38,10 +38,10 @@ first boot, so these must resolve *before* you start the stack:
 
 | Record | Purpose |
 |---|---|
-| `yourdomain.uz` | The product: site, editor, API — one origin |
-| `api.yourdomain.uz` | Same backend, stable name for external editors |
-| `storage.yourdomain.uz` | MinIO — browsers upload photos directly here |
-| `www.yourdomain.uz` | Optional; redirects to the root |
+| `rspixel.uz` | The product: site, editor, API — one origin |
+| `api.rspixel.uz` | Same backend, stable name for external editors |
+| `storage.rspixel.uz` | MinIO — browsers upload photos directly here |
+| `www.rspixel.uz` | Optional; redirects to the root |
 
 ## Step 2 — Server preparation
 
@@ -63,7 +63,7 @@ Docker, clones the repo, generates every secret, and starts the stack
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Furqatbek/memo-book/claude/memo-book-project-duulu7/deploy/bootstrap.sh \
-    | bash -s -- yourdomain.uz
+    | bash -s -- rspixel.uz
 ```
 
 Afterwards edit `/opt/memo-book/deploy/.env` for Telegram credentials and
@@ -82,8 +82,8 @@ Fill in (generate secrets with `openssl rand -hex 32`):
 - `DOMAIN` — your domain
 - `POSTGRES_PASSWORD` — and the same value inside `DATABASE_URL`
 - `MINIO_ROOT_PASSWORD` — and the same value in `S3_SECRET_KEY`
-- `S3_ENDPOINT_URL` / `STORAGE_CORS_ORIGINS` / `CORS_ORIGINS` — replace
-  `example.uz` with your domain
+- `S3_PUBLIC_URL` / `STORAGE_CORS_ORIGINS` — replace `rspixel.uz` if you
+  ever deploy under a different domain
 - `DEV_PAYMENT_SECRET` — strong and private; whoever holds it can mark
   orders paid (see Step 6)
 - `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` — from Step 0
@@ -102,11 +102,11 @@ First boot: builds the image, gets TLS certificates, runs the database
 migrations, creates the storage bucket. Then verify:
 
 ```bash
-curl https://yourdomain.uz/health     # {"status":"ok"}
-curl https://yourdomain.uz/ready      # 200 with db/redis/storage checks
+curl https://rspixel.uz/health     # {"status":"ok"}
+curl https://rspixel.uz/ready      # 200 with db/redis/storage checks
 ```
 
-Open `https://yourdomain.uz` — the site; every "Create your book" button
+Open `https://rspixel.uz` — the site; every "Create your book" button
 opens the editor at `/editor/`. Make a full test order: create a book,
 upload phone photos (include one iPhone HEIC), auto-fill, preview, check
 out.
@@ -196,9 +196,9 @@ clear `PAY_CARD_NUMBER`.
 
 The GitHub Pages copy (`furqatbek.github.io/memo-book`) is now optional:
 
-- **Simplest:** use `https://yourdomain.uz` as the only address.
+- **Simplest:** use `https://rspixel.uz` as the only address.
 - To keep Pages as a mirror whose editor talks to your VPS: set
-  `apiBase: 'https://api.yourdomain.uz'` in `editor/config.js`, commit,
+  `apiBase: 'https://api.rspixel.uz'` in `editor/config.js`, commit,
   push (the Pages workflow redeploys automatically).
 
 ## Day-2 operations

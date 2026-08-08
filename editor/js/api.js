@@ -68,6 +68,8 @@ export async function health() {
 
 const V = '/api/v1';
 
+export const prices = () => request('GET', `${V}/prices`, {});
+
 export const createBook = (pageCount) =>
   request('POST', `${V}/books`, { body: { page_count: pageCount } });
 

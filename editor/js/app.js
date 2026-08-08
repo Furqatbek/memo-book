@@ -43,7 +43,7 @@ const S = {
   dirty: false, saving: false, saveQueued: false, saveTimer: null,
   photoTimer: null, orderTimer: null, previewTimer: null,
   pollIdle: 0, pendingSince: new Map(),
-  order: null,
+  order: null, prices: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -194,11 +194,32 @@ async function refetchBook() {
 
 /* ---------- start screen ---------- */
 
+/* Prices live in the backend .env (PRICE_MINOR_*); the editor only
+   displays what the API reports, so both always match. */
+async function loadPrices() {
+  try {
+    S.prices = (await api.prices()).prices;
+  } catch (e) { S.prices = null; }
+  renderPrices();
+}
+
+function renderPrices() {
+  for (const el of document.querySelectorAll('[data-tier-price]')) {
+    const minor = S.prices && S.prices[el.dataset.tierPrice];
+    el.textContent = minor ? fmtAmount(minor) : '';
+  }
+  if (S.book) {
+    const minor = S.prices && S.prices[String(S.book.page_count)];
+    $('pv-price').textContent = minor ? fmtAmount(minor) : '';
+  }
+}
+
 async function enterStart() {
   showScreen('start');
   const offline = !(await api.health());
   $('api-offline').classList.toggle('hidden', !offline);
   for (const b of document.querySelectorAll('.tier')) b.disabled = offline;
+  if (!offline && !S.prices) loadPrices();
   const creds = load('mb-book');
   const card = $('resume-card');
   if (creds && !offline) {
@@ -1492,6 +1513,7 @@ async function openPreview() {
   $('pv-stale').classList.add('hidden');
   $('pv-confirm').checked = false;
   $('pv-checkout').disabled = true;
+  if (!S.prices) await loadPrices(); else renderPrices();
   $('pv-status').textContent = t('preview.rendering');
   $('pv-status').classList.add('busy');
   await flushSave();
@@ -1713,6 +1735,7 @@ function buildLangSelect() {
   }
   sel.addEventListener('change', () => {
     setLang(sel.value);
+    renderPrices();
     if (S.book) renderAll();
   });
 }

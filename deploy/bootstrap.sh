@@ -2,7 +2,7 @@
 # One-command VPS deployment for RS Pixel.
 #
 #   curl -fsSL https://raw.githubusercontent.com/Furqatbek/memo-book/claude/memo-book-project-duulu7/deploy/bootstrap.sh \
-#       | bash -s -- yourdomain.uz
+#       | bash -s -- rspixel.uz
 #
 # Idempotent: safe to re-run — it pulls the latest code and restarts the
 # stack; the generated .env (with its secrets) is created once and kept.
@@ -10,7 +10,7 @@
 # pointing at this server for DOMAIN, api.DOMAIN, storage.DOMAIN.
 set -euo pipefail
 
-DOMAIN="${1:-}"
+DOMAIN="${1:-rspixel.uz}"
 BRANCH="${BRANCH:-claude/memo-book-project-duulu7}"
 REPO="${REPO:-https://github.com/Furqatbek/memo-book.git}"
 DIR="${DIR:-/opt/memo-book}"
@@ -19,7 +19,6 @@ say()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m !! %s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31m XX %s\033[0m\n' "$*"; exit 1; }
 
-[ -n "$DOMAIN" ] || die "usage: bootstrap.sh <domain>   (e.g. bootstrap.sh rspixel.uz)"
 [ "$(id -u)" = 0 ] || die "run as root (or with sudo)"
 
 # ---------- DNS sanity (Caddy needs these to get TLS certificates) ----------
@@ -85,7 +84,7 @@ if [ ! -f "$ENV" ]; then
       -e "s/CHANGE_ME_PG/$PG_PW/g" \
       -e "s/CHANGE_ME_MINIO/$MINIO_PW/g" \
       -e "s/CHANGE_ME_SECRET/$DEV_PW/g" \
-      -e "s/example\.uz/$DOMAIN/g" \
+      -e "s/rspixel\.uz/$DOMAIN/g" \
       "$DIR/deploy/.env.prod.example" > "$ENV"
   chmod 600 "$ENV"
 else
@@ -107,7 +106,6 @@ done
 docker compose -f docker-compose.prod.yml exec -T api curl -sf http://localhost:8000/health >/dev/null 2>&1 \
   || { docker compose -f docker-compose.prod.yml logs --tail 30 api; die "API did not become healthy — logs above"; }
 
-DEV_SECRET=$(grep '^DEV_PAYMENT_SECRET=' .env | cut -d= -f2)
 say "Deployed."
 cat <<DONE
 
@@ -115,11 +113,11 @@ cat <<DONE
   API health:      https://$DOMAIN/health     /ready
   Swagger:         https://$DOMAIN/docs
 
-  Mark an order paid (pilot manual payment):
-    curl -X POST https://$DOMAIN/api/v1/payments/dev/webhook \\
-         -H "X-Dev-Signature: $DEV_SECRET" \\
-         -H 'Content-Type: application/json' \\
-         -d '{"event_id":"manual-REF","action":"pay","human_ref":"REF","amount_minor":AMOUNT}'
+  Card-transfer payments (pilot):
+    docker compose -f docker-compose.prod.yml exec api \\
+        python scripts/confirm_payment.py --list      # orders awaiting payment
+    docker compose -f docker-compose.prod.yml exec api \\
+        python scripts/confirm_payment.py REF         # confirm a transfer
 
   Advance an order after printing/shipping:
     cd $DIR/deploy && docker compose -f docker-compose.prod.yml exec api \\
@@ -128,6 +126,8 @@ cat <<DONE
   Next steps (see $DIR/docs/deployment.md):
     - set TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID in deploy/.env, then:
         docker compose -f docker-compose.prod.yml up -d
+        docker compose -f docker-compose.prod.yml exec api python scripts/telegram_check.py
+    - set PAY_CARD_NUMBER / PAY_CARD_HOLDER (shown on the order page)
     - set real PRICE_MINOR_* and the printer's SPINE_MM_* the same way
     - set up the backup crontab from the deployment guide
 DONE

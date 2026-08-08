@@ -108,6 +108,9 @@ select {
 .tier span { color: var(--muted); font-size: .88rem; }
 .tier:hover:not(:disabled) { border-color: var(--primary); }
 .tier:disabled { opacity: .45; }
+.tier .tier-price { color: var(--ink); font-size: .82rem; font-weight: 600;
+  min-height: 1.1em; }
+.pv-price { white-space: nowrap; }
 .start-track { text-align: center; }
 .start-track a { color: var(--primary); }
 

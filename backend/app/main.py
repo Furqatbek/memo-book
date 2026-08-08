@@ -12,6 +12,7 @@ from app.api.orders import router as orders_router
 from app.api.payments import router as payments_router
 from app.api.photos import router as photos_router
 from app.api.preview import router as preview_router
+from app.api.pricing import router as pricing_router
 from app.config import get_settings
 from app.logging import configure_logging
 
@@ -35,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(preview_router)
     app.include_router(orders_router)
     app.include_router(payments_router)
+    app.include_router(pricing_router)
     if settings.editor_dir and Path(settings.editor_dir).is_dir():
         app.mount("/editor", StaticFiles(directory=settings.editor_dir, html=True),
                   name="editor")

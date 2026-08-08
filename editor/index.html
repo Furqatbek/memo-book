@@ -40,10 +40,10 @@
         <h1 data-i18n="start.title"></h1>
         <p class="muted" data-i18n="start.subtitle"></p>
         <div class="tier-grid" id="tier-grid">
-          <button class="tier" data-tier="16"><b>16</b><span data-i18n="start.pages"></span></button>
-          <button class="tier" data-tier="32"><b>32</b><span data-i18n="start.pages"></span></button>
-          <button class="tier" data-tier="48"><b>48</b><span data-i18n="start.pages"></span></button>
-          <button class="tier" data-tier="96"><b>96</b><span data-i18n="start.pages"></span></button>
+          <button class="tier" data-tier="16"><b>16</b><span data-i18n="start.pages"></span><span class="tier-price" data-tier-price="16"></span></button>
+          <button class="tier" data-tier="32"><b>32</b><span data-i18n="start.pages"></span><span class="tier-price" data-tier-price="32"></span></button>
+          <button class="tier" data-tier="48"><b>48</b><span data-i18n="start.pages"></span><span class="tier-price" data-tier-price="48"></span></button>
+          <button class="tier" data-tier="96"><b>96</b><span data-i18n="start.pages"></span><span class="tier-price" data-tier-price="96"></span></button>
         </div>
       </div>
       <p class="start-track"><a href="#" id="track-link" data-i18n="order.lookupTitle"></a></p>
@@ -125,6 +125,7 @@
         <input type="checkbox" id="pv-confirm">
         <span data-i18n="preview.confirm"></span>
       </label>
+      <b id="pv-price" class="pv-price"></b>
       <button id="pv-checkout" class="btn primary" disabled data-i18n="preview.checkout"></button>
     </footer>
   </section>
