@@ -38,12 +38,24 @@
 
       <div id="start-new">
         <h1 data-i18n="start.title"></h1>
+        <div id="type-step">
+          <p class="step-label" data-i18n="start.typeTitle"></p>
+          <div class="type-grid" id="type-grid">
+            <button class="btype" data-btype="love"><span class="bt-ico">❤️</span><span data-i18n="type.love"></span></button>
+            <button class="btype" data-btype="travel"><span class="bt-ico">✈️</span><span data-i18n="type.travel"></span></button>
+            <button class="btype" data-btype="birthday"><span class="bt-ico">🎂</span><span data-i18n="type.birthday"></span></button>
+            <button class="btype" data-btype="memory"><span class="bt-ico">📸</span><span data-i18n="type.memory"></span></button>
+          </div>
+        </div>
+        <div id="tier-step" class="hidden">
+        <p class="step-label"><b id="type-chosen"></b> · <a href="#" id="type-change" data-i18n="start.changeType"></a></p>
         <p class="muted" data-i18n="start.subtitle"></p>
         <div class="tier-grid" id="tier-grid">
           <button class="tier" data-tier="16"><b>16</b><span data-i18n="start.pages"></span><span class="tier-price" data-tier-price="16"></span></button>
           <button class="tier" data-tier="32"><b>32</b><span data-i18n="start.pages"></span><span class="tier-price" data-tier-price="32"></span></button>
           <button class="tier" data-tier="48"><b>48</b><span data-i18n="start.pages"></span><span class="tier-price" data-tier-price="48"></span></button>
           <button class="tier" data-tier="96"><b>96</b><span data-i18n="start.pages"></span><span class="tier-price" data-tier-price="96"></span></button>
+        </div>
         </div>
       </div>
       <p class="start-track"><a href="#" id="track-link" data-i18n="order.lookupTitle"></a></p>

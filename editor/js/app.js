@@ -43,7 +43,17 @@ const S = {
   dirty: false, saving: false, saveQueued: false, saveTimer: null,
   photoTimer: null, orderTimer: null, previewTimer: null,
   pollIdle: 0, pendingSince: new Map(),
-  order: null, prices: null,
+  order: null, prices: null, bookType: null,
+};
+
+/* Occasion picked before the page-count step. Everything here is only a
+   STARTING POINT — a prefilled cover title and colour the customer can
+   change or delete. "memory" deliberately applies nothing. */
+const BOOK_TYPES = {
+  love: { emoji: '❤️', bg: '#7a2740', titleColor: '#ffffff' },
+  travel: { emoji: '✈️', bg: '#1d4d85', titleColor: '#ffffff' },
+  birthday: { emoji: '🎂', bg: '#5b2d86', titleColor: '#ffffff' },
+  memory: { emoji: '📸' },
 };
 
 const $ = (id) => document.getElementById(id);
@@ -214,11 +224,26 @@ function renderPrices() {
   }
 }
 
+function showTypeStep() {
+  S.bookType = null;
+  $('type-step').classList.remove('hidden');
+  $('tier-step').classList.add('hidden');
+}
+
+function pickBookType(type) {
+  S.bookType = type;
+  $('type-chosen').textContent =
+    `${BOOK_TYPES[type].emoji} ${t(`type.${type}`)}`;
+  $('type-step').classList.add('hidden');
+  $('tier-step').classList.remove('hidden');
+}
+
 async function enterStart() {
   showScreen('start');
+  showTypeStep();
   const offline = !(await api.health());
   $('api-offline').classList.toggle('hidden', !offline);
-  for (const b of document.querySelectorAll('.tier')) b.disabled = offline;
+  for (const b of document.querySelectorAll('.tier, .btype')) b.disabled = offline;
   if (!offline && !S.prices) loadPrices();
   const creds = load('mb-book');
   const card = $('resume-card');
@@ -247,6 +272,14 @@ async function startNewBook(tier) {
     S.page = -1;
     S.sel = null;
     S.locked = false;
+    const theme = BOOK_TYPES[S.bookType];
+    if (theme && theme.bg) {
+      const cover = S.book.layout.cover;
+      if (!cover.title) cover.title = t(`type.title.${S.bookType}`);
+      cover.bg_color = theme.bg;
+      cover.title_color = theme.titleColor;
+      markDirty();
+    }
     enterEditor();
   } catch (e) {
     toast(e.code === 'NETWORK' ? t('err.network') : t('err.generic'), 'warn');
@@ -1741,6 +1774,14 @@ function buildLangSelect() {
 }
 
 function bind() {
+  $('type-grid').addEventListener('click', (e) => {
+    const b = e.target.closest('.btype');
+    if (b && !b.disabled) pickBookType(b.dataset.btype);
+  });
+  $('type-change').addEventListener('click', (e) => {
+    e.preventDefault();
+    showTypeStep();
+  });
   $('tier-grid').addEventListener('click', (e) => {
     const b = e.target.closest('.tier');
     if (b && !b.disabled) startNewBook(Number(b.dataset.tier));
