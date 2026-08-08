@@ -309,3 +309,16 @@ the public-URL client stay valid for the same bucket. The editor also
 retries each storage PUT three times with backoff — tunnels and mobile
 networks drop connections mid-upload, and one flaky request should not
 red-flag the whole file.
+
+**A54 — Card-transfer pilot payments.** Until a real acquirer is
+integrated, the order page shows a configured card (`PAY_CARD_NUMBER` /
+`PAY_CARD_HOLDER`, rendered as a bank card with a copy button) while the
+order is `pending_payment`; the block is driven by the public status
+payload and disappears the moment the order is paid. The operator matches
+an incoming transfer with `scripts/confirm_payment.py --list` and confirms
+with `scripts/confirm_payment.py REF`, which POSTs the signed dev-provider
+webhook to the running API — signature, amount check, idempotency and the
+render trigger are exactly the acquirer path, so swapping in Payme/Click
+later changes nothing about fulfilment. Telegram credentials are wired
+with `scripts/telegram_check.py` (getMe + test send; lists visible chat
+ids when TELEGRAM_CHAT_ID is empty).

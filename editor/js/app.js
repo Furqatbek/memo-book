@@ -640,8 +640,6 @@ function renderCover(canvas) {
       class: 'cover-img', src: photo.display_url, alt: '',
       onclick: (e) => { e.stopPropagation(); select({ kind: 'cover' }); },
     }));
-  } else {
-    canvas.append(h('div', { class: 'canvas-empty' }, t('canvas.empty')));
   }
   const scale = canvas.clientWidth / CANVAS_W;   // px per mm
   const textColor = cover.title_color || (photo ? '#ffffff' : '#1a1a1a');
@@ -826,11 +824,7 @@ function renderPage(canvas) {
   );
 
   const pl = page.placements[0];
-  if (pl) {
-    canvas.append(makePlacement(pl));
-  } else {
-    canvas.append(h('div', { class: 'canvas-empty' }, t('canvas.empty')));
-  }
+  if (pl) canvas.append(makePlacement(pl));
 
   const scale = canvas.clientWidth / CANVAS_W;   // px per mm
   for (const tb of page.texts) {
@@ -1598,7 +1592,22 @@ function showOrder() {
   $('or-pay-note').classList.toggle('hidden', !pending);
   renderTimeline(S.order.status);
   updateArtifacts(null);   // until the next poll confirms
+  updatePayCard(null);
   pollOrder();
+}
+
+/* Card-transfer pilot: while the order is pending, the status payload
+   carries the card to transfer to; it replaces the generic pay note. */
+function updatePayCard(r) {
+  const card = r && r.pay_card;
+  $('or-paycard').classList.toggle('hidden', !card);
+  if (card) {
+    $('or-pay-note').classList.add('hidden');
+    const digits = String(card.number).replace(/[^0-9*]/g, '');
+    $('pay-number').textContent =
+      (digits.match(/.{1,4}/g) || [String(card.number)]).join(' ');
+    $('pay-holder').textContent = card.holder || '';
+  }
 }
 
 /* Dev environments include print-PDF links in the status payload. */
@@ -1643,6 +1652,7 @@ async function pollOrder() {
         !(pending && ((S.order.payment && S.order.payment.providers_available) || []).includes('dev')));
       $('or-pay-note').classList.toggle('hidden', !pending);
     }
+    updatePayCard(r);
   } catch (e) { /* transient */ }
   if (!['delivered', 'cancelled'].includes(S.order.status)) {
     S.orderTimer = setTimeout(pollOrder, 3000);
@@ -1806,6 +1816,20 @@ function bind() {
 
   $('or-lookup').addEventListener('submit', submitLookup);
   $('or-dev-pay').addEventListener('click', devPayNow);
+  $('pay-copy').addEventListener('click', async () => {
+    const digits = $('pay-number').textContent.replace(/\s/g, '');
+    try {
+      await navigator.clipboard.writeText(digits);
+    } catch (e) {
+      // Plain-HTTP contexts have no clipboard API.
+      const ta = h('textarea', { style: 'position:fixed;opacity:0' }, digits);
+      document.body.append(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    toast(t('order.copied'));
+  });
   $('or-new-book').addEventListener('click', () => {
     if (confirm(t('confirm.newBook'))) {
       store('mb-book', null);

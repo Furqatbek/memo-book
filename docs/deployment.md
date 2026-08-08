@@ -113,7 +113,26 @@ out.
 
 ## Step 5 — How a paid order reaches you (the print handoff)
 
-Nothing manual happens between payment and print files:
+**One-time setup — create the Telegram bot (5 minutes):**
+
+1. In Telegram, open **@BotFather** → `/newbot` → pick a name and a
+   username. Copy the token into `.env` as `TELEGRAM_BOT_TOKEN`.
+2. Send your new bot any message (or add it to your operators group and
+   write something there — for a group, also give it permission to read
+   messages, or just mention it).
+3. Find the chat id and verify the wiring:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec api \
+       python scripts/telegram_check.py
+   ```
+
+   With `TELEGRAM_CHAT_ID` still empty it prints the chat ids the bot can
+   see — put the right one in `.env`, `docker compose -f
+   docker-compose.prod.yml up -d`, and run the check again. A test message
+   in Telegram means order notifications will arrive.
+
+After that, nothing manual happens between payment and print files:
 
 1. Payment confirmation arrives (webhook) → order becomes **paid**.
 2. The render worker builds the two print files: `interior.pdf` (all
@@ -135,24 +154,43 @@ docker compose -f docker-compose.prod.yml exec api \
 If Telegram credentials are missing or wrong, deliveries retry with
 backoff — fix `.env`, restart (`up -d`), and queued notifications go out.
 
-## Step 6 — Payments during the pilot (manual mode)
+## Step 6 — Payments during the pilot (card transfer)
 
-Until a real acquirer (Payme/Click/Uzum) is integrated, the "dev" provider
-is active: a correctly-signed webhook **is** the payment. Pilot flow — the
-customer checks out (order shows *Awaiting payment*), pays you directly
-(card transfer / cash), and you confirm:
+Until a real acquirer (Payme/Click/Uzum) is integrated, payment is a card
+transfer you confirm by hand. Set your card in `.env`:
 
-```bash
-curl -X POST https://yourdomain.uz/api/v1/payments/dev/webhook \
-     -H "X-Dev-Signature: YOUR_DEV_PAYMENT_SECRET" \
-     -H 'Content-Type: application/json' \
-     -d '{"event_id":"manual-UB-7K3M2","action":"pay",
-          "human_ref":"UB-7K3M2","amount_minor":29900000}'
+```
+PAY_CARD_NUMBER=8600 xxxx xxxx xxxx
+PAY_CARD_HOLDER=FIRSTNAME LASTNAME
 ```
 
-`amount_minor` must equal the order total exactly (the checkout screen and
-the Telegram message both show it). Rendering starts immediately.
-When a real acquirer is integrated, set `DEV_PAYMENTS_ENABLED=false`.
+The flow:
+
+1. The customer checks out → the order page shows *Awaiting payment* with
+   your card (bank-card design, copy button) and the exact amount.
+2. The customer transfers the amount. Match the incoming transfer against
+   the open orders:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec api \
+       python scripts/confirm_payment.py --list
+   # UB-7K3M2   299,000 UZS  07.08 14:12  Aziza R, +99890...
+   ```
+
+   (Amount + sender name + the customer's phone from checkout are enough
+   to match; call them if unsure.)
+3. Confirm — this is the payment, rendering starts immediately:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec api \
+       python scripts/confirm_payment.py UB-7K3M2
+   ```
+
+The confirmation goes through the same webhook machinery a real acquirer
+would use (signature, amount check, idempotency) — running it twice is
+safe. The customer's order page flips from *Awaiting payment* on its own.
+When a real acquirer is integrated, set `DEV_PAYMENTS_ENABLED=false` and
+clear `PAY_CARD_NUMBER`.
 
 ## Step 7 — Point the public site here
 

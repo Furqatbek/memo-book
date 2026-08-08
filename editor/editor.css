@@ -194,12 +194,6 @@ select {
   width: min(100%, calc((100dvh - 250px) * 154 / 216));
   overflow: hidden;
 }
-.canvas-empty {
-  position: absolute; inset: 12%; display: flex; align-items: center;
-  justify-content: center; text-align: center; color: var(--muted);
-  border: 2px dashed var(--line); border-radius: var(--radius); padding: 12px;
-  font-size: .95rem; pointer-events: none;
-}
 .guide { position: absolute; pointer-events: none; z-index: 3; }
 .guide.trim { border: 1px solid rgba(36,86,214,.35); }
 .guide.safe { border: 1px dashed rgba(36,86,214,.22); }
@@ -476,6 +470,36 @@ a.brand:hover { color: var(--primary); }
 .or-files { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .or-file-links { display: flex; gap: 10px; flex-wrap: wrap; }
 .or-file-links .btn { text-decoration: none; }
+
+/* Card-transfer payment block: a bank-card look for the number to pay to */
+.pay-wrap { display: grid; gap: 10px; justify-items: start; margin: 16px 0; }
+.bank-card {
+  width: min(340px, 100%); aspect-ratio: 1.586; border-radius: 16px;
+  padding: 18px 20px; color: #fff; display: flex; flex-direction: column;
+  justify-content: space-between; user-select: text;
+  background: linear-gradient(135deg, #2f63e0 0%, #1c47b8 55%, #122f80 100%);
+  box-shadow: 0 12px 28px rgba(18,47,128,.35);
+}
+.bank-top { display: flex; justify-content: space-between; align-items: center; }
+.bank-chip {
+  width: 40px; height: 29px; border-radius: 6px; position: relative;
+  background: linear-gradient(135deg, #f2d287 0%, #d4a94e 100%);
+}
+.bank-chip::after {
+  content: ''; position: absolute; inset: 5px 4px;
+  border: 1px solid rgba(0,0,0,.28); border-radius: 3px;
+}
+.bank-brand { font-weight: 700; letter-spacing: .4px; opacity: .92; }
+.bank-number {
+  font-family: 'Courier New', ui-monospace, monospace; font-weight: 700;
+  font-size: clamp(1.05rem, 5.4vw, 1.35rem); letter-spacing: 2px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.3); word-spacing: 4px;
+}
+.bank-holder {
+  text-transform: uppercase; letter-spacing: 1.2px; font-size: .82rem;
+  opacity: .88; min-height: 1em;
+}
+.pay-note { max-width: 52ch; }
 .tray-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .ph-card.picked { outline: 3px solid var(--primary); outline-offset: -3px; }
 .ph-card.picked::after {

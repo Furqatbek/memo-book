@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     dev_payments_enabled: bool = True
     dev_payment_secret: str = "dev-secret-change-me"
 
+    # Card-transfer pilot: shown on the order page while payment is pending;
+    # the operator confirms received transfers with scripts/confirm_payment.py.
+    # Empty = the card block never appears.
+    pay_card_number: str = ""
+    pay_card_holder: str = ""
+
     # --- Render (Milestone 6) ---
     # "rgb" (canonical, deterministic) or "cmyk" (Ghostscript + printer ICC).
     # Both paths are supported so losing either printer capability is survivable.

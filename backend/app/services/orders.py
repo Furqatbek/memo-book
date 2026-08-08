@@ -221,12 +221,21 @@ async def public_status(session: AsyncSession, human_ref: str, phone: str) -> di
         "created_at": order.created_at,
         "paid_at": order.paid_at,
     }
+    # Card-transfer pilot: show where to send the money while the order is
+    # unpaid. Nothing secret here — it's the number customers must see.
+    from app.config import get_settings
+
+    settings = get_settings()
+    if (order.status == OrderStatus.PENDING_PAYMENT.value
+            and settings.pay_card_number):
+        payload["pay_card"] = {
+            "number": settings.pay_card_number,
+            "holder": settings.pay_card_holder,
+        }
     # DEV ENVIRONMENTS ONLY: hand the print PDFs to the order screen so
     # local testing needs no scripts. In production (ENV=prod) the files
     # reach the operator via Telegram, never the public status page.
-    from app.config import get_settings
-
-    if get_settings().env == "dev":
+    if settings.env == "dev":
         from app import storage
         from app.models.payment import PdfArtifact
 
