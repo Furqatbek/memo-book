@@ -129,7 +129,14 @@ async def _handle_cancel(session: AsyncSession, order: Order,
                          duplicate: bool) -> dict:
     if order.status == OrderStatus.CANCELLED.value:
         return _ok(order, duplicate=True)
-    # Raises ILLEGAL_TRANSITION for anything but pending_payment.
+    # A provider cancel applies only to unpaid orders — once money moved,
+    # the path is a refund, never a webhook cancel. (The state machine also
+    # allows operator cancels from later states; that power is the operator
+    # CLI's, not the webhook's.)
+    if order.status != OrderStatus.PENDING_PAYMENT.value:
+        raise DomainError(ErrorCode.ILLEGAL_TRANSITION,
+                          f"cannot cancel a {order.status} order via webhook",
+                          {"order_status": order.status})
     apply_transition(session, order, OrderStatus.CANCELLED, "provider cancel")
     book = (await session.execute(
         select(Book).where(Book.id == order.book_id)

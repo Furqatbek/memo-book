@@ -329,3 +329,14 @@ picker (love/travel/birthday/memory) is stored on the book
 rendered-order payload into the Telegram notification, alongside the
 customer's delivery address and email. The message shows a human label
 ("✈️ Travel book"); an unset type simply omits the line.
+
+**A56 — Operator cancellation in the trust-first pilot.** Because
+auto-confirmed orders skip `pending_payment`, the state machine now allows
+`cancelled` from paid/rendering/render_failed/rendered — i.e. any time
+before `sent_to_production` — and an `ordered` book may return to `draft`.
+The power belongs to the operator CLI (`order_status.py REF cancelled`,
+which also unlocks the book for editing/re-ordering); the payment webhook
+still refuses to cancel anything but a pending order, since money that
+already moved is a refund, never a webhook cancel. Re-checkout after an
+operator cancel auto-confirms again through the same deterministic
+`auto-<order-id>` event.

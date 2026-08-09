@@ -30,11 +30,19 @@ ORDER_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
     # cancelled -> pending_payment: re-checkout of the same book reuses its
     # one order row (unique book_id) with a fresh audit event (assumption A33).
     OrderStatus.CANCELLED: frozenset({OrderStatus.PENDING_PAYMENT}),
-    OrderStatus.PAID: frozenset({OrderStatus.RENDERING}),
+    # paid/rendering/render_failed/rendered -> cancelled: in the trust-first
+    # card pilot orders confirm automatically, so the operator (who verifies
+    # the bank transfer by hand) must be able to cancel any time before the
+    # book physically goes to production (A56).
+    OrderStatus.PAID: frozenset({OrderStatus.RENDERING, OrderStatus.CANCELLED}),
     # render_failed -> rendering is the operator retry path (assumption A5).
-    OrderStatus.RENDERING: frozenset({OrderStatus.RENDERED, OrderStatus.RENDER_FAILED}),
-    OrderStatus.RENDER_FAILED: frozenset({OrderStatus.RENDERING}),
-    OrderStatus.RENDERED: frozenset({OrderStatus.SENT_TO_PRODUCTION}),
+    OrderStatus.RENDERING: frozenset({OrderStatus.RENDERED,
+                                      OrderStatus.RENDER_FAILED,
+                                      OrderStatus.CANCELLED}),
+    OrderStatus.RENDER_FAILED: frozenset({OrderStatus.RENDERING,
+                                          OrderStatus.CANCELLED}),
+    OrderStatus.RENDERED: frozenset({OrderStatus.SENT_TO_PRODUCTION,
+                                     OrderStatus.CANCELLED}),
     OrderStatus.SENT_TO_PRODUCTION: frozenset({OrderStatus.SHIPPED}),
     OrderStatus.SHIPPED: frozenset({OrderStatus.DELIVERED, OrderStatus.REFUNDED}),
     OrderStatus.DELIVERED: frozenset({OrderStatus.REFUNDED}),
@@ -81,7 +89,9 @@ BOOK_TRANSITIONS: dict[BookStatus, frozenset[BookStatus]] = {
     BookStatus.DRAFT: frozenset({BookStatus.LOCKED, BookStatus.EXPIRED}),
     # locked -> draft unlocks the book when payment is cancelled (assumption A6).
     BookStatus.LOCKED: frozenset({BookStatus.ORDERED, BookStatus.DRAFT}),
-    BookStatus.ORDERED: frozenset(),   # ordered books are never expired (R6)
+    # ordered -> draft: an operator cancel of an auto-confirmed order (A56)
+    # returns the book to editing. Ordered books still never expire (R6).
+    BookStatus.ORDERED: frozenset({BookStatus.DRAFT}),
     BookStatus.EXPIRED: frozenset(),
 }
 

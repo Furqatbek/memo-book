@@ -149,6 +149,8 @@ it on the public tracking page):
 docker compose -f docker-compose.prod.yml exec api \
     python scripts/order_status.py UB-7K3M2 sent_to_production
 # later: shipped, then: delivered
+# customer declined / never paid: cancelled  (only before sent_to_production;
+# also unlocks their book so they can keep editing or re-order)
 ```
 
 If Telegram credentials are missing or wrong, deliveries retry with

@@ -50,6 +50,23 @@ def test_render_failed_alerts_operator():
     assert Effect.ALERT_OPERATOR in effects
 
 
+@pytest.mark.parametrize("source", [
+    OrderStatus.PENDING_PAYMENT, OrderStatus.PAID, OrderStatus.RENDERING,
+    OrderStatus.RENDER_FAILED, OrderStatus.RENDERED,
+])
+def test_operator_can_cancel_before_production(source):
+    # Trust-first pilot (A56): auto-confirmed orders skip pending_payment,
+    # so cancellation must stay possible until the book physically prints.
+    transition_order(source, OrderStatus.CANCELLED)  # must not raise
+
+
+def test_no_cancel_once_in_production():
+    for source in (OrderStatus.SENT_TO_PRODUCTION, OrderStatus.SHIPPED,
+                   OrderStatus.DELIVERED):
+        with pytest.raises(IllegalTransition):
+            transition_order(source, OrderStatus.CANCELLED)
+
+
 class TestBookStates:
     def test_locking_makes_layout_immutable(self):
         transition_book(BookStatus.DRAFT, BookStatus.LOCKED)

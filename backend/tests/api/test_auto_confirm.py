@@ -41,3 +41,37 @@ async def test_default_off_keeps_pending_payment(client, db, s3):
     resp = await do_checkout(client, book_id, headers)
     assert resp.status_code == 201
     assert resp.json()["order_status"] == "pending_payment"
+
+
+async def test_operator_cancel_unlocks_book_and_recheckout_works(
+        client, db, s3, monkeypatch):
+    """The customer declines on the confirmation call: the operator cancels
+    the auto-confirmed (already rendered) order, the book unlocks for
+    editing, and a later re-checkout confirms again."""
+    import uuid as uuid_mod
+
+    from app.models.book import Book
+    from app.services.orders import cancel_order
+
+    book_id, headers = await ready_book(client, db)
+    _enable(monkeypatch)
+    try:
+        resp = await do_checkout(client, book_id, headers)
+        assert resp.json()["order_status"] == "rendered"
+        order = (await db.execute(
+            select(Order).where(Order.human_ref == resp.json()["human_ref"])
+        )).scalar_one()
+
+        await cancel_order(db, order.id, note="customer declined on call")
+        await db.refresh(order)
+        assert order.status == "cancelled"
+        book = (await db.execute(
+            select(Book).where(Book.id == uuid_mod.UUID(book_id))
+        )).scalar_one()
+        assert book.status == "draft"
+
+        resp = await do_checkout(client, book_id, headers)
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["order_status"] == "rendered"
+    finally:
+        get_settings.cache_clear()
