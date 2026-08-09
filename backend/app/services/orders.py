@@ -221,13 +221,19 @@ async def public_status(session: AsyncSession, human_ref: str, phone: str) -> di
         "created_at": order.created_at,
         "paid_at": order.paid_at,
     }
-    # Card-transfer pilot: show where to send the money while the order is
-    # unpaid. Nothing secret here — it's the number customers must see.
+    # Card-transfer pilot: show where to send the money. With auto-confirmed
+    # orders the flow proceeds without a payment callback, so the card stays
+    # visible until the operator (who verifies the transfer) sends the order
+    # to production. Nothing secret here — it's the number customers must see.
     from app.config import get_settings
 
     settings = get_settings()
-    if (order.status == OrderStatus.PENDING_PAYMENT.value
-            and settings.pay_card_number):
+    PAY_CARD_STATUSES = {
+        OrderStatus.PENDING_PAYMENT.value, OrderStatus.PAID.value,
+        OrderStatus.RENDERING.value, OrderStatus.RENDER_FAILED.value,
+        OrderStatus.RENDERED.value,
+    }
+    if order.status in PAY_CARD_STATUSES and settings.pay_card_number:
         payload["pay_card"] = {
             "number": settings.pay_card_number,
             "holder": settings.pay_card_holder,

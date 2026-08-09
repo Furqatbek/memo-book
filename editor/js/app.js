@@ -43,7 +43,7 @@ const S = {
   dirty: false, saving: false, saveQueued: false, saveTimer: null,
   photoTimer: null, orderTimer: null, previewTimer: null,
   pollIdle: 0, pendingSince: new Map(),
-  order: null, prices: null, bookType: null,
+  order: null, prices: null, bookType: null, devAvailable: null,
 };
 
 /* Occasion picked before the page-count step. Everything here is only a
@@ -1635,15 +1635,38 @@ async function submitCheckout(e) {
   }
 }
 
+/* The simulate button exists only where the dev-config endpoint answers
+   (local/dev environments). In production it 404s and the button never
+   shows — customers pay by card transfer instead. */
+async function ensureDevMode() {
+  if (S.devAvailable !== null) return;
+  if (window.MEMOBOOK && window.MEMOBOOK.devPaymentSecret) {
+    S.devAvailable = true;
+    return;
+  }
+  try {
+    const cfg = await api.devConfig();
+    S.devAvailable = !!(cfg && cfg.dev_payment_secret);
+  } catch (e) {
+    S.devAvailable = false;
+  }
+}
+
+function updateDevButton() {
+  if (!S.order) return;
+  $('or-dev').classList.toggle('hidden',
+    !(S.devAvailable === true && S.order.status === 'pending_payment'));
+}
+
 function showOrder() {
   showScreen('order');
   $('or-lookup').classList.add('hidden');
   $('or-details').classList.remove('hidden');
   $('or-ref').textContent = S.order.ref;
   $('or-amount').textContent = fmtAmount(S.order.amount_minor);
-  const dev = (S.order.payment && S.order.payment.providers_available) || [];
   const pending = S.order.status === 'pending_payment';
-  $('or-dev').classList.toggle('hidden', !(pending && dev.includes('dev')));
+  $('or-dev').classList.add('hidden');
+  ensureDevMode().then(updateDevButton);
   $('or-pay-note').classList.toggle('hidden', !pending);
   renderTimeline(S.order.status);
   updateArtifacts(null);   // until the next poll confirms
@@ -1702,10 +1725,8 @@ async function pollOrder() {
       S.order.status = r.status;
       store('mb-order', S.order);
       renderTimeline(r.status);
-      const pending = r.status === 'pending_payment';
-      $('or-dev').classList.toggle('hidden',
-        !(pending && ((S.order.payment && S.order.payment.providers_available) || []).includes('dev')));
-      $('or-pay-note').classList.toggle('hidden', !pending);
+      updateDevButton();
+      $('or-pay-note').classList.toggle('hidden', r.status !== 'pending_payment');
     }
     updatePayCard(r);
   } catch (e) { /* transient */ }

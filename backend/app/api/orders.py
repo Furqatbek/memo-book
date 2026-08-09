@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
+from app.domain.states import OrderStatus
 from app.payments.registry import available_providers, get_provider
 from app.services import orders as svc
 
@@ -33,6 +34,24 @@ async def checkout(book_id: uuid.UUID, body: CheckoutRequest, session: Session,
         name=body.name, phone=body.phone, address=body.address,
         email=body.email, confirmed_preview=body.confirmed_preview,
     )
+    # Trust-first card pilot: confirm immediately through the full webhook
+    # machinery (amount check, idempotency via the deterministic event id,
+    # render trigger) — the operator verifies the actual bank transfer
+    # before printing. See AUTO_CONFIRM_ORDERS.
+    from app.config import get_settings
+
+    settings = get_settings()
+    if (settings.auto_confirm_orders and settings.dev_payments_enabled
+            and order.status == OrderStatus.PENDING_PAYMENT.value):
+        from app.services.payments import handle_webhook
+
+        await handle_webhook(
+            session, "dev",
+            {"x-dev-signature": settings.dev_payment_secret},
+            {"event_id": f"auto-{order.id}", "action": "pay",
+             "human_ref": order.human_ref, "amount_minor": order.amount_minor},
+        )
+        await session.refresh(order)
     providers = available_providers()
     return {
         "human_ref": order.human_ref,

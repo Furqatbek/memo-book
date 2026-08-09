@@ -40,20 +40,27 @@ async def fetch_order(ref: str) -> Order:
         await engine.dispose()
 
 
+# Everything before the operator's own "sent to production" step — i.e.
+# orders whose bank transfer may still need matching against the account.
+UNVERIFIED_STATUSES = ("pending_payment", "paid", "rendering",
+                       "render_failed", "rendered")
+
+
 async def list_pending() -> None:
     engine = create_async_engine(get_settings().database_url)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with sessions() as session:
             orders = (await session.execute(
-                select(Order).where(Order.status == "pending_payment")
+                select(Order).where(Order.status.in_(UNVERIFIED_STATUSES))
                 .order_by(Order.created_at)
             )).scalars().all()
             if not orders:
-                print("no orders awaiting payment")
+                print("no orders awaiting payment or verification")
                 return
             for o in orders:
-                print(f"{o.human_ref}  {o.amount_minor / 100:>12,.0f} {o.currency}"
+                print(f"{o.human_ref}  {o.status:<15}"
+                      f"  {o.amount_minor / 100:>12,.0f} {o.currency}"
                       f"  {o.created_at:%d.%m %H:%M}  {o.customer_name},"
                       f" {o.customer_phone}")
     finally:

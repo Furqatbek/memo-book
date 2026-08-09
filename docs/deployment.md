@@ -154,43 +154,47 @@ docker compose -f docker-compose.prod.yml exec api \
 If Telegram credentials are missing or wrong, deliveries retry with
 backoff — fix `.env`, restart (`up -d`), and queued notifications go out.
 
-## Step 6 — Payments during the pilot (card transfer)
+## Step 6 — Payments during the pilot (card transfer, trust-first)
 
 Until a real acquirer (Payme/Click/Uzum) is integrated, payment is a card
-transfer you confirm by hand. Set your card in `.env`:
+transfer and the flow does **not** wait for it. In `.env`:
 
 ```
 PAY_CARD_NUMBER=8600 xxxx xxxx xxxx
 PAY_CARD_HOLDER=FIRSTNAME LASTNAME
+AUTO_CONFIRM_ORDERS=true
 ```
 
 The flow:
 
-1. The customer checks out → the order page shows *Awaiting payment* with
-   your card (bank-card design, copy button) and the exact amount.
-2. The customer transfers the amount. Match the incoming transfer against
-   the open orders:
+1. The customer checks out. The order confirms immediately: print PDFs
+   render and the Telegram notification reaches your printer chat within
+   a minute — no simulate button, no waiting.
+2. The order page shows your card (bank-card design, copy button, the
+   exact amount) with a highlighted note asking the customer to transfer
+   now. The card stays visible until you send the order to production.
+3. **You are the payment gate.** Before printing, match the incoming
+   transfer in your bank app against the order:
 
    ```bash
    docker compose -f docker-compose.prod.yml exec api \
        python scripts/confirm_payment.py --list
-   # UB-7K3M2   299,000 UZS  07.08 14:12  Aziza R, +99890...
+   # UB-7K3M2  rendered   299,000 UZS  07.08 14:12  Aziza R, +99890...
    ```
 
-   (Amount + sender name + the customer's phone from checkout are enough
-   to match; call them if unsure.)
-3. Confirm — this is the payment, rendering starts immediately:
+   Amount + timing + the customer's phone from checkout are enough to
+   match; call them if unsure. Money arrived → proceed as usual:
 
    ```bash
    docker compose -f docker-compose.prod.yml exec api \
-       python scripts/confirm_payment.py UB-7K3M2
+       python scripts/order_status.py UB-7K3M2 sent_to_production
    ```
 
-The confirmation goes through the same webhook machinery a real acquirer
-would use (signature, amount check, idempotency) — running it twice is
-safe. The customer's order page flips from *Awaiting payment* on its own.
-When a real acquirer is integrated, set `DEV_PAYMENTS_ENABLED=false` and
-clear `PAY_CARD_NUMBER`.
+   No transfer after a reasonable wait → don't print, call the customer.
+
+When a real acquirer is integrated: set `AUTO_CONFIRM_ORDERS=false` and
+`DEV_PAYMENTS_ENABLED=false`, clear `PAY_CARD_NUMBER` — checkout then
+waits for the acquirer's webhook again.
 
 ## Step 7 — Point the public site here
 

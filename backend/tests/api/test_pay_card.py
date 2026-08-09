@@ -38,8 +38,21 @@ async def test_pending_order_shows_card(client, db, monkeypatch):
                                   "holder": "FURQATBEK T"}
 
 
-async def test_paid_order_hides_card(client, db, monkeypatch):
-    ref = await seed_order(client, db, "UB-CARD2", "paid")
+async def test_rendered_order_still_shows_card(client, db, monkeypatch):
+    # Trust-first pilot: the flow proceeds without waiting for the transfer,
+    # so the card stays visible while the order renders.
+    ref = await seed_order(client, db, "UB-CARD2", "rendered")
+    _configure(monkeypatch)
+    try:
+        status = await public_status(db, ref, PHONE)
+    finally:
+        get_settings.cache_clear()
+    assert status["pay_card"]["number"] == "8600 1234 5678 9012"
+
+
+async def test_sent_to_production_hides_card(client, db, monkeypatch):
+    # The operator verified the transfer before sending to print — done.
+    ref = await seed_order(client, db, "UB-CARD4", "sent_to_production")
     _configure(monkeypatch)
     try:
         status = await public_status(db, ref, PHONE)

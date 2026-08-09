@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     # Empty = the card block never appears.
     pay_card_number: str = ""
     pay_card_holder: str = ""
+    # Card-transfer pilot, trust-first flow: checkout immediately confirms the
+    # order (render + printer notification run right away) instead of waiting
+    # for a payment callback. The operator verifies the bank transfer before
+    # sending anything to print. Turn OFF when a real acquirer is integrated.
+    auto_confirm_orders: bool = False
 
     # --- Render (Milestone 6) ---
     # "rgb" (canonical, deterministic) or "cmyk" (Ghostscript + printer ICC).
