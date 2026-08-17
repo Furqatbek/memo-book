@@ -958,7 +958,7 @@ function makeSticker(st, owner) {
     S.dragging = true;
     const move = (ev) => {
       const f = clamp(Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0, 0.2, 8);
-      st.w_mm = clamp(ow * f, 5, 120);
+      st.w_mm = clamp(ow * f, 5, 80);
       setStyle();
     };
     const up = () => {
@@ -976,7 +976,7 @@ function makeSticker(st, owner) {
   attachPinch(el, {
     getState: () => ({ w: st.w_mm, rot: st.rotation || 0 }),
     apply: (f, da, o) => {
-      st.w_mm = clamp(o.w * f, 5, 120);
+      st.w_mm = clamp(o.w * f, 5, 80);
       st.rotation = normDeg(o.rot + da);
       setStyle();
     },
@@ -1045,7 +1045,7 @@ function addSticker(stickerId) {
   const st = {
     id: `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`,
     sticker_id: stickerId,
-    x_mm: TRIM_W / 2, y_mm: TRIM_H / 2, w_mm: 32, rotation: 0,
+    x_mm: TRIM_W / 2, y_mm: TRIM_H / 2, w_mm: 24, rotation: 0,
   };
   list.push(st);
   S.sel = { kind: 'sticker', id: st.id };

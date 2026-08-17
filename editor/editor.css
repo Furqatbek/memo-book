@@ -220,7 +220,10 @@ select {
   user-select: none;
 }
 .sticker img { width: 100%; height: 100%; display: block; pointer-events: none; }
-.sticker.sel { outline: 2px dashed var(--primary); outline-offset: 2px; }
+/* While selected, a sticker rises above the cover title block so its
+   handles stay clickable even when the two overlap. */
+.sticker.sel { outline: 2px dashed var(--primary); outline-offset: 2px;
+  z-index: 7; }
 .sticker .tb-rotate, .sticker .tb-scale { display: none; }
 .sticker.sel .tb-rotate, .sticker.sel .tb-scale { display: flex; }
 .sticker.flip .tb-rotate { top: auto; bottom: -40px; }
