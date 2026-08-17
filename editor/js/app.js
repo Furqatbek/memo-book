@@ -4,6 +4,7 @@
    Coordinates are millimetres with the origin at the trim top-left. */
 import * as api from './api.js';
 import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js';
+import { STICKER_CATEGORIES, STICKERS } from './stickers.js';
 import { makeJobs, runJobs } from './upload.js';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
@@ -858,6 +859,9 @@ function renderCover(canvas) {
     end: () => { markDirty(); renderCanvas(true); renderSelToolbar(); },
   });
 
+  for (const st of cover.stickers || []) {
+    canvas.append(makeSticker(st, cover.stickers));
+  }
   canvas.append(titles);
 }
 
@@ -880,10 +884,173 @@ function renderPage(canvas) {
   const pl = page.placements[0];
   if (pl) canvas.append(makePlacement(pl));
 
+  // Stickers stack above the photo, below text — matching the print PDFs.
+  for (const st of page.stickers || []) {
+    canvas.append(makeSticker(st, page.stickers));
+  }
+
   const scale = canvas.clientWidth / CANVAS_W;   // px per mm
   for (const tb of page.texts) {
     canvas.append(makeTextBox(tb, scale));
   }
+}
+
+/* ---------- stickers ---------- */
+
+function makeSticker(st, owner) {
+  const el = h('div', {
+    class: 'sticker' + (isSel('sticker', st.id) ? ' sel' : ''),
+    'data-id': st.id,
+  });
+  const setStyle = () => {
+    el.style.left = pct(st.x_mm + BLEED - st.w_mm / 2, CANVAS_W);
+    el.style.top = pct(st.y_mm + BLEED - st.w_mm / 2, CANVAS_H);
+    el.style.width = pct(st.w_mm, CANVAS_W);
+    el.style.transform = st.rotation ? `rotate(${st.rotation}deg)` : '';
+    el.classList.toggle('flip', st.y_mm - st.w_mm / 2 < 18);
+  };
+  setStyle();
+  el.append(h('img', { src: `stickers/${st.sticker_id}.png`, alt: '',
+                       draggable: 'false' }));
+
+  el.addEventListener('pointerdown', (e) => {
+    if (S.locked || !e.isPrimary) return;
+    if (e.target.closest('.tb-rotate, .tb-scale')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    select({ kind: 'sticker', id: st.id }, true);
+    const scale = canvasScale();
+    const sx = e.clientX, sy = e.clientY, ox = st.x_mm, oy = st.y_mm;
+    S.dragging = true;
+    const move = (ev) => {
+      if (S.pinching) return;
+      st.x_mm = clamp(ox + (ev.clientX - sx) / scale, -40, 194);
+      st.y_mm = clamp(oy + (ev.clientY - sy) / scale, -40, 256);
+      setStyle();
+    };
+    const up = () => {
+      S.dragging = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      markDirty();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+
+  const rotate = h('div', { class: 'tb-rotate' }, '⟳');
+  rotate.addEventListener('pointerdown', (e) => {
+    if (S.locked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    startTextRotate(e, el, st);   // same field names: rotation + transform
+  });
+
+  const scaleH = h('div', { class: 'tb-scale' });
+  scaleH.addEventListener('pointerdown', (e) => {
+    if (S.locked) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const d0 = Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy));
+    const ow = st.w_mm;
+    S.dragging = true;
+    const move = (ev) => {
+      const f = clamp(Math.hypot(ev.clientX - cx, ev.clientY - cy) / d0, 0.2, 8);
+      st.w_mm = clamp(ow * f, 5, 120);
+      setStyle();
+    };
+    const up = () => {
+      S.dragging = false;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      markDirty();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+
+  el.append(rotate, scaleH);
+
+  attachPinch(el, {
+    getState: () => ({ w: st.w_mm, rot: st.rotation || 0 }),
+    apply: (f, da, o) => {
+      st.w_mm = clamp(o.w * f, 5, 120);
+      st.rotation = normDeg(o.rot + da);
+      setStyle();
+    },
+    end: () => { markDirty(); renderCanvas(true); },
+  });
+  return el;
+}
+
+function currentStickerList() {
+  if (S.page === -1) {
+    const cover = S.book.layout.cover;
+    if (!cover.stickers) cover.stickers = [];
+    return cover.stickers;
+  }
+  const page = S.book.layout.pages[S.page];
+  if (!page.stickers) page.stickers = [];
+  return page.stickers;
+}
+
+const CATEGORY_EMOJI = {
+  flags: '🇺🇿', maps: '🗺️', travel: '✈️', love: '❤️',
+  birthday: '🎂', nature: '🌸', party: '🎉', misc: '⭐',
+};
+let stickerTab = null;
+
+function buildStickerPanel() {
+  const tabs = $('sp-tabs');
+  tabs.innerHTML = '';
+  for (const cat of STICKER_CATEGORIES) {
+    tabs.append(h('button', {
+      class: 'sp-tab' + (cat === stickerTab ? ' active' : ''),
+      onclick: () => { stickerTab = cat; buildStickerPanel(); },
+    }, CATEGORY_EMOJI[cat] || cat));
+  }
+  const grid = $('sp-grid');
+  grid.innerHTML = '';
+  for (const [sid, cat] of Object.entries(STICKERS)) {
+    if (cat !== stickerTab) continue;
+    grid.append(h('button', {
+      class: 'sp-item',
+      onclick: () => addSticker(sid),
+    }, h('img', { src: `stickers/${sid}.png`, alt: sid, loading: 'lazy' })));
+  }
+}
+
+function toggleStickerPanel() {
+  const panel = $('sticker-panel');
+  if (!panel.classList.contains('hidden')) {
+    panel.classList.add('hidden');
+    return;
+  }
+  if (!stickerTab) {
+    // Open on the pack that matches the occasion; travel books get flags.
+    stickerTab = { travel: 'flags', love: 'love', birthday: 'birthday' }[S.bookType]
+      || 'flags';
+  }
+  buildStickerPanel();
+  panel.classList.remove('hidden');
+}
+
+function addSticker(stickerId) {
+  if (S.locked) return;
+  const list = currentStickerList();
+  if (list.length >= 20) { toast(t('err.generic'), 'warn'); return; }
+  const st = {
+    id: `s${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`,
+    sticker_id: stickerId,
+    x_mm: TRIM_W / 2, y_mm: TRIM_H / 2, w_mm: 32, rotation: 0,
+  };
+  list.push(st);
+  S.sel = { kind: 'sticker', id: st.id };
+  $('sticker-panel').classList.add('hidden');
+  markDirty();
+  renderCanvas(true);
 }
 
 function placeRect(el, r) {
@@ -1282,13 +1449,15 @@ function select(sel, keepFocus) {
 }
 
 function highlightSel() {
-  for (const el of document.querySelectorAll('.textbox, .placement')) {
+  for (const el of document.querySelectorAll('.textbox, .placement, .sticker')) {
     el.classList.remove('sel');
   }
   if (!S.sel) return;
   const el = S.sel.kind === 'placement'
     ? document.querySelector('.placement')
-    : document.querySelector(`.textbox[data-id="${S.sel.id}"]`);
+    : S.sel.kind === 'sticker'
+      ? document.querySelector(`.sticker[data-id="${S.sel.id}"]`)
+      : document.querySelector(`.textbox[data-id="${S.sel.id}"]`);
   if (el) el.classList.add('sel');
 }
 
@@ -1378,6 +1547,19 @@ function renderSelToolbar() {
       class: 'btn small danger',
       onclick: () => {
         page.texts = page.texts.filter((x) => x.id !== tb.id);
+        S.sel = null;
+        markDirty();
+        renderCanvas(true);
+      },
+    }, t('tool.remove')));
+  } else if (S.sel.kind === 'sticker') {
+    const list = currentStickerList();
+    const st = list.find((x) => x.id === S.sel.id);
+    if (!st) { bar.classList.add('hidden'); return; }
+    bar.append(h('button', {
+      class: 'btn small danger',
+      onclick: () => {
+        list.splice(list.indexOf(st), 1);
         S.sel = null;
         markDirty();
         renderCanvas(true);
@@ -1837,6 +2019,7 @@ function bind() {
   });
   $('btn-delete-sel').addEventListener('click', deleteSelectedPhotos);
   $('btn-add-text').addEventListener('click', addTextBox);
+  $('btn-add-sticker').addEventListener('click', toggleStickerPanel);
   $('btn-autofill').addEventListener('click', autoFill);
   $('btn-preview').addEventListener('click', openPreview);
   $('tier-select').addEventListener('change', (e) => changeTier(Number(e.target.value)));
@@ -1846,7 +2029,7 @@ function bind() {
   });
   const canvasWrap = $('canvas-wrap');
   canvasWrap.addEventListener('click', (e) => {
-    if (e.target.closest('.placement, .textbox, .cover-img, .cover-titles, .rs, .tb-handle, .tb-resize, .tb-rotate, .tb-scale')) {
+    if (e.target.closest('.placement, .textbox, .cover-img, .cover-titles, .sticker, .rs, .tb-handle, .tb-resize, .tb-rotate, .tb-scale')) {
       return;   // interactions on elements manage selection themselves
     }
     // The canvas re-rendered during this gesture (e.g. type-anywhere just

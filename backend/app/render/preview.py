@@ -63,6 +63,27 @@ def _draw_texts(img: Image.Image, page: dict) -> None:
         draw.text((x, y), content, font=font, fill=color)
 
 
+def _draw_stickers(img: Image.Image, stickers: list) -> None:
+    """Composite the vendored sticker PNGs the same way the PDFs do:
+    centred at (x_mm, y_mm), rotated clockwise, above the photo and below
+    text. Uses the print assets downscaled, so preview and print match."""
+    from app.domain.geometry import BLEED_MM, PX_PER_MM
+    from app.render.interior import STICKER_DIR
+
+    for sticker in stickers:
+        path = STICKER_DIR / f"{sticker['sticker_id']}.png"
+        w_px = max(1, round(float(sticker["w_mm"]) * PX_PER_MM * PREVIEW_SCALE))
+        layer = Image.open(path).convert("RGBA").resize(
+            (w_px, w_px), resample=Image.LANCZOS)
+        rotation = float(sticker.get("rotation", 0) or 0) % 360
+        if rotation:
+            layer = layer.rotate(-rotation, expand=True, resample=Image.BICUBIC)
+        cx = (float(sticker["x_mm"]) + BLEED_MM) * PX_PER_MM * PREVIEW_SCALE
+        cy = (float(sticker["y_mm"]) + BLEED_MM) * PX_PER_MM * PREVIEW_SCALE
+        img.paste(layer, (round(cx - layer.width / 2),
+                          round(cy - layer.height / 2)), layer)
+
+
 def _watermark(img: Image.Image) -> Image.Image:
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
@@ -82,6 +103,7 @@ def render_preview_page(page: dict, photo_bytes: dict[str, bytes]) -> bytes:
     page_jpeg = compose_page(page, photo_bytes, scale=PREVIEW_SCALE)
     img = Image.open(io.BytesIO(page_jpeg))
     img.load()
+    _draw_stickers(img, page.get("stickers", []))
     _draw_texts(img, page)
     img = _watermark(img)
     out = io.BytesIO()
@@ -109,6 +131,8 @@ def render_preview_cover(cover: dict, photo_bytes: bytes | None) -> bytes:
         if photo.mode != "RGB":
             photo = photo.convert("RGB")
         img.paste(_fit_cover(photo, w, h), (0, 0))
+
+    _draw_stickers(img, cover.get("stickers", []))
 
     title = (cover.get("title") or "").strip()
     subtitle = (cover.get("subtitle") or "").strip()

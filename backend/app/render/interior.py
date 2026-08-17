@@ -26,6 +26,7 @@ PAGE_W_PT = CANVAS_W_MM * MM_TO_PT
 PAGE_H_PT = CANVAS_H_MM * MM_TO_PT
 
 FONT_DIR = Path(__file__).parent / "fonts"
+STICKER_DIR = Path(__file__).parent / "stickers"
 
 # User-selectable families. Every file is repo-pinned and verified to cover
 # ALL site scripts (Latin + Uzbek okina, Cyrillic incl. қ/ғ/ҳ/ў, Karakalpak
@@ -121,6 +122,29 @@ def _draw_text(c: pdfcanvas.Canvas, text: dict) -> None:
         c.drawString(x_pt, y_pt, content)
 
 
+def draw_sticker(c: pdfcanvas.Canvas, sticker: dict,
+                 x_offset_mm: float = BLEED_MM,
+                 y_offset_mm: float = BLEED_MM,
+                 page_h_pt: float = PAGE_H_PT) -> None:
+    """Vendored sticker PNG (square, alpha), centred at (x_mm, y_mm) in
+    trim-origin mm, rotated clockwise like text boxes. Asset paths are
+    repo-pinned and stable, so the embedded object names — which ReportLab
+    derives from the path — keep renders byte-deterministic. Also used by
+    the cover builder with the front-panel offset."""
+    path = STICKER_DIR / f"{sticker['sticker_id']}.png"
+    w_pt = float(sticker["w_mm"]) * MM_TO_PT
+    centre_x = (float(sticker["x_mm"]) + x_offset_mm) * MM_TO_PT
+    centre_y = page_h_pt - ((float(sticker["y_mm"]) + y_offset_mm) * MM_TO_PT)
+    rotation = float(sticker.get("rotation", 0) or 0) % 360
+    c.saveState()
+    c.translate(centre_x, centre_y)
+    if rotation:
+        c.rotate(-rotation)   # PDF rotates counter-clockwise; editor clockwise
+    c.drawImage(str(path), -w_pt / 2, -w_pt / 2, width=w_pt, height=w_pt,
+                mask="auto")
+    c.restoreState()
+
+
 def build_pdf(pages: Iterable[dict],
               fetch_photo_bytes: Callable[[str], bytes],
               scale: float = 1.0,
@@ -162,6 +186,10 @@ def build_pdf(pages: Iterable[dict],
             del page_jpeg
             c.drawImage(page_path, 0, 0, width=PAGE_W_PT, height=PAGE_H_PT)
 
+            # Stickers sit above the photo, below text — same stacking as
+            # the editor and the preview.
+            for sticker in page.get("stickers", []):
+                draw_sticker(c, sticker)
             for text in page.get("texts", []):
                 _draw_text(c, text)
 

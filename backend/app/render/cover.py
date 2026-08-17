@@ -25,6 +25,7 @@ from app.render.compose import RenderError, _fit_cover, hex_to_rgb
 from app.render.interior import (
     MM_TO_PT,
     _register_fonts,
+    draw_sticker,
     font_name,
 )
 
@@ -171,6 +172,23 @@ def build_cover_pdf(cover: dict, page_count: int,
         with open(path, "wb") as f:
             f.write(raster)
         c.drawImage(path, 0, 0, width=page_w_pt, height=page_h_pt)
+        stickers = cover.get("stickers", [])
+        if stickers:
+            # Front-panel coordinates like the title block. Clipped to the
+            # front panel + its right wrap: what hangs off the right edge
+            # wraps around the board (like the front art), and nothing can
+            # spill across the spine onto the back.
+            c.saveState()
+            clip = c.beginPath()
+            clip.rect(geo.front_x0_mm * MM_TO_PT, 0,
+                      (TRIM_W_MM + geo.wrap_mm) * MM_TO_PT, page_h_pt)
+            c.clipPath(clip, stroke=0, fill=0)
+            for sticker in stickers:
+                draw_sticker(c, sticker,
+                             x_offset_mm=geo.front_x0_mm,
+                             y_offset_mm=geo.wrap_mm,
+                             page_h_pt=page_h_pt)
+            c.restoreState()
         _draw_cover_text(c, cover, geo, over_photo=photo_bytes is not None)
         c.showPage()
         c.save()

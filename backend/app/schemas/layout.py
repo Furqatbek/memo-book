@@ -9,6 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.geometry import RectMM, clamp_text_box, validate_placement
+from app.domain.stickers import sticker_ids
 
 LAYOUT_SCHEMA_VERSION = 1
 
@@ -66,6 +67,29 @@ class TextBoxDoc(BaseModel):
 HEX_COLOR = r"^#[0-9a-fA-F]{6}$"
 
 
+class StickerDoc(BaseModel):
+    """A vendored decorative sticker (square asset, aspect fixed at 1:1).
+    Position is the CENTRE in canvas mm — stickers may deliberately hang off
+    the page edge (classic scrapbook look); the renderer clips at bleed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(max_length=64)
+    sticker_id: str = Field(max_length=64)
+    x_mm: float = Field(ge=-40, le=194)   # canvas 154mm wide + overhang room
+    y_mm: float = Field(ge=-40, le=256)   # canvas 216mm tall + overhang room
+    w_mm: float = Field(ge=5, le=120)
+    # Degrees, clockwise, about the centre (matches CSS rotate()).
+    rotation: float = Field(default=0, ge=-360, le=360)
+
+    @field_validator("sticker_id")
+    @classmethod
+    def _known_sticker(cls, v):
+        if v not in sticker_ids():
+            raise ValueError(f"unknown sticker {v!r}")
+        return v
+
+
 class CoverDoc(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -83,6 +107,7 @@ class CoverDoc(BaseModel):
     title_y_mm: float | None = Field(default=None, ge=0, le=210)
     # Clockwise degrees about the block centre, like text boxes.
     title_rotation: float = Field(default=0, ge=-360, le=360)
+    stickers: list[StickerDoc] = Field(default_factory=list, max_length=20)
 
 
 class PageDoc(BaseModel):
@@ -92,6 +117,7 @@ class PageDoc(BaseModel):
     bg_color: str = Field(default="#ffffff", pattern=HEX_COLOR)
     placements: list[PlacementDoc] = Field(default_factory=list)
     texts: list[TextBoxDoc] = Field(default_factory=list, max_length=20)
+    stickers: list[StickerDoc] = Field(default_factory=list, max_length=20)
 
     @field_validator("placements")
     @classmethod
@@ -137,10 +163,12 @@ def reflow_layout(current: dict, new_page_count: int) -> tuple[dict, list[str]]:
         dropped = doc.pages[new_page_count:]
         dropped_photos = sum(len(p.placements) for p in dropped)
         dropped_texts = sum(len(p.texts) for p in dropped)
-        if dropped_photos or dropped_texts:
+        dropped_stickers = sum(len(p.stickers) for p in dropped)
+        if dropped_photos or dropped_texts or dropped_stickers:
             warnings.append(
                 f"truncated {len(dropped)} pages containing {dropped_photos} "
-                f"placed photos and {dropped_texts} text boxes"
+                f"placed photos, {dropped_texts} text boxes and "
+                f"{dropped_stickers} stickers"
             )
         doc.pages = doc.pages[:new_page_count]
     elif new_page_count > len(doc.pages):
