@@ -136,7 +136,8 @@ select {
 /* tray */
 .tray {
   width: 264px; flex: none; background: #fff; border-right: 1px solid var(--line);
-  padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  overflow: hidden;
 }
 .upload-zone {
   border: 2px dashed var(--line); border-radius: var(--radius); padding: 16px 10px;
@@ -223,12 +224,21 @@ select {
 .sticker .tb-rotate, .sticker .tb-scale { display: none; }
 .sticker.sel .tb-rotate, .sticker.sel .tb-scale { display: flex; }
 .sticker.flip .tb-rotate { top: auto; bottom: -40px; }
-.sticker-panel {
-  position: absolute; z-index: 20; top: 46px; left: 50%;
-  transform: translateX(-50%); width: min(420px, 94%);
-  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
-  box-shadow: 0 14px 40px rgba(0,0,0,.16); padding: 10px;
-  display: flex; flex-direction: column; gap: 8px;
+.tray-tabs { display: flex; gap: 6px; }
+.tray-tab {
+  flex: 1; padding: 7px 4px; border: 1px solid var(--line); background: #fff;
+  border-radius: 8px; font-size: .9rem; color: var(--muted);
+}
+.tray-tab.active {
+  border-color: var(--primary); color: var(--primary); background: #eef2fd;
+  font-weight: 600;
+}
+.tray-pane {
+  display: flex; flex-direction: column; gap: 10px; min-height: 0;
+  flex: 1; overflow-y: auto;
+}
+#tray-stickers .sp-tabs {
+  position: sticky; top: 0; background: #fff; z-index: 4; padding-bottom: 4px;
 }
 .sp-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .sp-tab {
@@ -238,7 +248,7 @@ select {
 .sp-tab.active { border-color: var(--primary); background: #eef2fd; }
 .sp-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
-  gap: 6px; max-height: 260px; overflow-y: auto;
+  gap: 6px;
 }
 .sp-item {
   border: 1px solid transparent; background: none; border-radius: 8px;

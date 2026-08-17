@@ -8,7 +8,8 @@ rasterizes two PNG sets, and writes the license notice:
 
 - app/render/stickers/<id>.png   1024px — embedded in print PDFs (sharp up
                                  to ~86mm at 300dpi, larger than any page)
-- ../editor/stickers/<id>.png    256px  — editor picker + canvas display
+- ../editor/stickers/<id>.png    1024px — editor canvas (sharp at any zoom)
+- ../editor/stickers/thumb/<id>.png 128px — picker grid thumbnails
 
 Commit the results. The renderers and editor read only these files; nothing
 touches the network at runtime.
@@ -39,6 +40,7 @@ NE_GEOJSON = ("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
               f"{NATURAL_EARTH_TAG}/geojson/ne_50m_admin_0_countries.geojson")
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "app/render/stickers"
 EDITOR_DIR = Path(__file__).resolve().parent.parent.parent / "editor/stickers"
+THUMB_DIR = EDITOR_DIR / "thumb"
 
 MAP_FILL = "#1d4d85"     # deep blue silhouette...
 MAP_STROKE = "#ffffff"   # ...with a white halo so it reads on photos too
@@ -67,7 +69,8 @@ never edit these files by hand.
 
 
 def write_png(sticker_id: str, svg: bytes) -> None:
-    for target, size in ((BACKEND_DIR, 1024), (EDITOR_DIR, 256)):
+    for target, size in ((BACKEND_DIR, 1024), (EDITOR_DIR, 1024),
+                         (THUMB_DIR, 128)):
         png = cairosvg.svg2png(bytestring=svg, output_width=size,
                                output_height=size)
         (target / f"{sticker_id}.png").write_bytes(png)
@@ -80,7 +83,8 @@ def write_flag_png(sticker_id: str, svg: bytes) -> None:
 
     from PIL import Image, ImageDraw
 
-    for target, size in ((BACKEND_DIR, 1024), (EDITOR_DIR, 256)):
+    for target, size in ((BACKEND_DIR, 1024), (EDITOR_DIR, 1024),
+                         (THUMB_DIR, 128)):
         png = cairosvg.svg2png(bytestring=svg, output_width=size)
         flag = Image.open(io.BytesIO(png)).convert("RGBA")
         if flag.height > size:
@@ -226,6 +230,7 @@ def vendor_noto() -> list[str]:
 def main() -> None:
     BACKEND_DIR.mkdir(parents=True, exist_ok=True)
     EDITOR_DIR.mkdir(parents=True, exist_ok=True)
+    THUMB_DIR.mkdir(parents=True, exist_ok=True)
     failed = vendor_noto() + vendor_maps()
     (BACKEND_DIR / "LICENSE-NOTICE.md").write_text(NOTICE)
     (EDITOR_DIR / "LICENSE-NOTICE.md").write_text(NOTICE)

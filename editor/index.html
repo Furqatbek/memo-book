@@ -84,24 +84,34 @@
     </div>
     <main class="ed-main">
       <aside class="tray" id="tray">
-        <label class="upload-zone" id="upload-zone">
-          <input type="file" id="file-input" multiple
-                 accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif">
-          <b data-i18n="tray.add"></b>
-          <span class="muted" data-i18n="tray.drop"></span>
-        </label>
-        <div class="tray-row">
-          <div id="tray-count" class="tray-count"></div>
-          <div class="tray-actions">
-            <button id="btn-select-mode" class="btn small hidden"
-                    data-i18n="tray.select"></button>
-            <button id="btn-delete-sel" class="btn small danger hidden"></button>
-            <button id="btn-delete-all" class="btn small danger hidden"
-                    data-i18n="tray.deleteAll"></button>
-          </div>
+        <div class="tray-tabs">
+          <button id="tab-photos" class="tray-tab active" data-i18n="tray.tabPhotos"></button>
+          <button id="tab-stickers" class="tray-tab" data-i18n="tray.tabStickers"></button>
         </div>
-        <div id="tray-grid" class="tray-grid"></div>
-        <p class="muted tray-hint" data-i18n="tray.hint"></p>
+        <div id="tray-photos" class="tray-pane">
+          <label class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" multiple
+                   accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif">
+            <b data-i18n="tray.add"></b>
+            <span class="muted" data-i18n="tray.drop"></span>
+          </label>
+          <div class="tray-row">
+            <div id="tray-count" class="tray-count"></div>
+            <div class="tray-actions">
+              <button id="btn-select-mode" class="btn small hidden"
+                      data-i18n="tray.select"></button>
+              <button id="btn-delete-sel" class="btn small danger hidden"></button>
+              <button id="btn-delete-all" class="btn small danger hidden"
+                      data-i18n="tray.deleteAll"></button>
+            </div>
+          </div>
+          <div id="tray-grid" class="tray-grid"></div>
+          <p class="muted tray-hint" data-i18n="tray.hint"></p>
+        </div>
+        <div id="tray-stickers" class="tray-pane hidden">
+          <div class="sp-tabs" id="sp-tabs"></div>
+          <div class="sp-grid" id="sp-grid"></div>
+        </div>
       </aside>
       <section class="stage">
         <div class="stage-toolbar">
@@ -113,10 +123,6 @@
         </div>
         <div class="canvas-wrap" id="canvas-wrap">
           <div id="page-canvas" class="page-canvas"></div>
-        </div>
-        <div id="sticker-panel" class="sticker-panel hidden">
-          <div class="sp-tabs" id="sp-tabs"></div>
-          <div class="sp-grid" id="sp-grid"></div>
         </div>
         <nav id="filmstrip" class="filmstrip" aria-label="Pages"></nav>
       </section>

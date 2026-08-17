@@ -1018,23 +1018,24 @@ function buildStickerPanel() {
     grid.append(h('button', {
       class: 'sp-item',
       onclick: () => addSticker(sid),
-    }, h('img', { src: `stickers/${sid}.png`, alt: sid, loading: 'lazy' })));
+    }, h('img', { src: `stickers/thumb/${sid}.png`, alt: sid, loading: 'lazy' })));
   }
 }
 
-function toggleStickerPanel() {
-  const panel = $('sticker-panel');
-  if (!panel.classList.contains('hidden')) {
-    panel.classList.add('hidden');
-    return;
+/* Canva-style side panel: the tray switches between Photos and Stickers. */
+function setTrayTab(tab) {
+  $('tab-photos').classList.toggle('active', tab === 'photos');
+  $('tab-stickers').classList.toggle('active', tab === 'stickers');
+  $('tray-photos').classList.toggle('hidden', tab !== 'photos');
+  $('tray-stickers').classList.toggle('hidden', tab !== 'stickers');
+  if (tab === 'stickers') {
+    if (!stickerTab) {
+      // Open on the pack that matches the occasion; travel books get flags.
+      stickerTab = { travel: 'flags', love: 'love', birthday: 'birthday' }[S.bookType]
+        || 'flags';
+    }
+    buildStickerPanel();
   }
-  if (!stickerTab) {
-    // Open on the pack that matches the occasion; travel books get flags.
-    stickerTab = { travel: 'flags', love: 'love', birthday: 'birthday' }[S.bookType]
-      || 'flags';
-  }
-  buildStickerPanel();
-  panel.classList.remove('hidden');
 }
 
 function addSticker(stickerId) {
@@ -1048,7 +1049,6 @@ function addSticker(stickerId) {
   };
   list.push(st);
   S.sel = { kind: 'sticker', id: st.id };
-  $('sticker-panel').classList.add('hidden');
   markDirty();
   renderCanvas(true);
 }
@@ -2019,7 +2019,9 @@ function bind() {
   });
   $('btn-delete-sel').addEventListener('click', deleteSelectedPhotos);
   $('btn-add-text').addEventListener('click', addTextBox);
-  $('btn-add-sticker').addEventListener('click', toggleStickerPanel);
+  $('btn-add-sticker').addEventListener('click', () => setTrayTab('stickers'));
+  $('tab-photos').addEventListener('click', () => setTrayTab('photos'));
+  $('tab-stickers').addEventListener('click', () => setTrayTab('stickers'));
   $('btn-autofill').addEventListener('click', autoFill);
   $('btn-preview').addEventListener('click', openPreview);
   $('tier-select').addEventListener('change', (e) => changeTier(Number(e.target.value)));
