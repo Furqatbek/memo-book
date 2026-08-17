@@ -66,6 +66,14 @@ curl -fsSL https://raw.githubusercontent.com/Furqatbek/memo-book/claude/memo-boo
     | bash -s -- rspixel.uz
 ```
 
+The curl is only needed the FIRST time (it fetches the script before the
+repo exists on the server). For every later deploy, run the local copy —
+same effect, and immune to raw.githubusercontent.com rate limits (429):
+
+```bash
+bash /opt/memo-book/deploy/bootstrap.sh rspixel.uz
+```
+
 Afterwards edit `/opt/memo-book/deploy/.env` for Telegram credentials and
 real prices, then `docker compose -f docker-compose.prod.yml up -d`.
 The manual route:
