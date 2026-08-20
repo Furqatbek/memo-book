@@ -5,13 +5,12 @@
 import * as api from './api.js';
 import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js';
+import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js';
 import { makeJobs, runJobs } from './upload.js';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
 const CANVAS_W = TRIM_W + 2 * BLEED, CANVAS_H = TRIM_H + 2 * BLEED;
 const PT_MM = 25.4 / 72;
-const FULL_BLEED = { x_mm: -BLEED, y_mm: -BLEED, w_mm: CANVAS_W, h_mm: CANVAS_H };
-const INSET = { x_mm: 12, y_mm: 12, w_mm: TRIM_W - 24, h_mm: TRIM_H - 24 };
 const ORDER_FLOW = ['pending_payment', 'paid', 'rendering', 'rendered',
                     'sent_to_production', 'shipped', 'delivered'];
 const USABLE = new Set(['ready', 'duplicate']);
@@ -328,7 +327,7 @@ function renderAll() {
 function applyLocked() {
   $('locked-banner').classList.toggle('hidden', !S.locked);
   $('btn-view-order').classList.toggle('hidden', !load('mb-order'));
-  for (const id of ['tier-select', 'btn-autofill', 'btn-add-text', 'file-input']) {
+  for (const id of ['tier-select', 'btn-autofill', 'btn-add-text', 'btn-layout', 'file-input']) {
     $(id).disabled = S.locked;
   }
   $('btn-preview').disabled = false;
@@ -338,6 +337,8 @@ function applyLocked() {
 function updatePageLabel() {
   $('page-label').textContent =
     S.page === -1 ? t('page.cover') : t('page.n', { n: S.page + 1 });
+  // The cover is a single fixed frame — layouts belong to inside pages.
+  $('btn-layout').classList.toggle('hidden', S.page === -1 || S.locked);
 }
 
 function updateEligibility() {
@@ -582,12 +583,23 @@ function placePhoto(p) {
   placeOnPage(p.photo_id, S.page, true);
 }
 
-function placeOnPage(photoId, index, advance) {
+function placeOnPage(photoId, index, advance, slotIdx = null) {
   const page = S.book.layout.pages[index];
+  const slots = pageSlots(page);
   const wasEmpty = page.placements.length === 0;
-  page.placements = [{ photo_id: photoId, ...FULL_BLEED, rotation: 0, fit: 'cover' }];
+  const shot = (slot) => ({ photo_id: photoId, ...slot, rotation: 0, fit: 'cover' });
+  if (slotIdx !== null && slotIdx < page.placements.length) {
+    page.placements[slotIdx] = shot(slots[slotIdx]);          // replace that photo
+  } else if (page.placements.length < slots.length) {
+    page.placements.push(shot(slots[page.placements.length])); // next empty slot
+  } else {
+    // Page is full: replace the selected photo, else the last one.
+    const target = S.sel && S.sel.kind === 'placement' ? S.sel.idx : slots.length - 1;
+    page.placements[target] = shot(slots[target]);
+  }
   markDirty();
-  if (advance && wasEmpty) {
+  // Only move on once this page has nothing left to fill.
+  if (advance && wasEmpty && page.placements.length >= slots.length) {
     const next = S.book.layout.pages.findIndex(
       (pg, i) => i > index && pg.placements.length === 0);
     if (next !== -1) S.page = next;
@@ -653,13 +665,8 @@ function renderPageTools() {
   const box = $('page-tools');
   box.innerHTML = '';
   if (S.locked) return;
-  const colorInput = (value, label, oninput, onchange) => {
-    const input = h('input', { type: 'color', value, title: label, 'aria-label': label });
-    input.addEventListener('input', () => oninput(input.value));
-    if (onchange) input.addEventListener('change', () => onchange(input.value));
-    return h('label', { class: 'color-tool', title: label },
-             input, h('span', {}, label));
-  };
+  const colorInput = (value, label, oninput, onchange) => colorControl(
+    value, label, (colour) => { oninput(colour); if (onchange) onchange(colour); });
   if (S.page === -1) {
     const cover = S.book.layout.cover;
     box.append(colorInput(cover.bg_color || '#ffffff', t('tool.coverColor'), (v) => {
@@ -742,6 +749,7 @@ function renderCover(canvas) {
     e.preventDefault();
     e.stopPropagation();
     S.dragging = true;
+    const snap = makeSnap();
     const sx = e.clientX, sy = e.clientY;
     const ox = cover.title_x_mm ?? TRIM_W / 2;
     const oy = cover.title_y_mm ?? 122;
@@ -750,15 +758,17 @@ function renderCover(canvas) {
       if (S.pinching) return;
       if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
       moved = true;
-      cover.title_x_mm = clamp(Math.round((ox + (ev.clientX - sx) / scale) * 10) / 10,
-                               SAFE, TRIM_W - SAFE);
-      cover.title_y_mm = clamp(Math.round((oy + (ev.clientY - sy) / scale) * 10) / 10,
-                               SAFE, TRIM_H - SAFE);
+      const cx = snap.axis('x', ox + (ev.clientX - sx) / scale, TRIM_W / 2);
+      const cy = snap.axis('y', oy + (ev.clientY - sy) / scale, TRIM_H / 2);
+      cover.title_x_mm = clamp(Math.round(cx * 10) / 10, SAFE, TRIM_W - SAFE);
+      cover.title_y_mm = clamp(Math.round(cy * 10) / 10, SAFE, TRIM_H - SAFE);
       titles.style.left = pct(cover.title_x_mm + BLEED, CANVAS_W);
       titles.style.top = pct(cover.title_y_mm + BLEED, CANVAS_H);
+      snap.guides(cover.title_x_mm, cover.title_y_mm);
     };
     const up = () => {
       S.dragging = false;
+      clearSnapGuides();
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       if (moved) markDirty();
@@ -881,8 +891,11 @@ function renderPage(canvas) {
     }),
   );
 
-  const pl = page.placements[0];
-  if (pl) canvas.append(makePlacement(pl));
+  const slots = pageSlots(page);
+  page.placements.forEach((pl, i) => canvas.append(makePlacement(pl, i)));
+  for (let i = page.placements.length; i < slots.length; i += 1) {
+    canvas.append(makeEmptySlot(slots[i]));
+  }
 
   // Stickers stack above the photo, below text — matching the print PDFs.
   for (const st of page.stickers || []) {
@@ -893,6 +906,184 @@ function renderPage(canvas) {
   for (const tb of page.texts) {
     canvas.append(makeTextBox(tb, scale));
   }
+}
+
+/* ---------- page layouts ---------- */
+
+/* A layout is a named set of slot rectangles (shared with the renderer via
+   layouts.js). Placements fill slots in order — placements[i] lives in
+   slots[i] — so the trailing slots are the empty ones and the document can
+   never describe a hole. */
+const pageLayoutId = (page) => (LAYOUTS[page.layout] ? page.layout : DEFAULT_LAYOUT);
+const pageSlots = (page) => LAYOUTS[pageLayoutId(page)];
+
+function reflowSlots(page) {
+  const slots = pageSlots(page);
+  page.placements.forEach((pl, i) => Object.assign(pl, slots[i]));
+}
+
+function slotIndexAt(clientX, clientY, page) {
+  const canvas = $('page-canvas');
+  if (!canvas) return -1;
+  const r = canvas.getBoundingClientRect();
+  const mmX = ((clientX - r.left) / (r.width / CANVAS_W)) - BLEED;
+  const mmY = ((clientY - r.top) / (r.height / CANVAS_H)) - BLEED;
+  return pageSlots(page).findIndex(
+    (sl) => mmX >= sl.x_mm && mmX <= sl.x_mm + sl.w_mm
+         && mmY >= sl.y_mm && mmY <= sl.y_mm + sl.h_mm);
+}
+
+function applyLayout(id) {
+  if (S.page === -1 || S.locked || !LAYOUTS[id]) return;
+  const page = S.book.layout.pages[S.page];
+  const slots = LAYOUTS[id];
+  // Photos beyond the new slot count go back to the tray, never vanish.
+  page.placements = page.placements.slice(0, slots.length);
+  page.layout = id;
+  reflowSlots(page);
+  S.sel = null;
+  markDirty();
+  renderCanvas(true);
+  renderFilm();
+  renderTray();
+}
+
+/* Miniature of a layout, drawn from the same slot geometry it applies. */
+function layoutThumb(id) {
+  const box = h('div', { class: 'lay-thumb' });
+  for (const sl of LAYOUTS[id]) {
+    box.append(h('div', {
+      class: 'lay-cell',
+      style: `left:${pct(sl.x_mm + BLEED, CANVAS_W)};top:${pct(sl.y_mm + BLEED, CANVAS_H)};`
+           + `width:${pct(sl.w_mm, CANVAS_W)};height:${pct(sl.h_mm, CANVAS_H)}`,
+    }));
+  }
+  return box;
+}
+
+function closeLayoutPop() {
+  const open = document.querySelector('.layout-pop');
+  if (open) open.remove();
+  document.removeEventListener('pointerdown', outsideLayoutClose, true);
+}
+
+function outsideLayoutClose(e) {
+  if (!e.target.closest('.layout-pop, #btn-layout')) closeLayoutPop();
+}
+
+function openLayoutPop(btn) {
+  if (document.querySelector('.layout-pop')) { closeLayoutPop(); return; }
+  const page = S.book.layout.pages[S.page];
+  const current = pageLayoutId(page);
+  const pop = h('div', { class: 'layout-pop' });
+  for (const id of Object.keys(LAYOUTS)) {
+    pop.append(h('button', {
+      class: 'lay-item' + (id === current ? ' active' : ''),
+      type: 'button', 'aria-label': id,
+      onclick: () => { applyLayout(id); closeLayoutPop(); },
+    }, layoutThumb(id)));
+  }
+  document.body.append(pop);
+  const r = btn.getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left))}px`;
+  pop.style.top = `${Math.min(window.innerHeight - pop.offsetHeight - 8, r.bottom + 6)}px`;
+  setTimeout(() => document.addEventListener('pointerdown', outsideLayoutClose, true), 0);
+}
+
+/* ---------- centre snapping ---------- */
+
+/* Dragged elements are magnetically held at the page centre: they latch on
+   within GRAB pixels and only let go past HOLD pixels, so centring is easy
+   to hit and hard to lose by a shaky finger. Guides show while latched. */
+const SNAP_GRAB_PX = 9;
+const SNAP_HOLD_PX = 22;
+
+function makeSnap() {
+  const scale = canvasScale();
+  const grab = SNAP_GRAB_PX / scale;
+  const hold = SNAP_HOLD_PX / scale;
+  const stuck = { x: false, y: false };
+  return {
+    /* centre coordinate on one axis -> snapped coordinate */
+    axis(axis, value, target) {
+      const near = Math.abs(value - target) < (stuck[axis] ? hold : grab);
+      stuck[axis] = near;
+      return near ? target : value;
+    },
+    /* call with the FINAL centre, after clamping, so guides never lie */
+    guides(cx, cy) {
+      setSnapGuides(stuck.x && Math.abs(cx - TRIM_W / 2) < 0.05,
+                    stuck.y && Math.abs(cy - TRIM_H / 2) < 0.05);
+    },
+  };
+}
+
+function setSnapGuides(showV, showH) {
+  const canvas = $('page-canvas');
+  if (!canvas) return;
+  for (const [cls, on] of [['v', showV], ['h', showH]]) {
+    const existing = canvas.querySelector(`.snap-guide.${cls}`);
+    if (on && !existing) canvas.append(h('div', { class: `snap-guide ${cls}` }));
+    else if (!on && existing) existing.remove();
+  }
+}
+
+const clearSnapGuides = () => setSnapGuides(false, false);
+
+/* ---------- colour control ---------- */
+
+/* Native <input type=color> opens a fiddly OS dialog on phones. A grid of
+   large swatches is one tap; the native picker stays available behind
+   "Custom" for anyone who wants an exact shade. */
+const SWATCHES = [
+  '#ffffff', '#f7f3ea', '#e8e8e8', '#9aa0a6', '#4a4f57', '#1a1a1a',
+  '#7a2740', '#c0392b', '#e07a3f', '#d9a441', '#3f7a44', '#2f6f6b',
+  '#1d4d85', '#2456d6', '#5b2d86', '#c66591',
+];
+
+function closeSwatchPop() {
+  const open = document.querySelector('.swatch-pop');
+  if (open) open.remove();
+  document.removeEventListener('pointerdown', outsideSwatchClose, true);
+}
+
+function outsideSwatchClose(e) {
+  if (!e.target.closest('.swatch-pop, .color-tool')) closeSwatchPop();
+}
+
+function colorControl(value, label, onPick) {
+  const dot = h('span', { class: 'color-dot', style: `background:${value}` });
+  const btn = h('button', { class: 'color-tool btn small', type: 'button' },
+                dot, h('span', {}, label));
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (document.querySelector('.swatch-pop')) { closeSwatchPop(); return; }
+    const pop = h('div', { class: 'swatch-pop' });
+    const apply = (colour) => {
+      dot.style.background = colour;
+      onPick(colour);
+    };
+    const grid = h('div', { class: 'swatch-grid' });
+    for (const colour of SWATCHES) {
+      grid.append(h('button', {
+        class: 'swatch' + (colour === (value || '').toLowerCase() ? ' active' : ''),
+        type: 'button', style: `background:${colour}`, 'aria-label': colour,
+        onclick: () => { apply(colour); closeSwatchPop(); },
+      }));
+    }
+    const custom = h('input', { type: 'color', value: value || '#ffffff' });
+    custom.addEventListener('input', () => apply(custom.value));
+    pop.append(grid, h('label', { class: 'swatch-more' },
+                       custom, h('span', {}, t('tool.customColor'))));
+    document.body.append(pop);
+    const r = btn.getBoundingClientRect();
+    const width = pop.offsetWidth;
+    pop.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, r.left))}px`;
+    pop.style.top = `${Math.min(window.innerHeight - pop.offsetHeight - 8, r.bottom + 6)}px`;
+    setTimeout(() => document.addEventListener('pointerdown', outsideSwatchClose, true), 0);
+  });
+  return btn;
 }
 
 /* ---------- stickers ---------- */
@@ -920,16 +1111,19 @@ function makeSticker(st, owner) {
     e.stopPropagation();
     select({ kind: 'sticker', id: st.id }, true);
     const scale = canvasScale();
+    const snap = makeSnap();
     const sx = e.clientX, sy = e.clientY, ox = st.x_mm, oy = st.y_mm;
     S.dragging = true;
     const move = (ev) => {
       if (S.pinching) return;
-      st.x_mm = clamp(ox + (ev.clientX - sx) / scale, -40, 194);
-      st.y_mm = clamp(oy + (ev.clientY - sy) / scale, -40, 256);
+      st.x_mm = clamp(snap.axis('x', ox + (ev.clientX - sx) / scale, TRIM_W / 2), -40, 194);
+      st.y_mm = clamp(snap.axis('y', oy + (ev.clientY - sy) / scale, TRIM_H / 2), -40, 256);
       setStyle();
+      snap.guides(st.x_mm, st.y_mm);
     };
     const up = () => {
       S.dragging = false;
+      clearSnapGuides();
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       markDirty();
@@ -1060,10 +1254,36 @@ function placeRect(el, r) {
   el.style.height = pct(r.h_mm, CANVAS_H);
 }
 
-function makePlacement(pl) {
-  const photo = photoById(pl.photo_id);
+/* An empty slot of a multi-photo layout: a drop target and a hint that
+   something belongs here. Tapping it opens the photo tray. */
+function makeEmptySlot(slot) {
   const box = h('div', {
-    class: 'placement' + (isSel('placement', 0) ? ' sel' : ''),
+    class: 'slot-empty',
+    onclick: () => { if (!S.locked) setTrayTab('photos'); },
+    ondragover: (e) => e.preventDefault(),
+    ondrop: (e) => {
+      e.preventDefault();
+      const id = e.dataTransfer.getData('text/mb-photo');
+      if (id && !S.locked) placeOnPage(id, S.page, false);
+    },
+  }, h('span', {}, '+'));
+  placeRect(box, slot);
+  return box;
+}
+
+function makePlacement(pl, idx) {
+  const photo = photoById(pl.photo_id);
+  const page = S.book.layout.pages[S.page];
+  const multi = pageSlots(page).length > 1;
+  const box = h('div', {
+    class: 'placement' + (isSel('placement', idx) ? ' sel' : ''),
+    'data-idx': String(idx),
+    ondragover: (e) => e.preventDefault(),
+    ondrop: (e) => {
+      e.preventDefault();
+      const id = e.dataTransfer.getData('text/mb-photo');
+      if (id && !S.locked) placeOnPage(id, S.page, false, idx);
+    },
   });
   placeRect(box, pl);
   if (photo && photo.display_url) {
@@ -1074,39 +1294,97 @@ function makePlacement(pl) {
     box.append(h('span', { class: 'spin' }));
   }
 
+  // In a grid, dragging a photo swaps it with the slot it is dropped on —
+  // free positioning would only let the user break the grid.
+  if (multi) {
+    box.addEventListener('pointerdown', (e) => {
+      if (S.locked || !e.isPrimary) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const sx = e.clientX, sy = e.clientY;
+      let moved = false;
+      const move = (ev) => {
+        if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return;
+        if (!moved) {
+          moved = true;
+          S.dragging = true;
+          select({ kind: 'placement', idx }, true);
+          box.classList.add('swapping');
+        }
+        box.style.transform = `translate(${ev.clientX - sx}px, ${ev.clientY - sy}px)`;
+      };
+      const up = (ev) => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        box.style.transform = '';
+        box.classList.remove('swapping');
+        if (!moved) { select({ kind: 'placement', idx }); return; }
+        S.dragging = false;
+        const target = slotIndexAt(ev.clientX, ev.clientY, page);
+        if (target !== -1 && target !== idx) {
+          const list = page.placements;
+          if (target < list.length) {
+            [list[idx], list[target]] = [list[target], list[idx]];
+          } else {                      // dropped on an empty slot: move there
+            list.push(list.splice(idx, 1)[0]);
+          }
+          reflowSlots(page);
+          markDirty();
+        }
+        renderCanvas(true);
+        renderFilm();
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+    return finishPlacement(box, pl, idx, multi);
+  }
+
   // Drag to move; a still tap/click just selects.
   box.addEventListener('pointerdown', (e) => {
     if (S.locked || !e.isPrimary || e.target.classList.contains('rs')) return;
     e.preventDefault();
     e.stopPropagation();
     const scale = canvasScale();
+    const snap = makeSnap();
     const sx = e.clientX, sy = e.clientY, ox = pl.x_mm, oy = pl.y_mm;
     let moved = false;
     S.dragging = true;
     const move = (ev) => {
       if (S.pinching) return;
       if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
-      if (!moved) { moved = true; select({ kind: 'placement', idx: 0 }, true); box.classList.add('sel'); }
-      pl.x_mm = clamp(ox + (ev.clientX - sx) / scale,
+      if (!moved) { moved = true; select({ kind: 'placement', idx }, true); box.classList.add('sel'); }
+      const cx = snap.axis('x', ox + (ev.clientX - sx) / scale + pl.w_mm / 2, TRIM_W / 2);
+      const cy = snap.axis('y', oy + (ev.clientY - sy) / scale + pl.h_mm / 2, TRIM_H / 2);
+      pl.x_mm = clamp(cx - pl.w_mm / 2,
                       -BLEED, Math.max(-BLEED, CANVAS_W - BLEED - pl.w_mm));
-      pl.y_mm = clamp(oy + (ev.clientY - sy) / scale,
+      pl.y_mm = clamp(cy - pl.h_mm / 2,
                       -BLEED, Math.max(-BLEED, CANVAS_H - BLEED - pl.h_mm));
       placeRect(box, pl);
+      snap.guides(pl.x_mm + pl.w_mm / 2, pl.y_mm + pl.h_mm / 2);
     };
     const up = () => {
       S.dragging = false;
+      clearSnapGuides();
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       if (moved) markDirty();
       // A still tap selects — unless something (e.g. type-anywhere on this
       // same tap) already re-rendered and replaced this element.
-      else if (box.isConnected) select({ kind: 'placement', idx: 0 });
+      else if (box.isConnected) select({ kind: 'placement', idx });
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   });
 
-  if (isSel('placement', 0) && !S.locked) {
+  return finishPlacement(box, pl, idx, multi);
+}
+
+/* Corner handles and pinch belong to single-slot pages only: in a grid the
+   rectangle is the layout's to decide. */
+function finishPlacement(box, pl, idx, multi) {
+  if (multi) return box;
+  if (isSel('placement', idx) && !S.locked) {
     for (const corner of ['nw', 'ne', 'sw', 'se']) {
       const handle = h('div', { class: `rs ${corner}` });
       handle.addEventListener('pointerdown',
@@ -1345,6 +1623,7 @@ function startTextScale(e, box, tb) {
 function startTextDrag(e, box, tb) {
   return new Promise((resolve) => {
     const scale = canvasScale();
+    const snap = makeSnap();
     const sx = e.clientX, sy = e.clientY, ox = tb.x_mm, oy = tb.y_mm;
     let moved = false;
     S.dragging = true;
@@ -1358,15 +1637,19 @@ function startTextDrag(e, box, tb) {
         box.classList.add('sel');
         renderSelToolbar();
       }
-      tb.x_mm = clamp(ox + (ev.clientX - sx) / scale,
+      const cx = snap.axis('x', ox + (ev.clientX - sx) / scale + tb.w_mm / 2, TRIM_W / 2);
+      const cy = snap.axis('y', oy + (ev.clientY - sy) / scale + tb.h_mm / 2, TRIM_H / 2);
+      tb.x_mm = clamp(cx - tb.w_mm / 2,
                       SAFE, Math.max(SAFE, TRIM_W - SAFE - tb.w_mm));
-      tb.y_mm = clamp(oy + (ev.clientY - sy) / scale,
+      tb.y_mm = clamp(cy - tb.h_mm / 2,
                       SAFE, Math.max(SAFE, TRIM_H - SAFE - tb.h_mm));
       box.style.left = pct(tb.x_mm + BLEED, CANVAS_W);
       box.style.top = pct(tb.y_mm + BLEED, CANVAS_H);
+      snap.guides(tb.x_mm + tb.w_mm / 2, tb.y_mm + tb.h_mm / 2);
     };
     const up = () => {
       S.dragging = false;
+      clearSnapGuides();
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       if (moved) markDirty();
@@ -1454,7 +1737,7 @@ function highlightSel() {
   }
   if (!S.sel) return;
   const el = S.sel.kind === 'placement'
-    ? document.querySelector('.placement')
+    ? document.querySelector(`.placement[data-idx="${S.sel.idx}"]`)
     : S.sel.kind === 'sticker'
       ? document.querySelector(`.sticker[data-id="${S.sel.id}"]`)
       : document.querySelector(`.textbox[data-id="${S.sel.id}"]`);
@@ -1471,18 +1754,24 @@ function renderSelToolbar() {
 
   if (S.sel.kind === 'placement') {
     const page = S.book.layout.pages[S.page];
-    const pl = page.placements[0];
+    const idx = S.sel.idx || 0;
+    const pl = page.placements[idx];
     if (!pl) { bar.classList.add('hidden'); return; }
-    const isFull = pl.x_mm === FULL_BLEED.x_mm && pl.w_mm === FULL_BLEED.w_mm;
+    if (pageSlots(page).length === 1) {
+      // Single-photo page: the two classic framings are layouts of their own.
+      const current = pageLayoutId(page);
+      bar.append(
+        h('button', {
+          class: 'btn small' + (current === 'full' ? ' active' : ''),
+          onclick: () => applyLayout('full'),
+        }, t('tool.fullPage')),
+        h('button', {
+          class: 'btn small' + (current === 'inset' ? ' active' : ''),
+          onclick: () => applyLayout('inset'),
+        }, t('tool.inset')),
+      );
+    }
     bar.append(
-      h('button', {
-        class: 'btn small' + (isFull ? ' active' : ''),
-        onclick: () => { Object.assign(pl, FULL_BLEED); markDirty(); renderCanvas(true); },
-      }, t('tool.fullPage')),
-      h('button', {
-        class: 'btn small' + (!isFull ? ' active' : ''),
-        onclick: () => { Object.assign(pl, INSET); markDirty(); renderCanvas(true); },
-      }, t('tool.inset')),
       h('button', {
         class: 'btn small',
         onclick: () => {
@@ -1494,7 +1783,8 @@ function renderSelToolbar() {
       h('button', {
         class: 'btn small danger',
         onclick: () => {
-          page.placements = [];
+          page.placements.splice(idx, 1);
+          reflowSlots(page);
           S.sel = null;
           markDirty();
           renderCanvas(true);
@@ -1530,9 +1820,8 @@ function renderSelToolbar() {
       markDirty();
       renderCanvas(true);
     });
-    const color = h('input', { type: 'color', value: tb.color, 'aria-label': 'Color' });
-    color.addEventListener('input', () => {
-      tb.color = color.value;
+    const color = colorControl(tb.color, t('tool.textColor'), (colour) => {
+      tb.color = colour;
       markDirty();
       renderCanvas(true);
     });
@@ -2020,6 +2309,10 @@ function bind() {
   $('btn-delete-sel').addEventListener('click', deleteSelectedPhotos);
   $('btn-add-text').addEventListener('click', addTextBox);
   $('btn-add-sticker').addEventListener('click', () => setTrayTab('stickers'));
+  $('btn-layout').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openLayoutPop(e.currentTarget);
+  });
   $('tab-photos').addEventListener('click', () => setTrayTab('photos'));
   $('tab-stickers').addEventListener('click', () => setTrayTab('stickers'));
   $('btn-autofill').addEventListener('click', autoFill);

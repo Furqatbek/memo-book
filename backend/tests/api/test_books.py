@@ -133,12 +133,31 @@ class TestLayoutPatch:
         assert current.json()["layout_version"] == 1
         assert current.json()["layout"]["pages"][0]["placements"] == []
 
-    async def test_multi_photo_pages_blocked_in_mvp(self, client):
+    async def test_multi_photo_pages_accepted(self, client):
+        """Page layouts put several photos on one page (the list seam that
+        was always in the schema); the cap is the largest layout's slots."""
+        from app.domain.layouts import LAYOUTS
+
         book = await make_book(client)
         layout = book["layout"]
+        layout["pages"][0]["layout"] = "four"
         layout["pages"][0]["placements"] = [
-            {"photo_id": str(uuid.uuid4()), "x_mm": 0, "y_mm": 0, "w_mm": 50, "h_mm": 50},
-            {"photo_id": str(uuid.uuid4()), "x_mm": 60, "y_mm": 0, "w_mm": 50, "h_mm": 50},
+            {"photo_id": str(uuid.uuid4()), **slot} for slot in LAYOUTS["four"]
+        ]
+        resp = await client.patch(f"/api/v1/books/{book['book_id']}/layout",
+                                  json=layout, headers={**auth(book), "If-Match": "1"})
+        assert resp.status_code == 200, resp.text
+        assert len(resp.json()["layout"]["pages"][0]["placements"]) == 4
+
+    async def test_more_photos_than_slots_rejected(self, client):
+        from app.domain.layouts import LAYOUTS, MAX_PLACEMENTS_PER_PAGE
+
+        book = await make_book(client)
+        layout = book["layout"]
+        slot = LAYOUTS["four"][0]
+        layout["pages"][0]["placements"] = [
+            {"photo_id": str(uuid.uuid4()), **slot}
+            for _ in range(MAX_PLACEMENTS_PER_PAGE + 1)
         ]
         resp = await client.patch(f"/api/v1/books/{book['book_id']}/layout",
                                   json=layout, headers={**auth(book), "If-Match": "1"})

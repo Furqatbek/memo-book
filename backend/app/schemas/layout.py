@@ -1,19 +1,18 @@
 """The layout document schema (spec Part 3), stored as one JSONB column.
 
-Seam for multi-photo pages (spec Part 12): `page.placements` is a LIST from
-day one, with a validator enforcing at most one entry in MVP. Changing a
-scalar to a list later would mean migrating every stored layout.
+`page.placements` is a LIST from day one (spec Part 12) — the seam that
+made multi-photo pages a validator change rather than a migration of every
+stored layout. `page.layout` names the slot grid those placements fill.
 """
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.geometry import RectMM, clamp_text_box, validate_placement
+from app.domain.layouts import DEFAULT_LAYOUT, LAYOUT_IDS, MAX_PLACEMENTS_PER_PAGE
 from app.domain.stickers import sticker_ids
 
 LAYOUT_SCHEMA_VERSION = 1
-
-MAX_PLACEMENTS_PER_PAGE_MVP = 1
 
 
 class PlacementDoc(BaseModel):
@@ -115,16 +114,26 @@ class PageDoc(BaseModel):
 
     index: int = Field(ge=0)
     bg_color: str = Field(default="#ffffff", pattern=HEX_COLOR)
+    # Which slot grid this page uses. Placements carry their own geometry;
+    # the id tells the editor how many slots exist, including empty ones.
+    layout: str = Field(default=DEFAULT_LAYOUT, max_length=32)
     placements: list[PlacementDoc] = Field(default_factory=list)
     texts: list[TextBoxDoc] = Field(default_factory=list, max_length=20)
     stickers: list[StickerDoc] = Field(default_factory=list, max_length=20)
 
+    @field_validator("layout")
+    @classmethod
+    def _known_layout(cls, v):
+        if v not in LAYOUT_IDS:
+            raise ValueError(f"unknown page layout {v!r}")
+        return v
+
     @field_validator("placements")
     @classmethod
-    def _mvp_single_placement(cls, v):
-        if len(v) > MAX_PLACEMENTS_PER_PAGE_MVP:
+    def _placement_cap(cls, v):
+        if len(v) > MAX_PLACEMENTS_PER_PAGE:
             raise ValueError(
-                f"MVP allows at most {MAX_PLACEMENTS_PER_PAGE_MVP} placement per page"
+                f"a page holds at most {MAX_PLACEMENTS_PER_PAGE} photos"
             )
         return v
 

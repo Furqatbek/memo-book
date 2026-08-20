@@ -8,7 +8,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.geometry import BLEED_MM, CANVAS_H_MM, CANVAS_W_MM
+from app.domain.layouts import slots_for
 from app.domain.ordering import PhotoForOrdering, auto_place_order
 from app.domain.tiers import CheckoutEligibility, checkout_eligibility
 from app.models.book import Book
@@ -33,23 +33,16 @@ async def _usable_photos(session: AsyncSession, book_id: uuid.UUID) -> list[Phot
     return list(result.scalars())
 
 
-def _full_bleed_placement(photo_id: uuid.UUID) -> dict:
-    return {
-        "photo_id": str(photo_id),
-        "x_mm": -BLEED_MM,
-        "y_mm": -BLEED_MM,
-        "w_mm": CANVAS_W_MM,
-        "h_mm": CANVAS_H_MM,
-        "rotation": 0,
-        "fit": "cover",
-    }
+def _slot_placement(photo_id: str, slot: dict) -> dict:
+    return {"photo_id": photo_id, **slot, "rotation": 0, "fit": "cover"}
 
 
 async def auto_place(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
                      if_match: int | None) -> tuple[Book, int, list[str]]:
-    """Fill pages chronologically (R2), one photo per page, full-bleed.
-    Existing texts and the cover are preserved; only placements are rewritten.
-    Surplus photos are returned, never silently dropped (R3)."""
+    """Fill pages chronologically (R2) into each page's layout slots — one
+    photo per slot, so a 4-up page takes four. Existing texts, stickers and
+    the cover are preserved; only placements are rewritten. Surplus photos
+    are returned, never silently dropped (R3)."""
     book = await get_book_authed(session, book_id, edit_token)
     _require_mutable(book)
     _require_version(book, if_match)
@@ -59,14 +52,16 @@ async def auto_place(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
         PhotoForOrdering(id=str(p.id), taken_at=p.taken_at, uploaded_at=p.uploaded_at)
         for p in photos
     ])
-    placed = ordered_ids[: book.page_count]
-
-    # Rewrite placements only; texts and cover survive untouched.
+    # Rewrite placements only; texts, stickers and cover survive untouched.
     layout = LayoutDoc.model_validate(book.layout).model_dump()
+    cursor = 0
     for page in layout["pages"]:
-        idx = page["index"]
-        if idx < len(placed):
-            page["placements"] = [_full_bleed_placement(uuid.UUID(placed[idx]))]
+        slots = slots_for(page.get("layout"))
+        take = ordered_ids[cursor:cursor + len(slots)]
+        cursor += len(take)
+        if take:
+            page["placements"] = [_slot_placement(pid, slot)
+                                  for pid, slot in zip(take, slots, strict=False)]
         else:
             page["placements"] = []
 
@@ -76,8 +71,8 @@ async def auto_place(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
     await session.commit()
     await session.refresh(book)
 
-    unplaced = ordered_ids[book.page_count:]
-    return book, len(placed), unplaced
+    unplaced = ordered_ids[cursor:]
+    return book, cursor, unplaced
 
 
 async def eligibility(session: AsyncSession, book_id: uuid.UUID,

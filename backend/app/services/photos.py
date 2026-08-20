@@ -21,7 +21,10 @@ from app.services.image_processing import IngestError, process_image
 log = structlog.get_logger()
 
 ALLOWED_MIMES = {"image/jpeg", "image/png", "image/heic", "image/heif"}
-MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+# The browser downscales before uploading, so real uploads land far below
+# this; the ceiling only has to accommodate the untouched-original fallback
+# (HEIC on browsers that cannot decode it) and block abuse.
+MAX_UPLOAD_BYTES = 60 * 1024 * 1024
 
 
 def _now() -> datetime:
@@ -74,9 +77,17 @@ async def issue_upload_url(session: AsyncSession, book_id: uuid.UUID, edit_token
 
 
 async def complete_upload(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
-                          photo_id: uuid.UUID) -> Photo:
+                          photo_id: uuid.UUID,
+                          taken_at_exif: str | None = None) -> Photo:
     book = await get_book_authed(session, book_id, edit_token)
     photo = await _get_photo(session, book, photo_id)
+    if taken_at_exif:
+        # Browser-downscaled uploads carry no EXIF; the client forwards the
+        # original capture time so date ordering (R2) still works. Parsed by
+        # the SAME helper the server-side EXIF path uses, so semantics match.
+        from app.services.image_processing import _parse_exif_datetime
+
+        photo.taken_at = _parse_exif_datetime(taken_at_exif) or photo.taken_at
     if photo.status not in (PhotoStatus.PENDING.value, PhotoStatus.FAILED.value):
         return photo  # idempotent: completing twice is harmless
 
@@ -114,7 +125,7 @@ async def ingest_photo(session: AsyncSession, photo_id: uuid.UUID) -> Photo:
         photo.thumb_key = thumb_key
         photo.orig_width = processed.width
         photo.orig_height = processed.height
-        photo.taken_at = processed.taken_at
+        photo.taken_at = processed.taken_at or photo.taken_at
         photo.exif_orientation = 1  # R4: rotation applied physically
         photo.sha256 = processed.sha256
         photo.bytes_original = len(data)

@@ -2,10 +2,11 @@
 import anyio
 
 from app import storage
+from app.services.photos import MAX_UPLOAD_BYTES
 from tests.api.test_books import auth, make_book
 from tests.services.test_image_processing import build_exif, heic_bytes, jpeg_bytes
 
-TWENTY_SIX_MB = 26 * 1024 * 1024
+OVERSIZE = MAX_UPLOAD_BYTES + 1
 
 
 async def start_upload(client, book, filename="trip.jpg", mime="image/jpeg", size=1000):
@@ -53,7 +54,7 @@ class TestUploadUrl:
 
     async def test_oversize_rejected(self, client):
         book = await make_book(client)
-        resp = await start_upload(client, book, size=TWENTY_SIX_MB)
+        resp = await start_upload(client, book, size=OVERSIZE)
         assert resp.status_code == 422
 
     async def test_complete_without_upload_rejected(self, client):
@@ -152,3 +153,46 @@ class TestBookIncludesPhotos:
         photos = resp.json()["photos"]
         assert len(photos) == 1
         assert photos[0]["photo_id"] == pid
+
+
+class TestClientSuppliedCaptureTime:
+    """The browser downscales before uploading, so the file that arrives has
+    no EXIF; the client forwards the original capture time instead (R2)."""
+
+    async def test_client_exif_date_used_when_file_has_none(self, client):
+        book = await make_book(client)
+        data = jpeg_bytes(1200, 900)          # no EXIF at all
+        issued = (await start_upload(client, book, size=len(data))).json()
+        await anyio.to_thread.run_sync(
+            storage.put_bytes, issued["storage_key"], data, "image/jpeg")
+        resp = await client.post(
+            f"/api/v1/books/{book['book_id']}/photos/{issued['photo_id']}/complete",
+            json={"taken_at_exif": "2024:07:14 18:22:05"}, headers=auth(book))
+        assert resp.status_code == 200
+        [photo] = await photo_list(client, book)
+        assert photo["taken_at"].startswith("2024-07-14T18:22:05")
+
+    async def test_file_exif_wins_over_client_hint(self, client):
+        book = await make_book(client)
+        data = jpeg_bytes(400, 300, exif=build_exif("2019:01:02 03:04:05"))
+        issued = (await start_upload(client, book, size=len(data))).json()
+        await anyio.to_thread.run_sync(
+            storage.put_bytes, issued["storage_key"], data, "image/jpeg")
+        await client.post(
+            f"/api/v1/books/{book['book_id']}/photos/{issued['photo_id']}/complete",
+            json={"taken_at_exif": "2024:07:14 18:22:05"}, headers=auth(book))
+        [photo] = await photo_list(client, book)
+        assert photo["taken_at"].startswith("2019-01-02")
+
+    async def test_garbage_hint_is_ignored(self, client):
+        book = await make_book(client)
+        data = jpeg_bytes(1200, 900)
+        issued = (await start_upload(client, book, size=len(data))).json()
+        await anyio.to_thread.run_sync(
+            storage.put_bytes, issued["storage_key"], data, "image/jpeg")
+        resp = await client.post(
+            f"/api/v1/books/{book['book_id']}/photos/{issued['photo_id']}/complete",
+            json={"taken_at_exif": "not-a-date"}, headers=auth(book))
+        assert resp.status_code == 200
+        [photo] = await photo_list(client, book)
+        assert photo["taken_at"] is None

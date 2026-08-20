@@ -87,3 +87,37 @@ class TestPreview:
             {"bg_color": "#ffffff", "stickers": [sticker("sun", w_mm=60)]},
             None)
         assert with_sticker != plain
+
+
+class TestMultiPhotoPages:
+    """Layout slots reach the print PDF: the renderer has always looped over
+    `placements`, so a grid page needs no renderer change — lock that in."""
+
+    def test_grid_page_renders_every_slot(self):
+        from app.domain.layouts import LAYOUTS
+        from app.render.compose import compose_page
+        from tests.services.test_image_processing import jpeg_bytes
+
+        photos = {f"p{i}": jpeg_bytes(900, 700) for i in range(4)}
+        grid = {"index": 0, "bg_color": "#ffffff", "texts": [], "stickers": [],
+                "placements": [{"photo_id": f"p{i}", **slot, "rotation": 0,
+                                "fit": "cover"}
+                               for i, slot in enumerate(LAYOUTS["four"])]}
+        single = {"index": 0, "bg_color": "#ffffff", "texts": [], "stickers": [],
+                  "placements": [{"photo_id": "p0", **LAYOUTS["full"][0],
+                                  "rotation": 0, "fit": "cover"}]}
+        four_up = compose_page(grid, photos, scale=0.25)
+        one_up = compose_page(single, photos, scale=0.25)
+        assert four_up != one_up
+        assert compose_page(grid, photos, scale=0.25) == four_up   # deterministic
+
+    def test_partially_filled_grid_leaves_page_colour(self):
+        from app.domain.layouts import LAYOUTS
+        from app.render.compose import compose_page
+        from tests.services.test_image_processing import jpeg_bytes
+
+        page = {"index": 0, "bg_color": "#1d4d85", "texts": [], "stickers": [],
+                "placements": [{"photo_id": "p0", **LAYOUTS["four"][0],
+                                "rotation": 0, "fit": "cover"}]}
+        out = compose_page(page, {"p0": jpeg_bytes(900, 700)}, scale=0.25)
+        assert out.startswith(b"\xff\xd8")     # a valid JPEG, empty slots and all

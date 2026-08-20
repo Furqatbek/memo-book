@@ -42,10 +42,19 @@ async def upload_url(book_id: uuid.UUID, body: UploadUrlRequest, session: Sessio
     return {"upload_url": url, "photo_id": photo.id, "storage_key": photo.original_key}
 
 
+class CompleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Raw EXIF timestamp read by the browser before it downscaled the file.
+    # The upload itself carries no EXIF, and R2 orders pages by capture time.
+    taken_at_exif: str | None = Field(default=None, max_length=32)
+
+
 @router.post("/{photo_id}/complete")
 async def complete(book_id: uuid.UUID, photo_id: uuid.UUID, session: Session,
-                   x_edit_token: EditToken):
-    photo = await svc.complete_upload(session, book_id, x_edit_token, photo_id)
+                   x_edit_token: EditToken,
+                   body: CompleteRequest | None = None):
+    photo = await svc.complete_upload(session, book_id, x_edit_token, photo_id,
+                                      taken_at_exif=body.taken_at_exif if body else None)
     if photo.status == "processing":
         if queue.eager():
             await svc.ingest_photo(session, photo.id)

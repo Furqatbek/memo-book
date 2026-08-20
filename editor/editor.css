@@ -307,13 +307,68 @@ select {
 .color-tool {
   display: inline-flex; gap: 6px; align-items: center; cursor: pointer;
   border: 1px solid var(--line); border-radius: var(--radius);
-  background: #fff; padding: 3px 8px 3px 3px; font-size: .82rem;
+  background: #fff; padding: 4px 10px 4px 5px; font-size: .82rem;
   color: var(--muted);
 }
-.color-tool input[type=color] {
-  width: 26px; height: 26px; border: 0; border-radius: 6px; padding: 0;
-  background: none; cursor: pointer;
+.color-dot {
+  width: 22px; height: 22px; border-radius: 6px; flex: none;
+  border: 1px solid rgba(0,0,0,.18);
 }
+/* Swatch popover: one tap per colour beats the OS colour dialog on phones. */
+.swatch-pop {
+  position: fixed; z-index: 80; background: #fff; padding: 10px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 12px 34px rgba(0,0,0,.18);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.swatch-grid {
+  display: grid; grid-template-columns: repeat(6, 34px); gap: 6px;
+}
+.swatch {
+  width: 34px; height: 34px; border-radius: 8px; padding: 0;
+  border: 1px solid rgba(0,0,0,.18);
+}
+.swatch.active { outline: 3px solid var(--primary); outline-offset: 1px; }
+.swatch-more {
+  display: flex; align-items: center; gap: 8px; font-size: .85rem;
+  color: var(--muted); cursor: pointer;
+}
+.swatch-more input[type=color] {
+  width: 34px; height: 30px; border: 1px solid var(--line); border-radius: 6px;
+  padding: 0; background: none; cursor: pointer;
+}
+
+/* ---------- page layouts ---------- */
+.slot-empty {
+  position: absolute; z-index: 1; border: 2px dashed var(--line);
+  border-radius: 4px; display: flex; align-items: center;
+  justify-content: center; color: var(--muted); font-size: 1.6rem;
+  background: rgba(255,255,255,.45); cursor: pointer;
+}
+.slot-empty:hover { border-color: var(--primary); color: var(--primary); }
+.placement.swapping { opacity: .75; z-index: 8; cursor: grabbing; }
+.layout-pop {
+  position: fixed; z-index: 80; background: #fff; padding: 10px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 12px 34px rgba(0,0,0,.18);
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+.lay-item {
+  border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  padding: 5px;
+}
+.lay-item.active { border-color: var(--primary); background: #eef2fd; }
+.lay-thumb {
+  position: relative; width: 40px; aspect-ratio: 154 / 216;
+  background: var(--bg); border-radius: 3px; overflow: hidden;
+}
+.lay-cell { position: absolute; background: var(--primary); opacity: .8; }
+
+/* Magnetic centre guides shown while dragging */
+.snap-guide { position: absolute; z-index: 9; pointer-events: none;
+  background: #e6389a; box-shadow: 0 0 0 1px rgba(255,255,255,.55); }
+.snap-guide.v { left: 50%; top: 0; bottom: 0; width: 1px; margin-left: -.5px; }
+.snap-guide.h { top: 50%; left: 0; right: 0; height: 1px; margin-top: -.5px; }
 
 /* cover mode */
 .page-canvas.cover-mode { background: #eceff4; }
@@ -460,7 +515,11 @@ select {
   .ed-bar .btn { padding: 8px 10px; font-size: .88rem; }
   .ed-brand { display: none; }
   .color-tool span { display: none; }
-  .color-tool { padding: 3px; }
+  .color-tool { padding: 4px; }
+  .swatch-grid { grid-template-columns: repeat(6, 40px); }
+  .layout-pop { grid-template-columns: repeat(3, 1fr); }
+  .lay-thumb { width: 52px; }
+  .swatch { width: 40px; height: 40px; }
 }
 
 /* Touch devices: finger-sized handles */

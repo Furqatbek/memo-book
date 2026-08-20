@@ -20,7 +20,7 @@ from PIL.ExifTags import IFD
 
 pillow_heif.register_heif_opener()
 
-MAX_BYTES = 25 * 1024 * 1024
+MAX_BYTES = 60 * 1024 * 1024
 MAX_SIDE_PX = 15_000
 MAX_PIXELS = 80_000_000
 

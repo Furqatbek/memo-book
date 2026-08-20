@@ -98,9 +98,11 @@ export const uploadUrl = (c, meta) =>
   request('POST', `${V}/books/${c.book_id}/photos/upload-url`,
           { token: c.edit_token, body: meta });
 
-export const completePhoto = (c, photoId) =>
+/* takenAt is the raw EXIF "YYYY:MM:DD HH:MM:SS" read in the browser: the
+   downscaled upload carries no EXIF, and date order drives auto-place. */
+export const completePhoto = (c, photoId, takenAt) =>
   request('POST', `${V}/books/${c.book_id}/photos/${photoId}/complete`,
-          { token: c.edit_token });
+          { token: c.edit_token, body: takenAt ? { taken_at_exif: takenAt } : {} });
 
 export const listPhotos = (c) =>
   request('GET', `${V}/books/${c.book_id}/photos`, { token: c.edit_token });
