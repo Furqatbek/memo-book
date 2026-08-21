@@ -395,3 +395,17 @@ held — finding the exact centre by hand on a phone is otherwise luck. The
 native colour input is replaced by a grid of large swatches (the OS colour
 dialog is painful on phones); the native picker stays behind "Custom" for
 an exact shade.
+
+**A58 — Static assets declare their caching.** The editor is a no-build ES
+module app, so index.html and the JS it imports are separate cached
+resources. With no `Cache-Control` header browsers apply *heuristic*
+caching and mobile browsers hold JS for hours — a freshly fetched
+index.html then runs stale app.js/i18n.js, which looks exactly like broken
+features: new buttons wired to nothing, labels rendering raw translation
+keys (reported in production for the layout button). `WebAssets` therefore
+serves markup/code with `no-cache` (kept, but revalidated — Starlette
+answers unchanged files with an empty 304) and media with a one-week
+max-age, since sticker/photo assets are numerous and effectively
+immutable. Module URLs also carry a one-time `?v=` stamp to break browsers
+out of caches poisoned before this rule existed; the header makes further
+bumps unnecessary.

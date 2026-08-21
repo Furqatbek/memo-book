@@ -2,11 +2,11 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js';
-import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js';
-import { STICKER_CATEGORIES, STICKERS } from './stickers.js';
-import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js';
-import { makeJobs, runJobs } from './upload.js';
+import * as api from './api.js?v=20260821';
+import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js?v=20260821';
+import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260821';
+import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260821';
+import { makeJobs, runJobs } from './upload.js?v=20260821';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
 const CANVAS_W = TRIM_W + 2 * BLEED, CANVAS_H = TRIM_H + 2 * BLEED;

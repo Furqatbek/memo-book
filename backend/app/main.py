@@ -1,5 +1,5 @@
 """FastAPI application factory."""
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +15,36 @@ from app.api.preview import router as preview_router
 from app.api.pricing import router as pricing_router
 from app.config import get_settings
 from app.logging import configure_logging
+
+
+class WebAssets(StaticFiles):
+    """Static files with explicit caching rules.
+
+    Without a Cache-Control header browsers fall back to *heuristic*
+    caching, and mobile browsers hold JS for hours. That mixes a freshly
+    fetched index.html with a stale app.js/i18n.js — new buttons appear
+    wired to code that isn't there, so features look broken and labels
+    show raw translation keys (observed in production, A58).
+
+    Markup and code therefore always revalidate: `no-cache` still lets the
+    browser keep the copy, it just has to ask first, and Starlette answers
+    an unchanged file with an empty 304. Media keeps a real expiry — those
+    files are big, numerous (155 stickers) and effectively immutable.
+    """
+
+    REVALIDATE_SUFFIXES = frozenset({"", ".html", ".htm", ".js", ".mjs",
+                                     ".css", ".json", ".map", ".webmanifest"})
+    MEDIA_MAX_AGE = 7 * 24 * 3600
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        suffix = PurePosixPath(path).suffix.lower()
+        if suffix in self.REVALIDATE_SUFFIXES:
+            response.headers["Cache-Control"] = "no-cache"
+        else:
+            response.headers["Cache-Control"] = (
+                f"public, max-age={self.MEDIA_MAX_AGE}")
+        return response
 
 
 def create_app() -> FastAPI:
@@ -38,11 +68,11 @@ def create_app() -> FastAPI:
     app.include_router(payments_router)
     app.include_router(pricing_router)
     if settings.editor_dir and Path(settings.editor_dir).is_dir():
-        app.mount("/editor", StaticFiles(directory=settings.editor_dir, html=True),
+        app.mount("/editor", WebAssets(directory=settings.editor_dir, html=True),
                   name="editor")
     if settings.site_dir and Path(settings.site_dir).is_dir():
         # Mounted last: everything the API and /editor don't claim.
-        app.mount("/", StaticFiles(directory=settings.site_dir, html=True),
+        app.mount("/", WebAssets(directory=settings.site_dir, html=True),
                   name="site")
     return app
 
