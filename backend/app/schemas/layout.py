@@ -25,6 +25,14 @@ class PlacementDoc(BaseModel):
     h_mm: float
     rotation: float = Field(default=0, ge=-360, le=360)
     fit: Literal["cover", "contain"] = "cover"
+    # Crop control for "cover" framing, where the photo's aspect rarely
+    # matches the slot's. zoom 1.0 = just covers the slot; focus is the
+    # point of the photo held in view (0..1 of the overflow, 0.5 = centre).
+    # The defaults reproduce a plain centred crop, so layouts saved before
+    # these fields existed keep rendering byte-identically.
+    zoom: float = Field(default=1.0, ge=1.0, le=4.0)
+    focus_x: float = Field(default=0.5, ge=0, le=1)
+    focus_y: float = Field(default=0.5, ge=0, le=1)
 
     @model_validator(mode="after")
     def _inside_canvas(self):

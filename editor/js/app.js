@@ -1247,7 +1247,49 @@ function addSticker(stickerId) {
   renderCanvas(true);
 }
 
+/* How many px of photo hang outside the frame, per axis, at the current
+   zoom. Zero on an axis means there is nothing to pan there. */
+function cropOverflow(pl, photo) {
+  if (!photo || !photo.width || !photo.height) return { x: 0, y: 0 };
+  const s = canvasScale();
+  const bw = pl.w_mm * s, bh = pl.h_mm * s;
+  const scale = Math.max(bw / photo.width, bh / photo.height)
+    * Math.max(1, pl.zoom || 1);
+  return { x: Math.max(0, photo.width * scale - bw),
+           y: Math.max(0, photo.height * scale - bh) };
+}
+
+/* Lay the photo inside its frame with the same arithmetic the print
+   renderer uses (app/render/compose.py:_fit_cover), so what the customer
+   frames on screen is exactly what gets printed. */
+function applyCrop(el, pl) {
+  const img = el.querySelector('img');
+  if (!img) return;
+  const photo = photoById(pl.photo_id);
+  if (pl.fit === 'contain' || !photo || !photo.width || !photo.height) {
+    img.removeAttribute('style');
+    img.style.objectFit = pl.fit === 'contain' ? 'contain' : 'cover';
+    return;
+  }
+  const s = canvasScale();
+  const bw = pl.w_mm * s, bh = pl.h_mm * s;
+  const scale = Math.max(bw / photo.width, bh / photo.height)
+    * Math.max(1, pl.zoom || 1);
+  const rw = Math.max(bw, photo.width * scale);
+  const rh = Math.max(bh, photo.height * scale);
+  const fx = clamp(pl.focus_x ?? 0.5, 0, 1);
+  const fy = clamp(pl.focus_y ?? 0.5, 0, 1);
+  img.style.position = 'absolute';
+  img.style.maxWidth = 'none';
+  img.style.objectFit = 'fill';
+  img.style.width = `${rw}px`;
+  img.style.height = `${rh}px`;
+  img.style.left = `${-(rw - bw) * fx}px`;
+  img.style.top = `${-(rh - bh) * fy}px`;
+}
+
 function placeRect(el, r) {
+  applyCrop(el, r);
   el.style.left = pct(r.x_mm + BLEED, CANVAS_W);
   el.style.top = pct(r.y_mm + BLEED, CANVAS_H);
   el.style.width = pct(r.w_mm, CANVAS_W);
@@ -1285,13 +1327,44 @@ function makePlacement(pl, idx) {
       if (id && !S.locked) placeOnPage(id, S.page, false, idx);
     },
   });
-  placeRect(box, pl);
   if (photo && photo.display_url) {
-    box.append(h('img', {
-      src: photo.display_url, alt: '', style: `object-fit:${pl.fit}`, draggable: 'false',
-    }));
+    box.append(h('img', { src: photo.display_url, alt: '', draggable: 'false' }));
   } else {
     box.append(h('span', { class: 'spin' }));
+  }
+  placeRect(box, pl);   // also lays the photo out inside the frame
+
+  // Pan the crop: the frame is fixed (a layout slot, or a rectangle the
+  // customer sized), so what moves is the photo behind it.
+  if (isSel('placement', idx) && !S.locked && pl.fit !== 'contain'
+      && cropOverflow(pl, photo)) {
+    const pan = h('div', { class: 'pl-pan', 'data-i18n-title': 'tool.pan' }, '⠿');
+    pan.title = t('tool.pan');
+    pan.addEventListener('pointerdown', (e) => {
+      if (S.locked || !e.isPrimary) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const over = cropOverflow(pl, photo);
+      const sx = e.clientX, sy = e.clientY;
+      const ofx = pl.focus_x ?? 0.5, ofy = pl.focus_y ?? 0.5;
+      S.dragging = true;
+      const move = (ev) => {
+        if (S.pinching) return;
+        // Drag right -> reveal more of the photo's left side.
+        if (over.x > 0) pl.focus_x = clamp(ofx - (ev.clientX - sx) / over.x, 0, 1);
+        if (over.y > 0) pl.focus_y = clamp(ofy - (ev.clientY - sy) / over.y, 0, 1);
+        placeRect(box, pl);
+      };
+      const up = () => {
+        S.dragging = false;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        markDirty();
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+    box.append(pan);
   }
 
   // In a grid, dragging a photo swaps it with the slot it is dropped on —
@@ -1383,7 +1456,19 @@ function makePlacement(pl, idx) {
 /* Corner handles and pinch belong to single-slot pages only: in a grid the
    rectangle is the layout's to decide. */
 function finishPlacement(box, pl, idx, multi) {
-  if (multi) return box;
+  if (multi) {
+    // A grid slot is fixed, so pinching zooms the photo within it rather
+    // than resizing the frame.
+    attachPinch(box, {
+      getState: () => ({ z: pl.zoom || 1 }),
+      apply: (f, _ang, o) => {
+        pl.zoom = clamp(o.z * f, 1, 4);
+        placeRect(box, pl);
+      },
+      end: () => { markDirty(); renderCanvas(true); },
+    });
+    return box;
+  }
   if (isSel('placement', idx) && !S.locked) {
     for (const corner of ['nw', 'ne', 'sw', 'se']) {
       const handle = h('div', { class: `rs ${corner}` });
@@ -1769,6 +1854,25 @@ function renderSelToolbar() {
           class: 'btn small' + (current === 'inset' ? ' active' : ''),
           onclick: () => applyLayout('inset'),
         }, t('tool.inset')),
+      );
+    }
+    if (pl.fit !== 'contain') {
+      // Zoom into the framed crop; panning is the ⠿ handle on the photo.
+      const zoomBy = (delta) => {
+        pl.zoom = clamp(Math.round(((pl.zoom || 1) + delta) * 100) / 100, 1, 4);
+        markDirty();
+        renderCanvas(true);
+      };
+      bar.append(
+        h('button', {
+          class: 'btn small', title: t('tool.zoomOut'),
+          disabled: (pl.zoom || 1) <= 1 ? '' : null,
+          onclick: () => zoomBy(-0.25),
+        }, '−'),
+        h('button', {
+          class: 'btn small', title: t('tool.zoomIn'),
+          onclick: () => zoomBy(0.25),
+        }, '+'),
       );
     }
     bar.append(

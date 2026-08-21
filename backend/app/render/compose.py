@@ -28,12 +28,23 @@ def hex_to_rgb(value: str | None) -> tuple[int, int, int]:
     return (255, 255, 255)
 
 
-def _fit_cover(img: Image.Image, tw: int, th: int) -> Image.Image:
-    scale = max(tw / img.width, th / img.height)
-    resized = img.resize((max(1, round(img.width * scale)),
-                          max(1, round(img.height * scale))), Image.LANCZOS)
-    left = (resized.width - tw) // 2
-    top = (resized.height - th) // 2
+def _fit_cover(img: Image.Image, tw: int, th: int, zoom: float = 1.0,
+               focus_x: float = 0.5, focus_y: float = 0.5) -> Image.Image:
+    """Fill (tw, th) with the photo, cropping the overflow.
+
+    `zoom` > 1 enlarges beyond the minimum cover scale; `focus_*` slides the
+    crop window across the overflow (0 = left/top edge, 1 = right/bottom).
+    At the defaults this is a plain centred crop and the arithmetic reduces
+    to the original one exactly — `int((rw - tw) * 0.5) == (rw - tw) // 2` —
+    so books laid out before crop control render unchanged.
+    """
+    scale = max(tw / img.width, th / img.height) * max(1.0, zoom)
+    # Never smaller than the target: rounding must not open a transparent gap.
+    rw = max(tw, round(img.width * scale))
+    rh = max(th, round(img.height * scale))
+    resized = img.resize((rw, rh), Image.LANCZOS)
+    left = int((rw - tw) * min(max(focus_x, 0.0), 1.0))
+    top = int((rh - th) * min(max(focus_y, 0.0), 1.0))
     return resized.crop((left, top, left + tw, top + th))
 
 
@@ -87,7 +98,10 @@ def compose_page(page: dict, photo_bytes: dict[str, bytes],
         if placement.get("fit", "cover") == "contain":
             fitted = _fit_contain(img, tw, th, bg)
         else:
-            fitted = _fit_cover(img, tw, th)
+            fitted = _fit_cover(img, tw, th,
+                                zoom=float(placement.get("zoom", 1.0) or 1.0),
+                                focus_x=float(placement.get("focus_x", 0.5)),
+                                focus_y=float(placement.get("focus_y", 0.5)))
         canvas.paste(fitted, (round(rect.x * scale), round(rect.y * scale)))
         del img, fitted  # free before the next placement
 

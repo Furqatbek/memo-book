@@ -409,3 +409,16 @@ max-age, since sticker/photo assets are numerous and effectively
 immutable. Module URLs also carry a one-time `?v=` stamp to break browsers
 out of caches poisoned before this rule existed; the header makes further
 bumps unnecessary.
+
+**A59 — The customer frames the crop.** A photo almost never shares its
+slot's aspect ratio, so "cover" framing has to discard part of it — with
+grid layouts that read as an arbitrary zoomed-in cut. `PlacementDoc`
+therefore carries `zoom` (1.0–4.0, 1.0 = just covers the slot) and
+`focus_x`/`focus_y` (0–1 across the overflow, 0.5 = centre). The defaults
+are exactly a centred crop and the renderer arithmetic reduces to the
+original expression at those values, so every book laid out before this
+renders byte-identically. The editor positions the photo inside its frame
+with the same arithmetic as `_fit_cover`, so the framing on screen is the
+framing that prints: a ⠿ handle on the selected photo pans it, −/+ zoom,
+pinch zooms inside a fixed grid slot, and "Fit" still shows the whole
+photo letterboxed for people who want nothing cropped at all.
