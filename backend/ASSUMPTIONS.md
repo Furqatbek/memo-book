@@ -484,3 +484,38 @@ untouched book with enough photos still reads as eligible. Nagging about
 unplaced photos belongs to the editor banner, and refusing a genuinely
 blank page belongs to checkout's own `_require_complete_pages` — which is
 unchanged and remains the hard gate.
+
+**A68 — Print sharpness is a property of the placement, not the photo.**
+The tray badge asks one question at upload time — "would this photo fill a
+whole page?" — and that became the wrong question once a page could hold
+four photos and a photo could be zoomed 4× across a spread. It over-warned
+about a photo destined for a quarter-page slot (tempting the customer to
+delete a perfectly good picture) and said nothing at all about zoom, which
+is where the sharpness actually goes: cropping in at zoom Z prints 1/Z of
+the photo across the same paper, so 4× zoom costs exactly what making the
+placement four times wider costs. `resolution_status` therefore takes
+`zoom` and `fit`, and the 800 px full-page floor divides by zoom too.
+"contain" is exempt from that floor and measured on its better axis: it
+letterboxes, so the photo prints smaller and is never asked to fill the
+page. The editor recomputes per placement with the same thresholds (a test
+fails if the two copies drift), badges the placement itself while the
+customer can still zoom out or pick a smaller frame, and repeats the count
+on the preview screen — the last moment before the preview becomes the
+contract. It stays advisory: nothing blocks checkout on resolution, because
+refusing someone's only photo of a moment is worse than printing it soft
+with fair warning. The tray badge survives, reworded to "small photo",
+since a genuinely small file is still worth knowing about on arrival.
+
+**A69 — The editor lays photos out in percentages, never measured pixels.**
+`applyCrop` used to read the live canvas width to size a photo inside its
+frame. On a phone `renderCanvas` runs while the canvas is still narrower
+than it ends up, so photos were laid out against a stale width and stopped
+short of the page edge — on screen only, since the renderer fills the frame
+regardless. A WYSIWYG editor showing a margin that will not print is the
+one lie it must not tell. The cover fit is now expressed as ratios of the
+frame (`cropRatios`: source aspect, frame aspect from the placement's own
+mm, and zoom) and written as CSS percentages, which the browser resolves
+against whatever the frame turns out to be. Nothing is measured, so nothing
+can go stale, and it is resolution-independent for free. Pointer maths
+still needs real pixels, so `cropOverflow` takes the element and measures it
+at drag time, when the layout has settled.

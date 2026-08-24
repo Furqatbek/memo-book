@@ -15,7 +15,7 @@ const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
    printer's own figure (docs/printer-questions.md, question 13). */
 const GUTTER = 5;
 const CANVAS_W = TRIM_W + 2 * BLEED, CANVAS_H = TRIM_H + 2 * BLEED;
-const PT_MM = 25.4 / 72;
+const PT_MM = 25.4 / 72, MM_PER_INCH = 25.4;
 const ORDER_FLOW = ['pending_payment', 'paid', 'rendering', 'rendered',
                     'sent_to_production', 'shipped', 'delivered'];
 const USABLE = new Set(['ready', 'duplicate']);
@@ -471,8 +471,12 @@ function renderTray() {
       card.append(h('span', { class: 'spin' }));
     } else {
       if (p.status === 'duplicate') card.append(h('span', { class: 'badge' }, t('tray.duplicate')));
+      // The server badge asks "would this fill a whole page?", which is only
+      // a warning about the biggest thing the photo could be asked to do —
+      // hence "small", not "bad" (A68).
       if (p.resolution_status && p.resolution_status !== 'ok') {
-        card.append(h('span', { class: 'badge warn' }, t('tray.lowres')));
+        card.append(h('span', { class: 'badge warn', title: t('tray.lowresHint') },
+                      t('tray.lowres')));
       }
       if (placed.has(p.photo_id)) card.append(h('span', { class: 'badge ok' }, '✓'));
     }
@@ -1467,16 +1471,76 @@ function addSticker(stickerId) {
   renderCanvas(true);
 }
 
-/* How many px of photo hang outside the frame, per axis, at the current
-   zoom. Zero on an axis means there is nothing to pan there. */
-function cropOverflow(pl, photo) {
-  if (!photo || !photo.width || !photo.height) return { x: 0, y: 0 };
-  const s = canvasScale();
-  const bw = pl.w_mm * s, bh = pl.h_mm * s;
-  const scale = Math.max(bw / photo.width, bh / photo.height)
-    * Math.max(1, pl.zoom || 1);
-  return { x: Math.max(0, photo.width * scale - bw),
-           y: Math.max(0, photo.height * scale - bh) };
+/* How many times its own frame the photo is drawn at, per axis — 1 means it
+   fits exactly, 1.4 means 40% hangs outside and can be panned.
+
+   Deliberately free of measured pixels: only the source aspect, the frame
+   aspect (which the placement carries in mm) and the zoom. The old version
+   read the live canvas width, and on a phone `renderCanvas` runs while the
+   canvas is still narrower than it ends up, so photos were laid out at the
+   stale size and left short of the page edge — the one thing a WYSIWYG
+   editor must never do, since the printer fills the page regardless. */
+function cropRatios(pl, photo) {
+  const zoom = Math.max(1, pl.zoom || 1);
+  if (!photo || !photo.width || !photo.height || !(pl.w_mm > 0) || !(pl.h_mm > 0)) {
+    return { w: zoom, h: zoom };
+  }
+  const src = photo.width / photo.height;
+  const frame = pl.w_mm / pl.h_mm;
+  return { w: Math.max(1, src / frame) * zoom, h: Math.max(1, frame / src) * zoom };
+}
+
+/* The same overflow in px, for turning a drag into a change of focus. Called
+   from a pointer handler, so the frame really is on screen and measurable. */
+function cropOverflow(pl, photo, el) {
+  const r = cropRatios(pl, photo);
+  const box = el ? el.getBoundingClientRect()
+    : { width: pl.w_mm * canvasScale(), height: pl.h_mm * canvasScale() };
+  return { x: (r.w - 1) * box.width, y: (r.h - 1) * box.height };
+}
+
+/* Is there anything to pan? A photo the same shape as its frame has no
+   overflow on either axis, and the handle would do nothing. */
+function hasCropOverflow(pl, photo) {
+  const r = cropRatios(pl, photo);
+  return r.w > 1.001 || r.h > 1.001;
+}
+
+/* How sharply a placement will actually print (A68) — the mirror of
+   app/domain/resolution.py, thresholds and all. The tray badge judges a
+   photo against a whole page, which is the wrong question once it is on
+   one: the same photo is fine in a quarter-page slot and ruinous zoomed 4x
+   across a spread. Zoom divides the answer because cropping in at zoom Z
+   spreads 1/Z of the photo over the same paper. */
+const DPI_OK = 200, DPI_WARN = 100, MIN_FULL_PAGE_SOURCE_PX = 800;
+
+function placementResolution(pl) {
+  const photo = photoById(pl.photo_id);
+  if (!photo || !photo.width || !photo.height) return 'ok';   // not ingested yet
+  if (!(pl.w_mm > 0) || !(pl.h_mm > 0)) return 'block';
+  const zoom = Math.max(1, pl.zoom || 1);
+  // "Fit" letterboxes, so the photo is never asked to fill the page.
+  const fullPage = pl.fit !== 'contain' && pl.w_mm >= TRIM_W && pl.h_mm >= TRIM_H;
+  if (fullPage && Math.min(photo.width, photo.height) / zoom < MIN_FULL_PAGE_SOURCE_PX) {
+    return 'block';
+  }
+  const dpiW = photo.width / (pl.w_mm / MM_PER_INCH);
+  const dpiH = photo.height / (pl.h_mm / MM_PER_INCH);
+  const dpi = (pl.fit === 'contain' ? Math.max(dpiW, dpiH) : Math.min(dpiW, dpiH)) / zoom;
+  return dpi >= DPI_OK ? 'ok' : dpi >= DPI_WARN ? 'warn' : 'block';
+}
+
+/* Every placement in the book that will print soft, worst first. */
+function softPlacements() {
+  const out = [];
+  const pages = S.book.layout.pages;
+  for (const page of pages) {
+    for (const pl of page.placements || []) {
+      const status = placementResolution(pl);
+      if (status !== 'ok') out.push({ page: page.index, status });
+    }
+  }
+  return out.sort((a, b) => (a.status === 'block' ? -1 : 1));
 }
 
 /* Lay the photo inside its frame with the same arithmetic the print
@@ -1491,21 +1555,18 @@ function applyCrop(el, pl) {
     img.style.objectFit = pl.fit === 'contain' ? 'contain' : 'cover';
     return;
   }
-  const s = canvasScale();
-  const bw = pl.w_mm * s, bh = pl.h_mm * s;
-  const scale = Math.max(bw / photo.width, bh / photo.height)
-    * Math.max(1, pl.zoom || 1);
-  const rw = Math.max(bw, photo.width * scale);
-  const rh = Math.max(bh, photo.height * scale);
+  // Sized as a percentage of the frame, so the browser resolves it against
+  // whatever the frame turns out to be — no measurement, nothing to go stale.
+  const r = cropRatios(pl, photo);
   const fx = clamp(pl.focus_x ?? 0.5, 0, 1);
   const fy = clamp(pl.focus_y ?? 0.5, 0, 1);
   img.style.position = 'absolute';
   img.style.maxWidth = 'none';
   img.style.objectFit = 'fill';
-  img.style.width = `${rw}px`;
-  img.style.height = `${rh}px`;
-  img.style.left = `${-(rw - bw) * fx}px`;
-  img.style.top = `${-(rh - bh) * fy}px`;
+  img.style.width = `${r.w * 100}%`;
+  img.style.height = `${r.h * 100}%`;
+  img.style.left = `${-(r.w - 1) * fx * 100}%`;
+  img.style.top = `${-(r.h - 1) * fy * 100}%`;
 }
 
 function placeRect(el, r) {
@@ -1554,17 +1615,24 @@ function makePlacement(pl, idx) {
   }
   placeRect(box, pl);   // also lays the photo out inside the frame
 
+  // Say it on the page, not after checkout: this is the only moment the
+  // customer can still fix it by zooming out or choosing a smaller slot.
+  const res = placementResolution(pl);
+  if (res !== 'ok') {
+    box.append(h('span', { class: `pl-soft ${res}` }, t(`res.${res}`)));
+  }
+
   // Pan the crop: the frame is fixed (a layout slot, or a rectangle the
   // customer sized), so what moves is the photo behind it.
   if (isSel('placement', idx) && !S.locked && pl.fit !== 'contain'
-      && cropOverflow(pl, photo)) {
+      && hasCropOverflow(pl, photo)) {
     const pan = h('div', { class: 'pl-pan', 'data-i18n-title': 'tool.pan' }, '⠿');
     pan.title = t('tool.pan');
     pan.addEventListener('pointerdown', (e) => {
       if (S.locked || !e.isPrimary) return;
       e.preventDefault();
       e.stopPropagation();
-      const over = cropOverflow(pl, photo);
+      const over = cropOverflow(pl, photo, box);
       const sx = e.clientX, sy = e.clientY;
       const ofx = pl.focus_x ?? 0.5, ofy = pl.focus_y ?? 0.5;
       S.dragging = true;
@@ -2345,12 +2413,29 @@ async function handleActionError(e) {
 
 /* ---------- preview ---------- */
 
+/* The preview is the contract, so it has to name the one defect a screen
+   cannot show: a photo that looks fine at phone size and prints soft. The
+   pages are listed so the customer can go straight to them (A68). */
+function renderSoftWarning() {
+  const el = $('pv-soft');
+  const soft = softPlacements();
+  el.innerHTML = '';
+  el.classList.toggle('hidden', soft.length === 0);
+  if (!soft.length) return;
+  // Led by the page list, not a count: five languages and no plural engine
+  // between them, and the page numbers are the actionable half anyway.
+  const pages = [...new Set(soft.map((s) => s.page + 1))];
+  el.append(h('span', {}, t(soft.some((s) => s.status === 'block')
+    ? 'preview.softBlock' : 'preview.softWarn', { pages: pages.join(', ') })));
+}
+
 async function openPreview() {
   showScreen('preview');
   $('pv-grid').innerHTML = '';
   $('pv-stale').classList.add('hidden');
   $('pv-confirm').checked = false;
   $('pv-checkout').disabled = true;
+  renderSoftWarning();
   if (!S.prices) await loadPrices(); else renderPrices();
   $('pv-status').textContent = t('preview.rendering');
   $('pv-status').classList.add('busy');
