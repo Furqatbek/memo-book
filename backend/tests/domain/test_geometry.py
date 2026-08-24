@@ -42,13 +42,13 @@ class TestPlacement:
         assert rect.y == mm_to_px(BLEED_MM)
 
     @pytest.mark.parametrize("bad", [
-        RectMM(-4, 0, 10, 10),           # left of bleed
         RectMM(0, -4, 10, 10),           # above bleed
-        RectMM(145, 0, 10, 10),          # crosses right bleed edge
         RectMM(0, 210, 10, 10),          # crosses bottom bleed edge
-        RectMM(0, 0, 200, 10),           # wider than canvas
         RectMM(0, 0, 0, 10),             # zero width
         RectMM(0, 0, 10, -5),            # negative height
+        RectMM(0, 0, 400, 10),           # wider than a whole spread
+        RectMM(200, 0, 10, 10),          # entirely off this page
+        RectMM(-60, 0, 10, 10),          # entirely off, past the fold side
     ])
     def test_placement_outside_canvas_rejected(self, bad):
         with pytest.raises(InvalidPlacement):
@@ -78,3 +78,26 @@ class TestTextClamping:
     def test_already_safe_box_unchanged(self):
         rect = RectMM(12, 180, 124, 18)
         assert clamp_text_box(rect) == rect
+
+
+class TestPlacementsMayCrossTheFold:
+    """A62: a photo running onto the facing page is stored on both pages as
+    the same rectangle shifted by one trim width, so each page legitimately
+    holds a rectangle that hangs off its own edge."""
+
+    @pytest.mark.parametrize("ok", [
+        RectMM(-4, 0, 10, 10),              # hangs over the left edge
+        RectMM(145, 0, 10, 10),             # hangs over the right edge
+        RectMM(-3, -3, 302, 216),           # the left half of a full spread
+        RectMM(-151, -3, 302, 216),         # the right half of the same photo
+    ])
+    def test_horizontal_overflow_is_allowed(self, ok):
+        assert validate_placement(ok) is ok
+
+    def test_both_halves_map_to_pixels_one_trim_width_apart(self):
+        from app.domain.geometry import TRIM_W_MM
+
+        left = placement_to_px(RectMM(-3, -3, 302, 216))
+        right = placement_to_px(RectMM(-3 - TRIM_W_MM, -3, 302, 216))
+        assert left.x - right.x == mm_to_px(TRIM_W_MM)
+        assert left.w == right.w

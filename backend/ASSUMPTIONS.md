@@ -442,3 +442,18 @@ stands alone on the right, then (2,3), (4,5)… and the final page alone on
 the left. The preview groups the rendered pages that way so the customer
 confirms the book as it will actually open, rather than as a flat list.
 Editing is still page-by-page; photos spanning the gutter are not built yet.
+
+**A62 — A photo may cross the fold.** Pages are rendered one at a time, so
+a photo spanning a spread is stored on BOTH pages: the same rectangle,
+shifted by exactly one trim width (148 mm), each page showing the half that
+falls on it. Because one trim width is exactly 1748 px at 300 dpi, the two
+printed halves butt together with nothing repeated or dropped — asserted by
+rendering both pages and comparing their overlapping columns. Placement
+validation therefore allows horizontal overhang (bounded by a spread width,
+and required to touch the page) while still refusing vertical overhang,
+since there is no facing page above. The two halves share a `spread_id` so
+the editor treats them as one object: cropping, zooming or deleting one
+updates the other, and choosing a grid layout ends the span. Pairing
+follows the binding — page 1 stands alone on the right, then (2,3), (4,5)…
+— and the editor shows the facing page beside the one being edited, as a
+picture that can be tapped to move editing there.

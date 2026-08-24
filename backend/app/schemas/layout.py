@@ -33,6 +33,10 @@ class PlacementDoc(BaseModel):
     zoom: float = Field(default=1.0, ge=1.0, le=4.0)
     focus_x: float = Field(default=0.5, ge=0, le=1)
     focus_y: float = Field(default=0.5, ge=0, le=1)
+    # Set on both halves of a photo that runs across the fold, so the editor
+    # can move and crop them as one object (A62). The renderer ignores it:
+    # each half is an ordinary placement that happens to hang off the page.
+    spread_id: str | None = Field(default=None, max_length=64)
 
     @model_validator(mode="after")
     def _inside_canvas(self):

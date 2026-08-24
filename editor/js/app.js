@@ -648,6 +648,89 @@ function placeOnPage(photoId, index, advance, slotIdx = null) {
   renderTray();
 }
 
+
+/* ---------- spreads: two facing pages ---------- */
+
+/* Bound, page 1 stands alone on the right; after that pages pair up
+   (2,3), (4,5)... In zero-based indices page 0 is alone, then (1,2),
+   (3,4)... A photo may run across the fold of any real pair (A62). */
+function facingPage(index) {
+  if (index < 1) return -1;                     // page 1 has no partner
+  const partner = index % 2 === 1 ? index + 1 : index - 1;
+  return partner < S.book.layout.pages.length ? partner : -1;
+}
+
+const isLeftPage = (index) => index % 2 === 1;
+
+/* The full-spread rectangle as this page sees it: the photo starts at the
+   left page's bleed edge, so the right page holds the same rectangle
+   shifted back by one trim width. */
+function spreadRect(index) {
+  return {
+    x_mm: isLeftPage(index) ? -BLEED : -BLEED - TRIM_W,
+    y_mm: -BLEED,
+    w_mm: 2 * TRIM_W + 2 * BLEED,
+    h_mm: TRIM_H + 2 * BLEED,
+  };
+}
+
+const spreadHalf = (page, id) =>
+  (page ? page.placements.find((pl) => pl.spread_id === id) : null) || null;
+
+/* Make the selected photo run across the fold: both pages carry the same
+   photo, cropped as one, each showing the half that falls on it. */
+function spanAcrossFold(pl) {
+  const partnerIdx = facingPage(S.page);
+  if (partnerIdx === -1 || S.locked) return;
+  const page = S.book.layout.pages[S.page];
+  const partner = S.book.layout.pages[partnerIdx];
+  const id = `sp${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+  const shared = {
+    photo_id: pl.photo_id, rotation: 0, fit: 'cover',
+    zoom: pl.zoom || 1, focus_x: pl.focus_x ?? 0.5, focus_y: pl.focus_y ?? 0.5,
+    spread_id: id,
+  };
+  // A spread photo owns both pages outright.
+  page.layout = 'full';
+  partner.layout = 'full';
+  page.placements = [{ ...shared, ...spreadRect(S.page) }];
+  partner.placements = [{ ...shared, ...spreadRect(partnerIdx) }];
+  S.sel = { kind: 'placement', idx: 0 };
+  markDirty();
+  renderCanvas(true);
+  renderFilm();
+  renderTray();
+}
+
+/* Back to a photo on this page alone; the facing page is left empty. */
+function unspanFold(pl) {
+  const partnerIdx = facingPage(S.page);
+  const partner = partnerIdx === -1 ? null : S.book.layout.pages[partnerIdx];
+  const other = spreadHalf(partner, pl.spread_id);
+  if (other) partner.placements.splice(partner.placements.indexOf(other), 1);
+  const page = S.book.layout.pages[S.page];
+  pl.spread_id = null;
+  Object.assign(pl, pageSlots(page)[0]);
+  markDirty();
+  renderCanvas(true);
+  renderFilm();
+  renderTray();
+}
+
+/* Keep the far half of a spread photo in step with the one being edited. */
+function syncSpreadHalf(pl) {
+  if (!pl.spread_id) return;
+  const partnerIdx = facingPage(S.page);
+  if (partnerIdx === -1) return;
+  const other = spreadHalf(S.book.layout.pages[partnerIdx], pl.spread_id);
+  if (!other) return;
+  other.zoom = pl.zoom;
+  other.focus_x = pl.focus_x;
+  other.focus_y = pl.focus_y;
+  other.photo_id = pl.photo_id;
+  Object.assign(other, spreadRect(partnerIdx));
+}
+
 /* ---------- canvas ---------- */
 
 const pct = (mm, total) => `${((mm) / total) * 100}%`;
@@ -693,8 +776,70 @@ function renderCanvas(force) {
   updatePageLabel();
   if (S.page === -1) renderCover(canvas);
   else renderPage(canvas);
+  renderFacingPage();
   renderPageTools();
   renderSelToolbar();
+}
+
+/* The facing page, shown beside the one being edited so the spread reads as
+   the customer will hold it. It is a picture, not an editor: tapping it
+   moves editing there. */
+function renderFacingPage() {
+  const wrap = $('canvas-wrap');
+  const partnerIdx = S.page === -1 ? -1 : facingPage(S.page);
+  wrap.classList.toggle('spread', partnerIdx !== -1);
+  if (partnerIdx !== -1) wrap.classList.toggle('flip', !isLeftPage(S.page));
+  const old = $('facing-canvas');
+  if (old) old.remove();
+  if (partnerIdx === -1) return;
+
+  const el = h('div', { class: 'page-canvas facing', id: 'facing-canvas',
+                        title: t('spread.goFacing') });
+  el.style.background = S.book.layout.pages[partnerIdx].bg_color || '#ffffff';
+  el.addEventListener('click', () => {
+    S.page = partnerIdx;
+    S.sel = null;
+    renderCanvas(true);
+    renderFilm();
+  });
+  wrap.append(el);
+  renderStaticPage(el, S.book.layout.pages[partnerIdx]);
+  el.append(h('div', { class: 'facing-label' },
+              t('spread.page', { n: partnerIdx + 1 })));
+}
+
+/* Draw a page's content with no handles and no handlers — used for the
+   facing page, whose job is to show the join, not to be edited. */
+function renderStaticPage(el, page) {
+  const scale = el.clientWidth / CANVAS_W;
+  for (const pl of page.placements) {
+    const box = h('div', { class: 'placement' });
+    placeRect(box, pl);
+    const photo = photoById(pl.photo_id);
+    if (photo && photo.display_url) {
+      box.append(h('img', { src: photo.display_url, alt: '', draggable: 'false' }));
+    }
+    el.append(box);
+    applyCrop(box, pl);
+  }
+  for (const st of page.stickers || []) {
+    const sticker = h('div', { class: 'sticker' });
+    sticker.style.left = pct(st.x_mm + BLEED - st.w_mm / 2, CANVAS_W);
+    sticker.style.top = pct(st.y_mm + BLEED - st.w_mm / 2, CANVAS_H);
+    sticker.style.width = pct(st.w_mm, CANVAS_W);
+    if (st.rotation) sticker.style.transform = `rotate(${st.rotation}deg)`;
+    sticker.append(h('img', { src: `stickers/${st.sticker_id}.png`, alt: '' }));
+    el.append(sticker);
+  }
+  for (const tb of page.texts) {
+    el.append(h('div', {
+      class: 'textbox static',
+      style: `left:${pct(tb.x_mm + BLEED, CANVAS_W)};top:${pct(tb.y_mm + BLEED, CANVAS_H)};`
+        + `width:${pct(tb.w_mm, CANVAS_W)};font-size:${tb.size_pt * PT_MM * scale}px;`
+        + `text-align:${tb.align};color:${tb.color};font-family:${fontStack(tb.font)}`
+        + (tb.rotation ? `;transform:rotate(${tb.rotation}deg)` : ''),
+    }, h('div', { class: 'textbox-content' }, tb.content)));
+  }
 }
 
 /* Always-available colour controls for the current page / the cover. */
@@ -956,7 +1101,11 @@ const pageSlots = (page) => LAYOUTS[pageLayoutId(page)];
 
 function reflowSlots(page) {
   const slots = pageSlots(page);
-  page.placements.forEach((pl, i) => Object.assign(pl, slots[i]));
+  page.placements.forEach((pl, i) => {
+    // A photo crossing the fold keeps its spread rectangle; slot geometry
+    // would pull it back onto this page and break the join.
+    if (!pl.spread_id) Object.assign(pl, slots[i]);
+  });
 }
 
 function slotIndexAt(clientX, clientY, page) {
@@ -973,6 +1122,9 @@ function slotIndexAt(clientX, clientY, page) {
 function applyLayout(id) {
   if (S.page === -1 || S.locked || !LAYOUTS[id]) return;
   const page = S.book.layout.pages[S.page];
+  // Slots belong to one page, so picking a grid ends a photo's span.
+  const spanning = page.placements.find((pl) => pl.spread_id);
+  if (spanning) unspanFold(spanning);
   const slots = LAYOUTS[id];
   // Photos beyond the new slot count go back to the tray, never vanish.
   page.placements = page.placements.slice(0, slots.length);
@@ -1396,7 +1548,9 @@ function makePlacement(pl, idx) {
         S.dragging = false;
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
+        syncSpreadHalf(pl);
         markDirty();
+        renderCanvas(true);      // redraw the facing half with the new crop
       };
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
@@ -1893,10 +2047,17 @@ function renderSelToolbar() {
         }, t('tool.inset')),
       );
     }
+    if (facingPage(S.page) !== -1) {
+      bar.append(h('button', {
+        class: 'btn small' + (pl.spread_id ? ' active' : ''),
+        onclick: () => (pl.spread_id ? unspanFold(pl) : spanAcrossFold(pl)),
+      }, pl.spread_id ? t('tool.unspan') : t('tool.span')));
+    }
     if (pl.fit !== 'contain') {
       // Zoom into the framed crop; panning is the ⠿ handle on the photo.
       const zoomBy = (delta) => {
         pl.zoom = clamp(Math.round(((pl.zoom || 1) + delta) * 100) / 100, 1, 4);
+        syncSpreadHalf(pl);
         markDirty();
         renderCanvas(true);
       };
@@ -1924,6 +2085,7 @@ function renderSelToolbar() {
       h('button', {
         class: 'btn small danger',
         onclick: () => {
+          if (pl.spread_id) unspanFold(pl);   // drop the far half first
           page.placements.splice(idx, 1);
           reflowSlots(page);
           S.sel = null;

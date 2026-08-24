@@ -53,17 +53,33 @@ class RectPX:
     h: int
 
 
+# A photo may run across the fold onto the facing page (A62). Each page still
+# renders alone, so such a photo is stored on BOTH pages — the same rectangle,
+# shifted by one trim width — and each page shows the half that falls on it.
+SPREAD_W_MM = 2 * TRIM_W_MM + 2 * BLEED_MM     # 302: bleed, both pages, bleed
+
+
 def validate_placement(rect: RectMM) -> RectMM:
-    """A placement must lie fully inside the bleed canvas. Raises InvalidPlacement."""
+    """A placement must be visible on this page and no wider than a spread.
+
+    Horizontally it may extend past either edge — that is how a photo
+    crossing the fold is expressed — but it has to overlap the canvas,
+    since a rectangle entirely off the page would render nothing at all.
+    Vertically it stays inside the canvas: there is no facing page above.
+    """
     if rect.w <= 0 or rect.h <= 0:
         raise InvalidPlacement("placement has non-positive size",
                                {"w_mm": rect.w, "h_mm": rect.h})
-    if (rect.x < -BLEED_MM or rect.y < -BLEED_MM
-            or rect.x + rect.w > TRIM_W_MM + BLEED_MM
-            or rect.y + rect.h > TRIM_H_MM + BLEED_MM):
+    if rect.w > SPREAD_W_MM or rect.h > TRIM_H_MM + 2 * BLEED_MM:
+        raise InvalidPlacement("placement larger than a spread",
+                               {"w_mm": rect.w, "h_mm": rect.h})
+    if rect.y < -BLEED_MM or rect.y + rect.h > TRIM_H_MM + BLEED_MM:
         raise InvalidPlacement("placement outside the canvas",
                                {"x_mm": rect.x, "y_mm": rect.y,
                                 "w_mm": rect.w, "h_mm": rect.h})
+    if rect.x + rect.w <= -BLEED_MM or rect.x >= TRIM_W_MM + BLEED_MM:
+        raise InvalidPlacement("placement does not touch this page",
+                               {"x_mm": rect.x, "w_mm": rect.w})
     return rect
 
 

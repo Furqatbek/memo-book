@@ -267,6 +267,24 @@ select {
   touch-action: none; overflow: hidden; }
 /* Sized and offset from JS to mirror the print renderer's crop exactly. */
 .placement img { width: 100%; height: 100%; display: block; pointer-events: none; }
+/* Spread view: the facing page sits beside the edited one, in reading
+   order, so a photo across the fold reads as one picture. */
+.canvas-wrap.spread { display: flex; align-items: center; justify-content: center; gap: 0; }
+.canvas-wrap.spread .page-canvas { width: min(48%, calc((100dvh - 250px) * 154 / 216)); }
+.canvas-wrap.spread.flip { flex-direction: row-reverse; }
+.page-canvas.facing { position: relative; cursor: pointer; opacity: .96; }
+.page-canvas.facing::after {
+  content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 0 1px var(--line);
+  pointer-events: none;
+}
+.page-canvas.facing:hover::after { box-shadow: inset 0 0 0 2px var(--primary); }
+.page-canvas.facing * { pointer-events: none; }
+.facing-label {
+  position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%);
+  background: rgba(22,24,29,.62); color: #fff; font-size: .68rem;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap; z-index: 9;
+}
+.textbox.static { position: absolute; pointer-events: none; }
 .pl-pan {
   position: absolute; left: 50%; top: 50%; margin: -15px 0 0 -15px;
   width: 30px; height: 30px; border-radius: 50%; z-index: 6;
