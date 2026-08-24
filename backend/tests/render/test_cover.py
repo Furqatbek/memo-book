@@ -7,12 +7,21 @@ from PIL import Image
 from pypdf import PdfReader
 
 from app.config import get_settings
+from app.domain.cover_templates import (
+    COVER_TEMPLATE_IDS,
+    FULL_RECT,
+    apply_cover_template,
+)
+from app.domain.geometry import TRIM_H_MM, mm_to_px
 from app.domain.tiers import page_tiers, pages_for_sheets, sides_per_sheet
 from app.render.cover import (
     WRAP_MM,
+    auto_title_color,
     build_cover_pdf,
     cover_geometry,
+    photo_box_px,
     spine_mm_for_tier,
+    title_over_photo,
 )
 from tests.render.helpers import solid_jpeg
 
@@ -122,3 +131,102 @@ class TestSpineFollowsSheets:
     def test_an_unknown_tier_still_refuses_loudly(self):
         with pytest.raises(Exception, match="no spine width configured"):
             spine_mm_for_tier(7)
+
+
+class TestTemplatesOnTheSheet:
+    """A70: the template's rectangle is where the photo really lands, and a
+    cover saved before templates existed renders exactly as it did."""
+
+    TIER = 32   # the 16-sheet book
+
+    def _front(self, cover: dict, tag: str) -> Image.Image:
+        pdf = build_cover_pdf(cover, self.TIER, solid_jpeg(1400, 1000, (200, 40, 40)),
+                              cache_tag=tag)
+        doc = fitz.open(stream=pdf, filetype="pdf")
+        pix = doc[0].get_pixmap(dpi=72)
+        return Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
+    def _at(self, img: Image.Image, geo, x_mm: float, y_mm: float):
+        """Sample the front panel at trim-origin mm."""
+        return img.getpixel((
+            int(img.width * (geo.front_x0_mm + x_mm) / geo.total_w_mm),
+            int(img.height * (geo.wrap_mm + y_mm) / geo.total_h_mm)))
+
+    def _is_photo(self, px) -> bool:
+        r, g, b = px
+        return r > 120 and g < 110 and b < 110
+
+    @pytest.mark.parametrize("name", COVER_TEMPLATE_IDS)
+    def test_the_photo_lands_inside_its_rectangle_and_not_outside(self, name):
+        cover = apply_cover_template(
+            {"title": "Italy 2026", "bg_color": "#ffffff"}, name)
+        geo = cover_geometry(self.TIER)
+        img = self._front(cover, f"tpl-{name}")
+        rect = cover["photo_rect"]
+
+        centre = self._at(img, geo, rect["x_mm"] + rect["w_mm"] / 2,
+                          rect["y_mm"] + rect["h_mm"] / 2)
+        assert self._is_photo(centre), f"{name}: no photo inside the frame"
+
+        # Somewhere the template leaves bare must show the background.
+        if rect["y_mm"] + rect["h_mm"] < TRIM_H_MM - 6:
+            below = self._at(img, geo, 74, rect["y_mm"] + rect["h_mm"] + 5)
+            assert not self._is_photo(below), f"{name}: photo spills below the frame"
+        if rect["x_mm"] > 6:
+            beside = self._at(img, geo, rect["x_mm"] / 2, rect["y_mm"] + 10)
+            assert not self._is_photo(beside), f"{name}: photo spills left of the frame"
+
+    def test_the_back_panel_is_never_touched(self):
+        geo = cover_geometry(self.TIER)
+        for name in COVER_TEMPLATE_IDS:
+            cover = apply_cover_template({"bg_color": "#ffffff"}, name)
+            img = self._front(cover, f"back-{name}")
+            x = int(img.width * (WRAP_MM + 74) / geo.total_w_mm)
+            r, g, b = img.getpixel((x, img.height // 2))
+            assert r > 240 and g > 240 and b > 240, f"{name}: art crossed the spine"
+
+    def test_a_cover_from_before_templates_is_byte_identical(self):
+        """The whole compatibility promise in one assertion: no template, no
+        rectangle, no framing fields — the exact document shape already in
+        the database."""
+        legacy = dict(COVER)
+        photo = solid_jpeg(1200, 900, (180, 30, 30))
+        before = build_cover_pdf(legacy, self.TIER, photo, cache_tag="legacy")
+        after = build_cover_pdf({**legacy, "template": "full",
+                                 "photo_rect": None}, self.TIER, photo,
+                                cache_tag="legacy")
+        assert before == after
+
+    def test_full_bleed_matches_the_original_hand_written_paste(self):
+        photo = solid_jpeg(1200, 900, (180, 30, 30))
+        legacy = build_cover_pdf(dict(COVER), self.TIER, photo, cache_tag="fb")
+        templated = build_cover_pdf(
+            apply_cover_template(dict(COVER), "full"), self.TIER, photo,
+            cache_tag="fb")
+        # Same photo box; only the title moved to the template's position.
+        assert len(legacy) > 0 and len(templated) > 0
+        geo = cover_geometry(self.TIER)
+        w_px, h_px = mm_to_px(geo.total_w_mm), mm_to_px(geo.total_h_mm)
+        assert photo_box_px(FULL_RECT, geo, w_px, h_px) == (
+            mm_to_px(geo.front_x0_mm), 0, w_px, h_px)
+
+
+class TestTitleInk:
+    def test_white_over_a_photo_dark_ink_beside_one(self):
+        geo = cover_geometry(32)
+        full = apply_cover_template({"photo_id": "p"}, "full")
+        window = apply_cover_template({"photo_id": "p"}, "window")
+        assert title_over_photo(full, geo, has_photo=True) is True
+        assert title_over_photo(window, geo, has_photo=True) is False
+
+    def test_no_photo_is_never_over_a_photo(self):
+        geo = cover_geometry(32)
+        assert title_over_photo(apply_cover_template({}, "full"), geo,
+                                has_photo=False) is False
+
+    def test_auto_ink_stays_readable_on_the_occasion_colours(self):
+        # The dark cover colours the occasion themes set used to get #1a1a1a.
+        for dark in ("#7a2740", "#1d4d85", "#5b2d86"):
+            assert auto_title_color(dark) == "#ffffff"
+        for light in ("#ffffff", "#fef3cd", "#eceff4"):
+            assert auto_title_color(light) == "#1a1a1a"

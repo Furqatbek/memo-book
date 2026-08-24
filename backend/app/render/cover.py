@@ -21,6 +21,7 @@ from reportlab.pdfgen import canvas as pdfcanvas
 
 from app.config import get_settings
 from app.domain.geometry import TRIM_H_MM, TRIM_W_MM, mm_to_px
+from app.domain.cover_templates import photo_rect_for, title_on_photo
 from app.domain.tiers import sides_per_sheet
 from app.render.compose import RenderError, _fit_cover, hex_to_rgb
 from app.render.interior import (
@@ -74,6 +75,33 @@ def cover_geometry(page_count: int) -> CoverGeometry:
     )
 
 
+def _num(cover: dict, key: str, default: float) -> float:
+    """A stored 0.0 is a real value, not a missing one — `or` would eat it."""
+    value = cover.get(key)
+    return default if value is None else float(value)
+
+
+def photo_box_px(rect: dict, geo: CoverGeometry,
+                 w_px: int, h_px: int) -> tuple[int, int, int, int]:
+    """A front-panel trim rectangle -> a pixel box on the wrap sheet.
+
+    Reaching a trim edge means "bleed off it", so the box is extended to the
+    sheet edge there — into the turn-in, which is exactly why the turn-in is
+    printed. The left edge is never extended: the spine is there, not a
+    turn-in, and art crossing it would appear on the closed book's back.
+
+    The default full-panel rectangle therefore reproduces the original
+    "front panel plus the right wrap, full height" paste exactly (A70).
+    """
+    left = mm_to_px(geo.front_x0_mm + max(0.0, rect["x_mm"]))
+    right = (w_px if rect["x_mm"] + rect["w_mm"] >= TRIM_W_MM
+             else mm_to_px(geo.front_x0_mm + rect["x_mm"] + rect["w_mm"]))
+    top = 0 if rect["y_mm"] <= 0 else mm_to_px(geo.wrap_mm + rect["y_mm"])
+    bottom = (h_px if rect["y_mm"] + rect["h_mm"] >= TRIM_H_MM
+              else mm_to_px(geo.wrap_mm + rect["y_mm"] + rect["h_mm"]))
+    return left, top, max(left + 1, right), max(top + 1, bottom)
+
+
 def _compose_cover_raster(cover: dict, geo: CoverGeometry,
                           photo_bytes: bytes | None) -> bytes:
     w_px = mm_to_px(geo.total_w_mm)
@@ -89,16 +117,50 @@ def _compose_cover_raster(cover: dict, geo: CoverGeometry,
         img = ImageOps.exif_transpose(img)
         if img.mode != "RGB":
             img = img.convert("RGB")
-        # Front art fills the front panel plus the right wrap, full height,
-        # so the turned-in edges continue the front design.
-        x0 = mm_to_px(geo.front_x0_mm)
-        target_w = w_px - x0
-        fitted = _fit_cover(img, target_w, h_px)
-        canvas.paste(fitted, (x0, 0))
+        left, top, right, bottom = photo_box_px(photo_rect_for(cover), geo,
+                                                w_px, h_px)
+        fitted = _fit_cover(img, right - left, bottom - top,
+                            zoom=_num(cover, "photo_zoom", 1.0),
+                            focus_x=_num(cover, "photo_focus_x", 0.5),
+                            focus_y=_num(cover, "photo_focus_y", 0.5))
+        canvas.paste(fitted, (left, top))
 
     out = io.BytesIO()
     canvas.save(out, format="JPEG", quality=COVER_JPEG_QUALITY, optimize=True)
     return out.getvalue()
+
+
+# Where the title block sits when the customer has never moved it. The
+# renderer's own legacy default, expressed in front-panel trim mm.
+def _legacy_title_centre(geo: CoverGeometry) -> tuple[float, float]:
+    return TRIM_W_MM / 2, geo.total_h_mm * 0.60 - geo.wrap_mm
+
+
+def title_over_photo(cover: dict, geo: CoverGeometry,
+                     has_photo: bool) -> bool:
+    """Is the title actually printed on top of the photo?
+
+    It used to be "is there a photo at all", which was the same question
+    while every photo filled the whole front. With a framed template the
+    title sits on the background beside the photo, where white-on-white
+    would vanish, so ask the geometry instead — and it keeps answering
+    correctly when the customer drags the title somewhere else (A70).
+    """
+    if not has_photo:
+        return False
+    tx, ty = cover.get("title_x_mm"), cover.get("title_y_mm")
+    if tx is None or ty is None:
+        tx, ty = _legacy_title_centre(geo)
+    return title_on_photo(cover, float(tx), float(ty))
+
+
+def auto_title_color(bg_color: str | None) -> str:
+    """Readable ink for a background the customer chose. The old rule was a
+    flat dark grey, which disappeared on the dark cover colours the occasion
+    themes set."""
+    r, g, b = hex_to_rgb(bg_color)
+    # Rec. 601 luma — good enough to pick black or white, and cheap.
+    return "#1a1a1a" if (0.299 * r + 0.587 * g + 0.114 * b) > 140 else "#ffffff"
 
 
 def _draw_cover_text(c: pdfcanvas.Canvas, cover: dict, geo: CoverGeometry,
@@ -117,8 +179,10 @@ def _draw_cover_text(c: pdfcanvas.Canvas, cover: dict, geo: CoverGeometry,
     custom = cover.get("title_color")
     if custom:
         main = HexColor(custom)
+    elif over_photo:
+        main = Color(1, 1, 1)
     else:
-        main = Color(1, 1, 1) if over_photo else HexColor("#1a1a1a")
+        main = HexColor(auto_title_color(cover.get("bg_color")))
     shadow = Color(0, 0, 0, alpha=0.55)
 
     def centred(text: str, font: str, size: float, x_pt: float, y_pt: float) -> None:
@@ -200,7 +264,9 @@ def build_cover_pdf(cover: dict, page_count: int,
                              y_offset_mm=geo.wrap_mm,
                              page_h_pt=page_h_pt)
             c.restoreState()
-        _draw_cover_text(c, cover, geo, over_photo=photo_bytes is not None)
+        _draw_cover_text(c, cover, geo,
+                         over_photo=title_over_photo(cover, geo,
+                                                     photo_bytes is not None))
         c.showPage()
         c.save()
     finally:

@@ -6,6 +6,8 @@ import * as api from './api.js?v=20260821';
 import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js?v=20260821';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260821';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260821';
+import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
+  from './cover-templates.js?v=20260824';
 import { makeJobs, runJobs } from './upload.js?v=20260821';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
@@ -380,7 +382,7 @@ function updatePageLabel() {
   $('page-label').textContent =
     S.page === -1 ? t('page.cover') : t('page.n', { n: S.page + 1 });
   // The cover is a single fixed frame — layouts belong to inside pages.
-  $('btn-layout').classList.toggle('hidden', S.page === -1 || S.locked);
+  $('btn-layout').classList.toggle('hidden', S.locked);
 }
 
 /* What is actually missing, counted the way the layout consumes photos: a
@@ -908,19 +910,123 @@ function renderPageTools() {
   }
 }
 
+/* ---------- cover templates (A70) ---------- */
+
+/* Where this cover's photo goes. A cover made before templates existed has
+   no rectangle and means the whole front panel — which is exactly what was
+   drawn for it. */
+function coverPhotoRect() {
+  return S.book.layout.cover.photo_rect || FULL_COVER_RECT;
+}
+
+/* The same rule both renderers use: a rectangle that reaches a trim edge
+   bleeds off it. Here the overhang is the 3mm of bleed this canvas already
+   shows, which is also what the preview does — so the editor, the preview
+   and the printed front agree on the framing. Returned in canvas mm. */
+function coverPhotoBox(r) {
+  const left = r.x_mm <= 0 ? 0 : r.x_mm + BLEED;
+  const top = r.y_mm <= 0 ? 0 : r.y_mm + BLEED;
+  const right = r.x_mm + r.w_mm >= TRIM_W ? CANVAS_W : r.x_mm + r.w_mm + BLEED;
+  const bottom = r.y_mm + r.h_mm >= TRIM_H ? CANVAS_H : r.y_mm + r.h_mm + BLEED;
+  return { x_mm: left - BLEED, y_mm: top - BLEED,
+           w_mm: right - left, h_mm: bottom - top };
+}
+
+/* The cover photo dressed as a placement, so the frame, the crop arithmetic
+   and the print-sharpness warning are the very same code the pages use. */
+function coverPlacement() {
+  const cover = S.book.layout.cover;
+  return {
+    ...coverPhotoBox(coverPhotoRect()),
+    photo_id: cover.photo_id, rotation: 0, fit: 'cover',
+    zoom: cover.photo_zoom || 1,
+    focus_x: cover.photo_focus_x ?? 0.5,
+    focus_y: cover.photo_focus_y ?? 0.5,
+  };
+}
+
+/* Apply a template: geometry only. The photo, the words, the fonts and
+   every colour the customer picked survive — mirrors
+   backend/app/domain/cover_templates.py:apply_cover_template. */
+function applyCoverTemplate(id) {
+  const tpl = COVER_TEMPLATES[id];
+  if (S.locked || !tpl) return;
+  const cover = S.book.layout.cover;
+  cover.template = id;
+  cover.photo_rect = { ...tpl.photo_rect };
+  cover.title_x_mm = tpl.title.x_mm;
+  cover.title_y_mm = tpl.title.y_mm;
+  cover.title_size_pt = tpl.title.size_pt;
+  // A new frame is a new shape: an old crop would show the wrong part.
+  cover.photo_focus_x = 0.5;
+  cover.photo_focus_y = 0.5;
+  markDirty();
+  renderCanvas(true);
+  renderFilm();
+}
+
+/* Does the title block sit on top of the photo? Pure geometry, so it stays
+   right when the customer drags the title off the picture. Mirrors
+   backend/app/domain/cover_templates.py:title_on_photo. */
+function titleOnCoverPhoto(cover) {
+  const r = coverPhotoRect();
+  const cx = cover.title_x_mm ?? TRIM_W / 2;
+  const cy = cover.title_y_mm ?? 122;
+  return cx >= r.x_mm && cx <= r.x_mm + r.w_mm
+      && cy >= r.y_mm && cy <= r.y_mm + r.h_mm;
+}
+
+/* Readable ink for a background the customer chose — a flat dark grey
+   vanished on the dark cover colours the occasion themes set. */
+function autoTitleColor(bg) {
+  const m = /^#([0-9a-f]{6})$/i.exec(bg || '#ffffff');
+  if (!m) return '#1a1a1a';
+  const n = parseInt(m[1], 16);
+  const r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1a1a' : '#ffffff';
+}
+
+/* Miniature drawn from the very geometry it applies, like layout thumbs. */
+function coverThumb(id) {
+  const tpl = COVER_TEMPLATES[id];
+  const box = h('div', { class: 'lay-thumb' });
+  const r = coverPhotoBox(tpl.photo_rect);
+  box.append(h('div', {
+    class: 'lay-cell',
+    style: `left:${pct(r.x_mm + BLEED, CANVAS_W)};top:${pct(r.y_mm + BLEED, CANVAS_H)};`
+         + `width:${pct(r.w_mm, CANVAS_W)};height:${pct(r.h_mm, CANVAS_H)}`,
+  }));
+  box.append(h('div', {
+    class: 'lay-title',
+    style: `top:${pct(tpl.title.y_mm + BLEED, CANVAS_H)}`,
+  }));
+  return box;
+}
+
 function renderCover(canvas) {
   canvas.className = 'page-canvas cover-mode';
   const cover = S.book.layout.cover;
   canvas.style.background = cover.bg_color || '#eceff4';
   const photo = cover.photo_id ? photoById(cover.photo_id) : null;
   if (photo && photo.display_url) {
-    canvas.append(h('img', {
-      class: 'cover-img', src: photo.display_url, alt: '',
+    const pl = coverPlacement();
+    const frame = h('div', {
+      class: 'cover-frame',
       onclick: (e) => { e.stopPropagation(); select({ kind: 'cover' }); },
-    }));
+    }, h('img', { src: photo.display_url, alt: '', draggable: 'false' }));
+    canvas.append(frame);
+    placeRect(frame, pl);                 // also crops the photo inside it
+    const res = placementResolution(pl);
+    if (res !== 'ok') {
+      frame.append(h('span', { class: `pl-soft ${res}` }, t(`res.${res}`)));
+    }
   }
   const scale = canvas.clientWidth / CANVAS_W;   // px per mm
-  const textColor = cover.title_color || (photo ? '#ffffff' : '#1a1a1a');
+  // White only where the title really lands on the photo; contrasting ink
+  // otherwise — the same rule both renderers use (A70).
+  const onPhoto = !!photo && titleOnCoverPhoto(cover);
+  const textColor = cover.title_color
+    || (onPhoto ? '#ffffff' : autoTitleColor(cover.bg_color));
   const cx = cover.title_x_mm ?? TRIM_W / 2;
   const cy = cover.title_y_mm ?? 122;
   const rot = cover.title_rotation || 0;
@@ -1197,9 +1303,25 @@ function outsideLayoutClose(e) {
 
 function openLayoutPop(btn) {
   if (document.querySelector('.layout-pop')) { closeLayoutPop(); return; }
+  const pop = h('div', { class: 'layout-pop' });
+  // Same button, same idea, different set: the cover picks a cover design,
+  // an inside page picks a photo grid.
+  if (S.page === -1) {
+    const cover = S.book.layout.cover;
+    const current = COVER_TEMPLATES[cover.template] ? cover.template
+      : DEFAULT_COVER_TEMPLATE;
+    for (const id of COVER_TEMPLATE_IDS) {
+      pop.append(h('button', {
+        class: 'lay-item' + (id === current ? ' active' : ''),
+        type: 'button', 'aria-label': id, title: t(`cover.tpl.${id}`),
+        onclick: () => { applyCoverTemplate(id); closeLayoutPop(); },
+      }, coverThumb(id), h('span', { class: 'lay-name' }, t(`cover.tpl.${id}`))));
+    }
+    positionLayoutPop(pop, btn);
+    return;
+  }
   const page = S.book.layout.pages[S.page];
   const current = pageLayoutId(page);
-  const pop = h('div', { class: 'layout-pop' });
   for (const id of Object.keys(LAYOUTS)) {
     pop.append(h('button', {
       class: 'lay-item' + (id === current ? ' active' : ''),
@@ -1207,6 +1329,10 @@ function openLayoutPop(btn) {
       onclick: () => { applyLayout(id); closeLayoutPop(); },
     }, layoutThumb(id)));
   }
+  positionLayoutPop(pop, btn);
+}
+
+function positionLayoutPop(pop, btn) {
   document.body.append(pop);
   const r = btn.getBoundingClientRect();
   pop.style.left = `${Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left))}px`;
@@ -1533,6 +1659,11 @@ function placementResolution(pl) {
 /* Every placement in the book that will print soft, worst first. */
 function softPlacements() {
   const out = [];
+  const cover = S.book.layout.cover;
+  if (cover.photo_id) {
+    const status = placementResolution(coverPlacement());
+    if (status !== 'ok') out.push({ page: -1, status });
+  }
   const pages = S.book.layout.pages;
   for (const page of pages) {
     for (const pl of page.placements || []) {
@@ -2424,7 +2555,8 @@ function renderSoftWarning() {
   if (!soft.length) return;
   // Led by the page list, not a count: five languages and no plural engine
   // between them, and the page numbers are the actionable half anyway.
-  const pages = [...new Set(soft.map((s) => s.page + 1))];
+  const pages = [...new Set(soft.map(
+    (s) => (s.page === -1 ? t('page.cover') : s.page + 1)))];
   el.append(h('span', {}, t(soft.some((s) => s.status === 'block')
     ? 'preview.softBlock' : 'preview.softWarn', { pages: pages.join(', ') })));
 }
@@ -2756,7 +2888,7 @@ function bind() {
   });
   const canvasWrap = $('canvas-wrap');
   canvasWrap.addEventListener('click', (e) => {
-    if (e.target.closest('.placement, .textbox, .cover-img, .cover-titles, .sticker, .rs, .tb-handle, .tb-resize, .tb-rotate, .tb-scale')) {
+    if (e.target.closest('.placement, .textbox, .cover-frame, .cover-titles, .sticker, .rs, .tb-handle, .tb-resize, .tb-rotate, .tb-scale')) {
       return;   // interactions on elements manage selection themselves
     }
     // The canvas re-rendered during this gesture (e.g. type-anywhere just

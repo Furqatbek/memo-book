@@ -8,7 +8,17 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.domain.geometry import RectMM, clamp_text_box, validate_placement
+from app.domain.cover_templates import (
+    COVER_TEMPLATES,
+    DEFAULT_COVER_TEMPLATE,
+)
+from app.domain.geometry import (
+    TRIM_H_MM,
+    TRIM_W_MM,
+    RectMM,
+    clamp_text_box,
+    validate_placement,
+)
 from app.domain.layouts import DEFAULT_LAYOUT, LAYOUT_IDS, MAX_PLACEMENTS_PER_PAGE
 from app.domain.stickers import sticker_ids
 
@@ -101,10 +111,35 @@ class StickerDoc(BaseModel):
         return v
 
 
+class CoverRectDoc(BaseModel):
+    """Where the cover photo sits on the front panel, in trim mm. A rectangle
+    reaching a trim edge bleeds off it; each renderer supplies its own
+    overhang (A70). Values may sit slightly outside the panel so a template
+    can be nudged, but never far enough to lose the photo."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    x_mm: float = Field(ge=-TRIM_W_MM, le=TRIM_W_MM)
+    y_mm: float = Field(ge=-TRIM_H_MM, le=TRIM_H_MM)
+    w_mm: float = Field(gt=0, le=2 * TRIM_W_MM)
+    h_mm: float = Field(gt=0, le=2 * TRIM_H_MM)
+
+
 class CoverDoc(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     photo_id: str | None = None
+    # Named composition the cover was built from — the editor uses it to show
+    # which card is active. The geometry below is what actually renders, so a
+    # book keeps its look even if a template is later redrawn (A70).
+    template: str = Field(default=DEFAULT_COVER_TEMPLATE, max_length=32)
+    # None = the whole front panel, which is what every cover did before
+    # templates existed.
+    photo_rect: CoverRectDoc | None = None
+    # Framing inside that rectangle, exactly as placements do it (A62/A68).
+    photo_zoom: float = Field(default=1.0, ge=1.0, le=4.0)
+    photo_focus_x: float = Field(default=0.5, ge=0.0, le=1.0)
+    photo_focus_y: float = Field(default=0.5, ge=0.0, le=1.0)
     title: str = Field(default="", max_length=200)
     subtitle: str = Field(default="", max_length=200)
     title_font: str = Field(default="Inter", max_length=64)
@@ -119,6 +154,13 @@ class CoverDoc(BaseModel):
     # Clockwise degrees about the block centre, like text boxes.
     title_rotation: float = Field(default=0, ge=-360, le=360)
     stickers: list[StickerDoc] = Field(default_factory=list, max_length=20)
+
+    @field_validator("template")
+    @classmethod
+    def _known_template(cls, v):
+        # Never reject: a cover naming a template we have retired must still
+        # open, and its stored geometry is what renders anyway.
+        return v if v in COVER_TEMPLATES else DEFAULT_COVER_TEMPLATE
 
 
 class PageDoc(BaseModel):

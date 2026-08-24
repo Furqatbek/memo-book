@@ -519,3 +519,53 @@ against whatever the frame turns out to be. Nothing is measured, so nothing
 can go stale, and it is resolution-independent for free. Pointer maths
 still needs real pixels, so `cropOverflow` takes the element and measures it
 at drag time, when the layout has settled.
+
+**A70 — Cover templates are compositions, not designs-with-opinions.** A
+customer who uploads one photo should get a finished cover without
+designing anything, so the cover offers five named compositions — full
+photo, framed, photo on top, title on top, square — behind the same
+"Layout" button an inside page uses. A template writes *geometry only*: the
+photo rectangle and the title's place and size. It is deliberately silent
+about colour and content, so the occasion theme's cover colour survives,
+trying all five costs nothing, and every field it writes stays draggable
+afterwards. Switching templates is exactly reversible, which a test asserts
+rather than a comment claiming it.
+
+The registry (`app/domain/cover_templates.py`) is the single source of
+truth and is copied into `editor/js/cover-templates.js` by
+`scripts/gen_cover_templates.py`, with a drift test — the same arrangement
+page layouts already use. `CoverDoc` stores the template *id* (so the
+picker can show which is active) **and** the resolved rectangle (so the
+book keeps its look even if a template is later redrawn), again mirroring
+how `PageDoc` stores both a layout id and real placements. An unknown
+template id falls back rather than rejecting: a cover naming a design we
+have retired must still open, and its stored geometry is what renders
+anyway.
+
+Rectangles are front-panel TRIM mm, and one reaching a trim edge means
+"bleed off that edge". Each surface then supplies its own overhang, because
+they genuinely differ: 3mm of bleed in the editor and the preview, a 16mm
+turn-in on the printed sheet — and never on the left of the printed sheet,
+where the spine is rather than a turn-in, so art can't appear on the closed
+book's back. The default full-panel rectangle therefore reproduces the
+original hand-written "front panel plus the right wrap, full height" paste
+exactly, and a cover saved before templates existed renders byte-identically
+(asserted). The editor and the preview share the 3mm rule, so what the
+customer confirms is what they framed; the printed sheet's outer edges are
+cropped slightly differently, but those edges are wrapped around the board
+and never seen.
+
+The cover photo also gained `photo_zoom`/`photo_focus_*`, matching
+placements, and the editor renders it through the same `placeRect`/
+`applyCrop` path a page photo uses — so the print-sharpness warning (A68)
+now covers the cover, where a small photo blown up is the most visible
+defect of all.
+
+Two rules had quietly been standing in for geometry. "Is the title over the
+photo" was really "is there a photo at all", which was the same question
+only while every photo filled the whole front; it is now an actual
+containment test, so it also stays right when the customer drags the title
+off the picture. And the automatic title ink was a flat dark grey, which
+disappeared on the dark cover colours the occasion themes set; it is now
+chosen by background luminance. Both live in one place and are used by the
+print renderer, the preview renderer and the editor alike.

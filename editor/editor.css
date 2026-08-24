@@ -421,10 +421,10 @@ select {
 
 /* cover mode */
 .page-canvas.cover-mode { background: #eceff4; }
-.cover-img {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  cursor: pointer;
-}
+/* The cover photo sits in the frame its template gives it, which may be
+   the whole panel (the original look) or an inset window (A70). */
+.cover-frame { position: absolute; overflow: hidden; cursor: pointer; z-index: 1; }
+.cover-frame img { display: block; }
 .cover-titles {
   position: absolute; width: 84%; z-index: 4;
   display: flex; flex-direction: column; gap: 4px;
@@ -444,13 +444,25 @@ select {
 }
 .cover-titles input:focus { cursor: text; }
 .cover-titles input::placeholder { color: rgba(255,255,255,.75); }
-.page-canvas.cover-mode:not(:has(.cover-img)) .cover-titles input {
+.page-canvas.cover-mode:not(:has(.cover-frame)) .cover-titles input {
   color: var(--ink); text-shadow: none;
 }
-.page-canvas.cover-mode:not(:has(.cover-img)) .cover-titles input::placeholder {
+.page-canvas.cover-mode:not(:has(.cover-frame)) .cover-titles input::placeholder {
   color: var(--muted);
 }
 .cover-subtitle { font-weight: 400 !important; }
+
+/* cover-design picker: a thumbnail plus its name, in the layout popover */
+.lay-item .lay-name {
+  display: block; margin-top: 4px; font-size: .72rem; color: var(--muted);
+  text-align: center; white-space: nowrap;
+}
+.lay-item.active .lay-name { color: var(--primary); }
+/* the title's place in a cover thumbnail — a rule, not lorem text */
+.lay-thumb .lay-title {
+  position: absolute; left: 22%; width: 56%; height: 3px; border-radius: 2px;
+  background: currentColor; opacity: .55; transform: translateY(-50%);
+}
 
 /* filmstrip */
 .filmstrip {

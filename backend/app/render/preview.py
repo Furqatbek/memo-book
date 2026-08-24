@@ -111,6 +111,38 @@ def render_preview_page(page: dict, photo_bytes: dict[str, bytes]) -> bytes:
     return out.getvalue()
 
 
+def _num(cover: dict, key: str, default: float) -> float:
+    value = cover.get(key)
+    return default if value is None else float(value)
+
+
+def _preview_photo_box(cover: dict, w: int, h: int) -> tuple[int, int, int, int]:
+    """The cover template's photo rectangle on this preview canvas.
+
+    Same rule as the print sheet (app/render/cover.py:photo_box_px): a
+    rectangle reaching a trim edge bleeds off it, and here the overhang is
+    the 3mm preview bleed rather than the turn-in. The left edge bleeds too,
+    because this canvas shows only the front panel — there is no spine on it
+    to protect (A70).
+    """
+    from app.domain.cover_templates import photo_rect_for
+    from app.domain.geometry import BLEED_MM, PX_PER_MM, TRIM_H_MM, TRIM_W_MM
+
+    rect = photo_rect_for(cover)
+    scale = PX_PER_MM * PREVIEW_SCALE
+
+    def px(mm: float) -> int:
+        return round((mm + BLEED_MM) * scale)
+
+    left = 0 if rect["x_mm"] <= 0 else px(rect["x_mm"])
+    top = 0 if rect["y_mm"] <= 0 else px(rect["y_mm"])
+    right = (w if rect["x_mm"] + rect["w_mm"] >= TRIM_W_MM
+             else px(rect["x_mm"] + rect["w_mm"]))
+    bottom = (h if rect["y_mm"] + rect["h_mm"] >= TRIM_H_MM
+              else px(rect["y_mm"] + rect["h_mm"]))
+    return left, top, max(left + 1, right), max(top + 1, bottom)
+
+
 def render_preview_cover(cover: dict, photo_bytes: bytes | None) -> bytes:
     """The cover FRONT panel -> watermarked 72dpi JPEG, so the customer
     confirms the cover along with the pages. Mirrors the cover PDF's front:
@@ -130,7 +162,12 @@ def render_preview_cover(cover: dict, photo_bytes: bytes | None) -> bytes:
         photo = ImageOps.exif_transpose(photo)
         if photo.mode != "RGB":
             photo = photo.convert("RGB")
-        img.paste(_fit_cover(photo, w, h), (0, 0))
+        left, top, right, bottom = _preview_photo_box(cover, w, h)
+        img.paste(_fit_cover(photo, right - left, bottom - top,
+                             zoom=_num(cover, "photo_zoom", 1.0),
+                             focus_x=_num(cover, "photo_focus_x", 0.5),
+                             focus_y=_num(cover, "photo_focus_y", 0.5)),
+                  (left, top))
 
     _draw_stickers(img, cover.get("stickers", []))
 
@@ -138,7 +175,6 @@ def render_preview_cover(cover: dict, photo_bytes: bytes | None) -> bytes:
     subtitle = (cover.get("subtitle") or "").strip()
     if title or subtitle:
         title_size = max(6, round(float(cover.get("title_size_pt") or 28)))
-        color = cover.get("title_color") or ("#ffffff" if photo_bytes else "#1a1a1a")
         family = cover.get("title_font")
         bold = ImageFont.truetype(str(family_ttf(family, bold=True)), title_size)
         regular = ImageFont.truetype(str(family_ttf(family)), max(6, title_size // 2))
@@ -146,6 +182,14 @@ def render_preview_cover(cover: dict, photo_bytes: bytes | None) -> bytes:
         cx_mm = cover.get("title_x_mm") if cover.get("title_x_mm") is not None else 74.0
         cy_mm = cover.get("title_y_mm") if cover.get("title_y_mm") is not None else 122.0
         rotation = float(cover.get("title_rotation", 0) or 0) % 360
+        # Same rule as the print sheet: white only where the title really
+        # lands on the photo, contrasting ink otherwise (A70).
+        from app.domain.cover_templates import title_on_photo
+        from app.render.cover import auto_title_color
+
+        over = bool(photo_bytes) and title_on_photo(cover, float(cx_mm), float(cy_mm))
+        color = cover.get("title_color") or (
+            "#ffffff" if over else auto_title_color(cover.get("bg_color")))
 
         pad = title_size * 2
         layer = Image.new("RGBA", (w + 2 * pad, w + 2 * pad), (0, 0, 0, 0))
