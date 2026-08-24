@@ -70,6 +70,14 @@ const V = '/api/v1';
 
 export const prices = () => request('GET', `${V}/prices`, {});
 
+// Ready-made covers for this occasion. Public and bookless: the customer
+// chooses one before the book exists, and the filtering is the server's
+// job so adding a design needs no frontend deploy (A71).
+export const coverDesigns = (bookType) => {
+  const q = bookType ? `?book_type=${encodeURIComponent(bookType)}` : '';
+  return request('GET', `${V}/cover-designs${q}`, {});
+};
+
 export const createBook = (pageCount, bookType) =>
   request('POST', `${V}/books`, {
     body: bookType ? { page_count: pageCount, book_type: bookType }

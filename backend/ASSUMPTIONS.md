@@ -569,3 +569,49 @@ off the picture. And the automatic title ink was a flat dark grey, which
 disappeared on the dark cover colours the occasion themes set; it is now
 chosen by background luminance. Both live in one place and are used by the
 print renderer, the preview renderer and the editor alike.
+
+**A71 — Ready-made cover designs are content, not code.** Page layouts and
+the built-in cover compositions (A70) ship with a release; a *design* is
+artwork the founder uploads, names, reorders and retires from the server
+with no deploy. So it lives in a table and in object storage, not in a
+Python dict. The customer's flow gains a third question after occasion and
+size: which ready-made cover — a gallery the **backend** filters by
+occasion, so adding a design or changing which occasions it suits never
+touches the frontend.
+
+A design carries geometry as well as artwork, because a design is one whole
+thing: this picture, with the customer's photo *here*, and the title
+*there*. It reuses A70's front-panel-trim-mm rectangle, so the renderers,
+the editor and the admin script all speak the same coordinates.
+
+**Artwork covers the front panel plus its turn-in — 164×242 mm, 1937×2858 px
+at 300 dpi — and not the whole wrap.** The back panel and spine print in the
+design's own flat colour. That is the decision that lets ONE file serve all
+four book sizes: the spine width changes with the tier, so a full-wrap image
+would have to be redrawn four times per design, which is four times the work
+for a solo founder and four chances to ship the wrong one. Wrap-around art
+remains possible later as a per-tier variant; it is not built.
+
+`book_types` is a comma-delimited string filtered in Python, not a JSON array
+or a join table. There will be tens of designs, not thousands, and a plain
+string stays readable in a psql session and in the admin command. Empty means
+"suits every occasion" — the point of leaving it blank. A request with no
+occasion at all applies no filter, because that is the browsing case and an
+almost-empty shelf would be confusing.
+
+Three failure modes are handled deliberately, because a cover renders **after
+the customer has paid**:
+- A cover naming a **retired** design still renders with its artwork. Retiring
+  is a shop-window decision; it must not alter a book someone has confirmed.
+- A design row or storage object that has **vanished** renders the cover on
+  its background colour rather than raising. A missing decoration is not
+  worth failing a paid order over.
+- A **malformed** `design_id` — from a hand-edited document — is treated as
+  no design. `CoverDoc.design_id` is therefore never validated against the
+  catalogue.
+
+The print artwork is never handed to the customer: the gallery serves a
+thumbnail and a display-sized copy, and the renderer reads the full-resolution
+file server-side. Design names are not translated (the founder types one
+name); thumbnails carry the meaning, and the alternative is asking a solo
+founder for five translations per design.

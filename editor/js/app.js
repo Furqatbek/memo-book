@@ -52,6 +52,9 @@ const S = {
   pollIdle: 0, pendingSince: new Map(),
   order: null, prices: null, tiers: null, sidesPerSheet: 2,
   bookType: null, devAvailable: null,
+  // Ready-made covers: the gallery for this occasion, plus a lookup so
+  // a resumed book can draw the artwork it was made with (A71).
+  pendingPages: null, designs: [], designById: {},
 };
 
 /* Occasion picked before the page-count step. Everything here is only a
@@ -207,7 +210,24 @@ async function refetchBook() {
   S.photos = b.photos || [];
   S.dirty = false;
   S.locked = b.status !== 'draft';
+  await loadCoverDesign();
   renderAll();
+}
+
+/* A resumed book knows its design only by id, so fetch the catalogue to get
+   the artwork back — and to give the cover's design changer something to
+   offer. A design retired since — or a catalogue that will not answer —
+   simply means no artwork on screen; it still prints, because the renderer
+   reads the artwork from storage, not from here (A71). */
+async function loadCoverDesign() {
+  if (!S.book || S.designs.length) return;
+  try {
+    const body = await api.coverDesigns(S.book.book_type || null);
+    S.designs = body.designs || [];
+    for (const d of S.designs) S.designById[d.design_id] = d;
+  } catch {
+    /* the cover just draws without its artwork */
+  }
 }
 
 /* ---------- start screen ---------- */
@@ -268,18 +288,59 @@ function renderPrices() {
   }
 }
 
+/* The start screen is three questions in order: what kind of book, how big,
+   and which ready-made cover (A71). Only one is on screen at a time. */
+function showStartStep(which) {
+  for (const id of ['type-step', 'tier-step', 'design-step']) {
+    $(id).classList.toggle('hidden', id !== which);
+  }
+}
+
 function showTypeStep() {
   S.bookType = null;
-  $('type-step').classList.remove('hidden');
-  $('tier-step').classList.add('hidden');
+  S.pendingPages = null;
+  showStartStep('type-step');
 }
 
 function pickBookType(type) {
   S.bookType = type;
   $('type-chosen').textContent =
     `${BOOK_TYPES[type].emoji} ${t(`type.${type}`)}`;
-  $('type-step').classList.add('hidden');
-  $('tier-step').classList.remove('hidden');
+  showStartStep('tier-step');
+}
+
+/* Step 3: covers already designed for this occasion. The customer picks one
+   and the book opens finished; "my own photo" leaves the cover plain. The
+   step is skipped entirely when the catalogue has nothing to offer — an
+   empty shelf is worse than no shelf. */
+async function pickTier(pageCount) {
+  S.pendingPages = pageCount;
+  $('design-chosen').textContent = t('start.sheetsShort',
+    { n: pagesToSheets(pageCount) });
+  let designs = [];
+  try {
+    designs = (await api.coverDesigns(S.bookType)).designs || [];
+  } catch {
+    designs = [];   // the catalogue is a nicety, never a gate
+  }
+  S.designs = designs;
+  for (const d of designs) S.designById[d.design_id] = d;
+  if (!designs.length) {
+    await startNewBook(pageCount, null);
+    return;
+  }
+  const grid = $('design-grid');
+  grid.innerHTML = '';
+  for (const d of designs) {
+    grid.append(h('button', {
+      class: 'design-card', type: 'button',
+      'data-design': d.slug, 'aria-label': d.name || d.slug,
+      onclick: () => startNewBook(pageCount, d),
+    }, h('img', { src: d.thumb_url, alt: '', loading: 'lazy' }),
+       h('span', {}, d.name || '')));
+  }
+  $('design-empty').classList.add('hidden');
+  showStartStep('design-step');
 }
 
 async function enterStart() {
@@ -305,7 +366,7 @@ async function enterStart() {
   }
 }
 
-async function startNewBook(tier) {
+async function startNewBook(tier, design = null) {
   try {
     const b = await api.createBook(tier, S.bookType);
     S.creds = { book_id: b.book_id, edit_token: b.edit_token };
@@ -316,14 +377,16 @@ async function startNewBook(tier) {
     S.page = -1;
     S.sel = null;
     S.locked = false;
+    const cover = S.book.layout.cover;
     const theme = BOOK_TYPES[S.bookType];
     if (theme && theme.bg) {
-      const cover = S.book.layout.cover;
       if (!cover.title) cover.title = t(`type.title.${S.bookType}`);
       cover.bg_color = theme.bg;
       cover.title_color = theme.titleColor;
       markDirty();
     }
+    // A chosen design brings its own colours, so it is applied last.
+    if (design) applyCoverDesign(design);
     enterEditor();
   } catch (e) {
     toast(e.code === 'NETWORK' ? t('err.network') : t('err.generic'), 'warn');
@@ -383,6 +446,10 @@ function updatePageLabel() {
     S.page === -1 ? t('page.cover') : t('page.n', { n: S.page + 1 });
   // The cover is a single fixed frame — layouts belong to inside pages.
   $('btn-layout').classList.toggle('hidden', S.locked);
+  // Changing your mind about a ready-made cover: only on the cover,
+  // and only when there is a catalogue to change it to.
+  $('btn-cover-design').classList.toggle(
+    'hidden', S.page !== -1 || S.locked || !S.designs.length);
 }
 
 /* What is actually missing, counted the way the layout consumes photos: a
@@ -945,6 +1012,64 @@ function coverPlacement() {
   };
 }
 
+/* Put a ready-made design on the cover (A71). Unlike a composition
+   template, a design IS the look: it brings artwork, the colour for the
+   back and spine, and where the title goes. The customer's words and photo
+   are untouched, and everything it writes stays editable. */
+function applyCoverDesign(design) {
+  const cover = S.book.layout.cover;
+  cover.design_id = design ? design.design_id : null;
+  if (design) {
+    S.designById[design.design_id] = design;
+    cover.photo_rect = design.photo_rect ? { ...design.photo_rect } : null;
+    cover.template = design.photo_rect ? cover.template : DEFAULT_COVER_TEMPLATE;
+    if (design.title) {
+      cover.title_x_mm = design.title.x_mm;
+      cover.title_y_mm = design.title.y_mm;
+      if (design.title.size_pt) cover.title_size_pt = design.title.size_pt;
+    }
+    cover.title_color = design.title_color || null;
+    if (design.bg_color) cover.bg_color = design.bg_color;
+    cover.photo_focus_x = 0.5;
+    cover.photo_focus_y = 0.5;
+  }
+  markDirty();
+}
+
+/* Swap the cover design after the fact. Reuses the layout popover so the
+   cover has one kind of picker, not two shapes of the same thing. */
+function openDesignPop(btn) {
+  if (document.querySelector('.layout-pop')) { closeLayoutPop(); return; }
+  const current = S.book.layout.cover.design_id || '';
+  const pop = h('div', { class: 'layout-pop design-pop' });
+  const card = (id, label, thumb) => {
+    const el = h('button', {
+      class: 'lay-item' + (id === current ? ' active' : ''),
+      type: 'button', 'aria-label': id || 'none',
+      onclick: () => {
+        applyCoverDesign(id ? S.designById[id] : null);
+        closeLayoutPop();
+        renderCanvas(true);
+        renderFilm();
+      },
+    });
+    el.append(thumb, h('span', { class: 'lay-name' }, label));
+    return el;
+  };
+  pop.append(card('', t('cover.designNone'), h('div', { class: 'lay-thumb' })));
+  for (const d of S.designs) {
+    pop.append(card(d.design_id, d.name || d.slug,
+                    h('img', { class: 'lay-thumb', src: d.thumb_url, alt: '' })));
+  }
+  positionLayoutPop(pop, btn);
+}
+
+/* The artwork behind the current cover, once its design has been fetched. */
+function coverDesign() {
+  const id = S.book && S.book.layout.cover.design_id;
+  return id ? S.designById[id] : undefined;
+}
+
 /* Apply a template: geometry only. The photo, the words, the fonts and
    every colour the customer picked survive — mirrors
    backend/app/domain/cover_templates.py:apply_cover_template. */
@@ -1007,6 +1132,13 @@ function renderCover(canvas) {
   canvas.className = 'page-canvas cover-mode';
   const cover = S.book.layout.cover;
   canvas.style.background = cover.bg_color || '#eceff4';
+  // A ready-made design's artwork sits behind everything, filling the panel
+  // exactly as it will print (A71).
+  const design = coverDesign();
+  if (design && design.display_url) {
+    canvas.append(h('img', { class: 'cover-art', src: design.display_url,
+                             alt: '', draggable: 'false' }));
+  }
   const photo = cover.photo_id ? photoById(cover.photo_id) : null;
   if (photo && photo.display_url) {
     const pl = coverPlacement();
@@ -1298,7 +1430,7 @@ function closeLayoutPop() {
 }
 
 function outsideLayoutClose(e) {
-  if (!e.target.closest('.layout-pop, #btn-layout')) closeLayoutPop();
+  if (!e.target.closest('.layout-pop, #btn-layout, #btn-cover-design')) closeLayoutPop();
 }
 
 function openLayoutPop(btn) {
@@ -2839,8 +2971,15 @@ function bind() {
     const b = e.target.closest('.tier');
     // data-tier is sheets of paper; the book is created in pages.
     if (b && !b.disabled) {
-      startNewBook(Number(b.dataset.pages || sheetsToPages(Number(b.dataset.tier))));
+      pickTier(Number(b.dataset.pages || sheetsToPages(Number(b.dataset.tier))));
     }
+  });
+  $('design-back').addEventListener('click', (e) => {
+    e.preventDefault();
+    showStartStep('tier-step');
+  });
+  $('design-skip').addEventListener('click', () => {
+    if (S.pendingPages) startNewBook(S.pendingPages, null);
   });
   $('btn-resume').addEventListener('click', resumeBook);
   $('btn-new').addEventListener('click', () => {
@@ -2873,6 +3012,10 @@ function bind() {
   $('btn-delete-sel').addEventListener('click', deleteSelectedPhotos);
   $('btn-add-text').addEventListener('click', addTextBox);
   $('btn-add-sticker').addEventListener('click', () => setTrayTab('stickers'));
+  $('btn-cover-design').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openDesignPop(e.currentTarget);
+  });
   $('btn-layout').addEventListener('click', (e) => {
     e.stopPropagation();
     openLayoutPop(e.currentTarget);

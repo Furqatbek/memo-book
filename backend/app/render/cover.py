@@ -21,7 +21,7 @@ from reportlab.pdfgen import canvas as pdfcanvas
 
 from app.config import get_settings
 from app.domain.geometry import TRIM_H_MM, TRIM_W_MM, mm_to_px
-from app.domain.cover_templates import photo_rect_for, title_on_photo
+from app.domain.cover_templates import FULL_RECT, photo_rect_for, title_on_photo
 from app.domain.tiers import sides_per_sheet
 from app.render.compose import RenderError, _fit_cover, hex_to_rgb
 from app.render.interior import (
@@ -102,21 +102,36 @@ def photo_box_px(rect: dict, geo: CoverGeometry,
     return left, top, max(left + 1, right), max(top + 1, bottom)
 
 
+def _open_rgb(data: bytes, what: str) -> Image.Image:
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception as exc:
+        raise RenderError(f"unreadable {what}") from exc
+    img = ImageOps.exif_transpose(img)
+    return img if img.mode == "RGB" else img.convert("RGB")
+
+
 def _compose_cover_raster(cover: dict, geo: CoverGeometry,
-                          photo_bytes: bytes | None) -> bytes:
+                          photo_bytes: bytes | None,
+                          artwork_bytes: bytes | None = None) -> bytes:
     w_px = mm_to_px(geo.total_w_mm)
     h_px = mm_to_px(geo.total_h_mm)
     canvas = Image.new("RGB", (w_px, h_px), hex_to_rgb(cover.get("bg_color")))
 
+    # A ready-made design's artwork covers the front panel and its turn-in —
+    # the same region a full-bleed photo covers — while the back panel and
+    # the spine keep the flat colour. That is what lets one artwork file
+    # serve every page tier, since only the spine width changes (A71).
+    if artwork_bytes is not None:
+        art_box = photo_box_px(FULL_RECT, geo, w_px, h_px)
+        art = _open_rgb(artwork_bytes, "cover artwork")
+        canvas.paste(_fit_cover(art, art_box[2] - art_box[0],
+                                art_box[3] - art_box[1]),
+                     (art_box[0], art_box[1]))
+
     if photo_bytes is not None:
-        try:
-            img = Image.open(io.BytesIO(photo_bytes))
-            img.load()
-        except Exception as exc:
-            raise RenderError("unreadable cover photo") from exc
-        img = ImageOps.exif_transpose(img)
-        if img.mode != "RGB":
-            img = img.convert("RGB")
+        img = _open_rgb(photo_bytes, "cover photo")
         left, top, right, bottom = photo_box_px(photo_rect_for(cover), geo,
                                                 w_px, h_px)
         fitted = _fit_cover(img, right - left, bottom - top,
@@ -227,10 +242,11 @@ def _draw_cover_text(c: pdfcanvas.Canvas, cover: dict, geo: CoverGeometry,
 
 def build_cover_pdf(cover: dict, page_count: int,
                     photo_bytes: bytes | None,
-                    cache_tag: str = "cover") -> bytes:
+                    cache_tag: str = "cover",
+                    artwork_bytes: bytes | None = None) -> bytes:
     _register_fonts()
     geo = cover_geometry(page_count)
-    raster = _compose_cover_raster(cover, geo, photo_bytes)
+    raster = _compose_cover_raster(cover, geo, photo_bytes, artwork_bytes)
 
     page_w_pt = geo.total_w_mm * MM_TO_PT
     page_h_pt = geo.total_h_mm * MM_TO_PT
@@ -264,9 +280,11 @@ def build_cover_pdf(cover: dict, page_count: int,
                              y_offset_mm=geo.wrap_mm,
                              page_h_pt=page_h_pt)
             c.restoreState()
-        _draw_cover_text(c, cover, geo,
-                         over_photo=title_over_photo(cover, geo,
-                                                     photo_bytes is not None))
+        # Artwork fills the whole front, so a title anywhere on it is over
+        # a picture and needs the same white-with-shadow treatment.
+        over = (artwork_bytes is not None
+                or title_over_photo(cover, geo, photo_bytes is not None))
+        _draw_cover_text(c, cover, geo, over_photo=over)
         c.showPage()
         c.save()
     finally:

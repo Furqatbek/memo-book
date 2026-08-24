@@ -35,6 +35,8 @@ def _book_response(book: Book) -> dict:
     return {
         "book_id": book.id,
         "page_count": book.page_count,
+        # Needed to reopen a resumed book with the right cover gallery (A71).
+        "book_type": book.book_type,
         "status": book.status,
         "layout": book.layout,
         "layout_version": book.layout_version,

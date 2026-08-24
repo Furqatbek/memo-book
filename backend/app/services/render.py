@@ -115,11 +115,17 @@ async def render_cover(session: AsyncSession, book_id: uuid.UUID) -> dict:
             storage.get_bytes, photo.original_key
         )
 
+    # The chosen design's artwork prints behind everything else (A71).
+    from app.services.cover_designs import design_artwork_bytes
+
+    artwork = await design_artwork_bytes(session, cover.get("design_id"))
+
     started = time.monotonic()
 
     def build() -> bytes:
         return build_cover_pdf(cover, book.page_count, photo_bytes,
-                               cache_tag=f"{book_id}-cover")
+                               cache_tag=f"{book_id}-cover",
+                               artwork_bytes=artwork)
 
     pdf_bytes = await anyio.to_thread.run_sync(build)
 

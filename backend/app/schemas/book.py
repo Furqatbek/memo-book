@@ -29,6 +29,7 @@ class SetEmailRequest(BaseModel):
 class BookResponse(BaseModel):
     book_id: uuid.UUID
     page_count: int
+    book_type: str | None = None
     status: str
     layout: dict
     layout_version: int

@@ -230,3 +230,100 @@ class TestTitleInk:
             assert auto_title_color(dark) == "#ffffff"
         for light in ("#ffffff", "#fef3cd", "#eceff4"):
             assert auto_title_color(light) == "#1a1a1a"
+
+
+class TestDesignArtwork:
+    """A71: a ready-made design's artwork prints across the front panel and
+    its turn-in, leaving the back panel and spine on the flat colour — which
+    is what lets one artwork file serve every page tier."""
+
+    TIER = 32
+
+    def _front(self, cover: dict, tag: str, artwork: bytes | None,
+               photo: bytes | None = None) -> Image.Image:
+        pdf = build_cover_pdf(cover, self.TIER, photo, cache_tag=tag,
+                              artwork_bytes=artwork)
+        doc = fitz.open(stream=pdf, filetype="pdf")
+        pix = doc[0].get_pixmap(dpi=72)
+        return Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
+    def _at(self, img, geo, x_mm, y_mm):
+        return img.getpixel((
+            int(img.width * (geo.front_x0_mm + x_mm) / geo.total_w_mm),
+            int(img.height * (geo.wrap_mm + y_mm) / geo.total_h_mm)))
+
+    def test_artwork_covers_the_whole_front_panel(self):
+        art = solid_jpeg(1937, 2858, (20, 160, 60))
+        cover = {"title": "", "bg_color": "#ffffff"}
+        geo = cover_geometry(self.TIER)
+        img = self._front(cover, "art-front", art)
+        for x, y in ((10, 10), (74, 105), (140, 200)):
+            r, g, b = self._at(img, geo, x, y)
+            assert g > 120 and r < 110, f"artwork missing at {x},{y}mm"
+
+    def test_the_back_panel_and_spine_keep_the_flat_colour(self):
+        art = solid_jpeg(1937, 2858, (20, 160, 60))
+        geo = cover_geometry(self.TIER)
+        img = self._front({"bg_color": "#ffffff"}, "art-back", art)
+        back_x = int(img.width * (WRAP_MM + 74) / geo.total_w_mm)
+        r, g, b = img.getpixel((back_x, img.height // 2))
+        assert r > 240 and g > 240 and b > 240, "artwork crossed onto the back"
+
+    def test_one_artwork_file_serves_every_page_tier(self):
+        """The spine grows with the tier; the artwork must not be stretched
+        or shifted onto the wrong panel because of it."""
+        art = solid_jpeg(1937, 2858, (20, 160, 60))
+        for tier in page_tiers():
+            geo = cover_geometry(tier)
+            pdf = build_cover_pdf({"bg_color": "#ffffff"}, tier, None,
+                                  cache_tag=f"art-tier-{tier}", artwork_bytes=art)
+            doc = fitz.open(stream=pdf, filetype="pdf")
+            pix = doc[0].get_pixmap(dpi=48)
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+            r, g, b = self._at(img, geo, 74, 105)
+            assert g > 120 and r < 110, f"tier {tier}: artwork off the front"
+            back = img.getpixel((int(img.width * (WRAP_MM + 74) / geo.total_w_mm),
+                                 img.height // 2))
+            assert min(back) > 240, f"tier {tier}: artwork crossed the spine"
+
+    def test_the_customers_photo_sits_on_top_of_the_artwork(self):
+        art = solid_jpeg(1937, 2858, (20, 160, 60))
+        photo = solid_jpeg(1400, 1000, (200, 40, 40))
+        cover = apply_cover_template({"bg_color": "#ffffff"}, "polaroid")
+        geo = cover_geometry(self.TIER)
+        img = self._front(cover, "art-photo", art, photo)
+        rect = cover["photo_rect"]
+        inside = self._at(img, geo, rect["x_mm"] + rect["w_mm"] / 2,
+                          rect["y_mm"] + rect["h_mm"] / 2)
+        assert inside[0] > 120 and inside[1] < 110, "photo not drawn over artwork"
+        outside = self._at(img, geo, 74, 195)
+        assert outside[1] > 120, "artwork missing where the photo does not reach"
+
+    def test_no_artwork_renders_exactly_as_before(self):
+        photo = solid_jpeg(1200, 900, (180, 30, 30))
+        plain = build_cover_pdf(dict(COVER), self.TIER, photo, cache_tag="noart")
+        explicit = build_cover_pdf(dict(COVER), self.TIER, photo,
+                                   cache_tag="noart", artwork_bytes=None)
+        assert plain == explicit
+
+    def test_unreadable_artwork_fails_loudly_rather_than_printing_blank(self):
+        with pytest.raises(Exception, match="unreadable cover artwork"):
+            build_cover_pdf({"bg_color": "#ffffff"}, self.TIER, None,
+                            cache_tag="art-bad", artwork_bytes=b"not an image")
+
+    def test_a_title_over_artwork_gets_the_white_treatment(self):
+        """Artwork fills the front, so a title anywhere on it is over a
+        picture — dark ink chosen from the background colour would be a
+        coincidence, not a decision."""
+        art = solid_jpeg(1937, 2858, (10, 20, 30))
+        cover = apply_cover_template({"title": "Our travels",
+                                      "bg_color": "#ffffff"}, "window")
+        geo = cover_geometry(self.TIER)
+        img = self._front(cover, "art-title", art)
+        # Scan the block, not one row: text is drawn from a baseline, so the
+        # glyphs sit above the centre the template names.
+        cy = cover["title_y_mm"]
+        band = [self._at(img, geo, x, y)
+                for x in range(35, 115, 3)
+                for y in range(int(cy) - 9, int(cy) + 3)]
+        assert any(min(px) > 150 for px in band), "no light title over dark artwork"

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.books import router as books_router
+from app.api.cover_designs import router as cover_designs_router
 from app.api.errors import register_error_handlers
 from app.api.health import router as health_router
 from app.api.orders import router as orders_router
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(orders_router)
     app.include_router(payments_router)
     app.include_router(pricing_router)
+    app.include_router(cover_designs_router)
     if settings.editor_dir and Path(settings.editor_dir).is_dir():
         app.mount("/editor", WebAssets(directory=settings.editor_dir, html=True),
                   name="editor")

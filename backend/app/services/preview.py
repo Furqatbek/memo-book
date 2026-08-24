@@ -61,9 +61,13 @@ async def run_preview(session: AsyncSession, book_id: uuid.UUID) -> None:
             cover_bytes = await anyio.to_thread.run_sync(
                 storage.get_bytes, cover_photo.original_key
             )
+        from app.services.cover_designs import design_artwork_bytes
+
+        artwork = await design_artwork_bytes(session, cover.get("design_id"))
         cover_jpeg = await anyio.to_thread.run_sync(
-            render_preview_cover, cover, cover_bytes
+            render_preview_cover, cover, cover_bytes, artwork
         )
+        del artwork
         del cover_bytes
         await anyio.to_thread.run_sync(
             storage.put_bytes, _cover_key(book_id), cover_jpeg, "image/jpeg"

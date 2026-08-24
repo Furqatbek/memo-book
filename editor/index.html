@@ -57,6 +57,16 @@
           <button class="tier" data-tier="96"><b>96</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="96"></span></button>
         </div>
         </div>
+        <div id="design-step" class="hidden">
+          <p class="step-label">
+            <b id="design-chosen"></b> ·
+            <a href="#" id="design-back" data-i18n="start.changeSize"></a>
+          </p>
+          <p class="muted" data-i18n="start.designTitle"></p>
+          <div class="design-grid" id="design-grid"></div>
+          <p id="design-empty" class="muted hidden" data-i18n="start.designNone"></p>
+          <button id="design-skip" class="btn" data-i18n="start.designSkip"></button>
+        </div>
       </div>
       <p class="start-track"><a href="#" id="track-link" data-i18n="order.lookupTitle"></a></p>
     </div>
@@ -117,6 +127,7 @@
         <div class="stage-toolbar">
           <span id="page-label" class="page-label"></span>
           <button id="btn-add-text" class="btn small" data-i18n="tool.addText"></button>
+          <button id="btn-cover-design" class="btn small" data-i18n="cover.design"></button>
           <button id="btn-layout" class="btn small" data-i18n="tool.layout"></button>
           <button id="btn-add-sticker" class="btn small" data-i18n="tool.addSticker"></button>
           <div id="page-tools" class="page-tools"></div>

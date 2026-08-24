@@ -143,7 +143,8 @@ def _preview_photo_box(cover: dict, w: int, h: int) -> tuple[int, int, int, int]
     return left, top, max(left + 1, right), max(top + 1, bottom)
 
 
-def render_preview_cover(cover: dict, photo_bytes: bytes | None) -> bytes:
+def render_preview_cover(cover: dict, photo_bytes: bytes | None,
+                        artwork_bytes: bytes | None = None) -> bytes:
     """The cover FRONT panel -> watermarked 72dpi JPEG, so the customer
     confirms the cover along with the pages. Mirrors the cover PDF's front:
     background colour, full-panel photo, title/subtitle at their chosen
@@ -155,6 +156,16 @@ def render_preview_cover(cover: dict, photo_bytes: bytes | None) -> bytes:
     w = max(1, round(CANVAS_W_PX * PREVIEW_SCALE))
     h = max(1, round(CANVAS_H_PX * PREVIEW_SCALE))
     img = Image.new("RGB", (w, h), hex_to_rgb(cover.get("bg_color")))
+
+    # A ready-made design's artwork sits behind everything (A71); on this
+    # canvas it covers the whole front panel, bleed included.
+    if artwork_bytes:
+        art = Image.open(io.BytesIO(artwork_bytes))
+        art.load()
+        art = ImageOps.exif_transpose(art)
+        if art.mode != "RGB":
+            art = art.convert("RGB")
+        img.paste(_fit_cover(art, w, h), (0, 0))
 
     if photo_bytes:
         photo = Image.open(io.BytesIO(photo_bytes))
@@ -187,7 +198,8 @@ def render_preview_cover(cover: dict, photo_bytes: bytes | None) -> bytes:
         from app.domain.cover_templates import title_on_photo
         from app.render.cover import auto_title_color
 
-        over = bool(photo_bytes) and title_on_photo(cover, float(cx_mm), float(cy_mm))
+        over = bool(artwork_bytes) or (
+            bool(photo_bytes) and title_on_photo(cover, float(cx_mm), float(cy_mm)))
         color = cover.get("title_color") or (
             "#ffffff" if over else auto_title_color(cover.get("bg_color")))
 

@@ -129,6 +129,11 @@ class CoverDoc(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     photo_id: str | None = None
+    # A ready-made design from the catalogue, whose artwork prints behind
+    # everything else (A71). None = no artwork, just colour and the
+    # customer's own photo. Never validated against the catalogue: a design
+    # the founder retires must not stop an existing book from rendering.
+    design_id: str | None = Field(default=None, max_length=64)
     # Named composition the cover was built from — the editor uses it to show
     # which card is active. The geometry below is what actually renders, so a
     # book keeps its look even if a template is later redrawn (A70).

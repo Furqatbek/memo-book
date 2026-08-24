@@ -125,6 +125,26 @@ select {
 .btype .bt-ico { font-size: 1.7rem; }
 .btype:hover:not(:disabled) { border-color: var(--primary); }
 .btype:disabled { opacity: .45; }
+/* step 3: the ready-made cover gallery */
+.design-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 12px; margin: 12px 0 16px;
+}
+.design-card {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 8px; display: flex; flex-direction: column; gap: 6px; align-items: center;
+}
+.design-card img {
+  width: 100%; aspect-ratio: 148 / 210; object-fit: cover; border-radius: 6px;
+  background: var(--bg); display: block;
+}
+.design-card span {
+  font-size: .8rem; color: var(--muted); text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.design-card:hover:not(:disabled) { border-color: var(--primary); }
+.design-card:hover span { color: var(--primary); }
+
 .start-track { text-align: center; }
 .start-track a { color: var(--primary); }
 
@@ -412,6 +432,9 @@ select {
   background: var(--bg); border-radius: 3px; overflow: hidden;
 }
 .lay-cell { position: absolute; background: var(--primary); opacity: .8; }
+/* the design changer shows real artwork rather than a wireframe */
+.design-pop { max-width: min(92vw, 460px); }
+img.lay-thumb { object-fit: cover; display: block; }
 
 /* Magnetic centre guides shown while dragging */
 .snap-guide { position: absolute; z-index: 9; pointer-events: none;
@@ -421,6 +444,12 @@ select {
 
 /* cover mode */
 .page-canvas.cover-mode { background: #eceff4; }
+/* A ready-made design's artwork, behind everything else on the cover. */
+.cover-art {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; z-index: 0; pointer-events: none;
+}
+
 /* The cover photo sits in the frame its template gives it, which may be
    the whole panel (the original look) or an inset window (A70). */
 .cover-frame { position: absolute; overflow: hidden; cursor: pointer; z-index: 1; }
