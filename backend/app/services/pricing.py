@@ -5,7 +5,7 @@ the founder sets real prices.
 Prices are quoted per SHEET tier (PRICE_MINOR_16 is the 16-sheet book), so
 the .env keys keep matching what the customer picks. Books ordered before
 sheet-counting stored a page count straight from those same numbers, so they
-fall back to a lookup by page count and keep their original price (A60).
+fall back to a lookup by page count and keep their original price (A63).
 """
 from app.config import get_settings
 from app.domain.tiers import sides_per_sheet, validate_tier

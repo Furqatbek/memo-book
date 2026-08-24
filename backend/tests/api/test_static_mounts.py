@@ -36,7 +36,7 @@ async def test_mounts_absent_by_default(client):
 
 
 async def test_code_revalidates_and_media_is_cacheable(tmp_path, monkeypatch):
-    """A58: a stale app.js against a fresh index.html silently breaks the
+    """A61: a stale app.js against a fresh index.html silently breaks the
     editor, so markup/code must always revalidate; media may be held."""
     editor = tmp_path / "editor"
     (editor / "js").mkdir(parents=True)

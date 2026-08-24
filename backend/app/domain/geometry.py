@@ -53,7 +53,7 @@ class RectPX:
     h: int
 
 
-# A photo may run across the fold onto the facing page (A62). Each page still
+# A photo may run across the fold onto the facing page (A65). Each page still
 # renders alone, so such a photo is stored on BOTH pages — the same rectangle,
 # shifted by one trim width — and each page shows the half that falls on it.
 SPREAD_W_MM = 2 * TRIM_W_MM + 2 * BLEED_MM     # 302: bleed, both pages, bleed

@@ -75,8 +75,28 @@ async def auto_place(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
     return book, cursor, unplaced
 
 
+def layout_progress(layout: dict, usable_ids: set[str]) -> tuple[int, int]:
+    """(pages with nothing on them, usable photos not used anywhere yet).
+
+    A photo counts as used wherever it appears — on several pages, on both
+    halves of a spread, or on the cover — so "unplaced" really means the
+    customer still has it spare.
+    """
+    pages = layout.get("pages", [])
+    empty = sum(1 for page in pages if not page.get("placements"))
+    used = {pl.get("photo_id") for page in pages
+            for pl in page.get("placements", [])}
+    cover_photo = (layout.get("cover") or {}).get("photo_id")
+    if cover_photo:
+        used.add(cover_photo)
+    return empty, len(usable_ids - used)
+
+
 async def eligibility(session: AsyncSession, book_id: uuid.UUID,
                       edit_token: str) -> CheckoutEligibility:
     book = await get_book_authed(session, book_id, edit_token)
     photos = await _usable_photos(session, book_id)
-    return checkout_eligibility(photo_count=len(photos), page_count=book.page_count)
+    empty, unplaced = layout_progress(book.layout, {str(p.id) for p in photos})
+    return checkout_eligibility(photo_count=len(photos),
+                                page_count=book.page_count,
+                                empty_pages=empty, unplaced_photos=unplaced)

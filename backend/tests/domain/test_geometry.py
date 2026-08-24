@@ -81,7 +81,7 @@ class TestTextClamping:
 
 
 class TestPlacementsMayCrossTheFold:
-    """A62: a photo running onto the facing page is stored on both pages as
+    """A65: a photo running onto the facing page is stored on both pages as
     the same rectangle shifted by one trim width, so each page legitimately
     holds a rectangle that hangs off its own edge."""
 

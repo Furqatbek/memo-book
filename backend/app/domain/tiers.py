@@ -4,11 +4,11 @@ The customer buys **sheets of paper**; each sheet carries `sides_per_sheet`
 printed sides (2 with ordinary double-sided printing), and one printed side
 is one designed page. Everything downstream — the layout document, the
 renderer, the PDF — counts pages, so `page_count` stays the internal unit
-and `SHEET_TIERS` is only what the customer picks (A60).
+and `SHEET_TIERS` is only what the customer picks (A63).
 
-Never allow checkout with fewer photos than pages: blank printed pages are a
-guaranteed refund. On surplus, suggest the next larger tier; the backend never
-silently drops photos.
+Never allow checkout with a page the photos cannot fill: blank printed pages
+are a guaranteed refund. On surplus, suggest the next larger tier; the backend
+never silently drops photos.
 """
 from dataclasses import dataclass, field
 
@@ -76,33 +76,55 @@ class CheckoutEligibility:
     suggested_tier: int | None
 
 
-def checkout_eligibility(photo_count: int, page_count: int) -> CheckoutEligibility:
-    """R1 + R3. `suggested_tier` means:
+def checkout_eligibility(photo_count: int, page_count: int,
+                         empty_pages: int | None = None,
+                         unplaced_photos: int | None = None) -> CheckoutEligibility:
+    """R1 + R3, counted by what the layout actually needs.
+
+    One photo no longer means one page: a grid page holds four, and a photo
+    across the fold fills two (A67). So the question is not "are there as
+    many photos as pages" but "does every empty page have a spare photo to
+    go on it" — a book laid out entirely as spreads is complete with half as
+    many photos as pages.
+
+    Both counts come from the live layout; the defaults describe a book
+    nobody has placed anything in yet (every page empty, every photo spare),
+    which reduces exactly to the classic `photo_count >= page_count` rule.
+
+    `shortfall` and `leftover` are the two signs of one difference: empty
+    pages the photos cannot cover, or photos the pages cannot hold.
+
+    `suggested_tier` means:
     - shortfall: the largest tier the user currently qualifies for (may be None)
-    - surplus:   the next larger tier, as an upsell suggestion
+    - leftover:  the next larger tier, as an upsell suggestion
     """
     validate_tier(page_count)
+    if empty_pages is None:
+        empty_pages = page_count
+    if unplaced_photos is None:
+        unplaced_photos = photo_count
 
-    if photo_count < page_count:
+    shortfall = max(0, empty_pages - unplaced_photos)
+    if shortfall:
         return CheckoutEligibility(
             eligible=False,
             photo_count=photo_count,
             page_count=page_count,
             issues=(EligibilityIssue(
                 code=ErrorCode.PHOTOS_INSUFFICIENT,
-                message=f"You have {photo_count} photos but the "
-                        f"{page_count}-page book needs {page_count}.",
-                details={"have": photo_count, "need": page_count,
-                         "shortfall": page_count - photo_count},
+                message=f"{shortfall} more photos are needed to fill this book.",
+                details={"have": photo_count, "empty_pages": empty_pages,
+                         "unplaced_photos": unplaced_photos,
+                         "shortfall": shortfall},
             ),),
             suggested_tier=largest_qualifying_tier(photo_count),
         )
 
-    suggested = next_larger_tier(page_count) if photo_count > page_count else None
+    leftover = max(0, unplaced_photos - empty_pages)
     return CheckoutEligibility(
         eligible=True,
         photo_count=photo_count,
         page_count=page_count,
         issues=(),
-        suggested_tier=suggested,
+        suggested_tier=next_larger_tier(page_count) if leftover else None,
     )

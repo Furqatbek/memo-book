@@ -24,7 +24,7 @@ class WebAssets(StaticFiles):
     caching, and mobile browsers hold JS for hours. That mixes a freshly
     fetched index.html with a stale app.js/i18n.js — new buttons appear
     wired to code that isn't there, so features look broken and labels
-    show raw translation keys (observed in production, A58).
+    show raw translation keys (observed in production, A61).
 
     Markup and code therefore always revalidate: `no-cache` still lets the
     browser keep the copy, it just has to ask first, and Starlette answers

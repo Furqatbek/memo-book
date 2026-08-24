@@ -122,7 +122,7 @@ class TestLayoutPatch:
         layout["pages"][0]["placements"] = [{
             "photo_id": str(uuid.uuid4()),
             # Vertically off the page: horizontal overhang is legal now that
-            # a photo may cross the fold (A62), but this never can be.
+            # a photo may cross the fold (A65), but this never can be.
             "x_mm": 10, "y_mm": 190, "w_mm": 100, "h_mm": 100,
         }]
         resp = await client.patch(f"/api/v1/books/{book['book_id']}/layout",

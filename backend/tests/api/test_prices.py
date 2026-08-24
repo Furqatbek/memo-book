@@ -24,7 +24,7 @@ async def test_prices_expose_sheets_and_the_pages_they_yield(client):
 
 
 async def test_photo_mount_binding_reverts_to_one_side_per_sheet(client, monkeypatch):
-    """A60: if the printer glues sheets back-to-back, a sheet carries one
+    """A63: if the printer glues sheets back-to-back, a sheet carries one
     printed side and every tier returns to its original page count."""
     monkeypatch.setenv("SIDES_PER_SHEET", "1")
     get_settings.cache_clear()

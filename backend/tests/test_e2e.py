@@ -151,5 +151,6 @@ async def test_unhappy_path_shortfall_blocks_checkout(client, db):
     assert resp.status_code == 409
     error = resp.json()["error"]
     assert error["code"] == "PHOTOS_INSUFFICIENT"
-    assert error["details"] == {"have": 10, "need": 16}
+    assert error["details"] == {"have": 10, "empty_pages": 16,
+                                "unplaced_photos": 10, "shortfall": 6}
     assert (await db.execute(select(Order))).scalar_one_or_none() is None

@@ -223,7 +223,7 @@ async function loadPrices() {
 }
 
 /* The customer buys sheets of paper; each sheet is printed on both sides,
-   so a 16-sheet book is 32 designed pages (A60). Page count stays the unit
+   so a 16-sheet book is 32 designed pages (A63). Page count stays the unit
    everything below the picker speaks in. */
 const sheetsToPages = (sheets) => sheets * (S.sidesPerSheet || 2);
 const pagesToSheets = (pages) => Math.round(pages / (S.sidesPerSheet || 2));
@@ -383,19 +383,34 @@ function updatePageLabel() {
   $('btn-layout').classList.toggle('hidden', S.page === -1 || S.locked);
 }
 
+/* What is actually missing, counted the way the layout consumes photos: a
+   grid page eats four, a photo across the fold fills two (A65). */
+function bookProgress() {
+  const pages = S.book.layout.pages;
+  const used = new Set();
+  for (const page of pages) {
+    for (const pl of page.placements) used.add(pl.photo_id);
+  }
+  if (S.book.layout.cover.photo_id) used.add(S.book.layout.cover.photo_id);
+  const empty = pages.filter((p) => !p.placements.length).length;
+  const unplaced = S.photos.filter(
+    (p) => USABLE.has(p.status) && !used.has(p.photo_id)).length;
+  return { empty, unplaced, shortfall: Math.max(0, empty - unplaced) };
+}
+
 function updateEligibility() {
-  const shortfall = S.book.page_count - usableCount();
+  const { empty, shortfall } = bookProgress();
   const el = $('elig-banner');
-  el.classList.toggle('hidden', shortfall <= 0);
+  el.classList.toggle('hidden', empty === 0);
   if (shortfall > 0) el.textContent = t('elig.need', { n: shortfall });
+  else if (empty > 0) el.textContent = t('elig.place', { n: empty });
 }
 
 /* ---------- tray ---------- */
 
 function renderTray() {
   updateEligibility();
-  $('tray-count').textContent =
-    t('tray.count', { ready: usableCount(), need: S.book.page_count });
+  $('tray-count').textContent = t('tray.count', { ready: usableCount() });
   const none = S.locked || S.photos.length === 0;
   $('btn-delete-all').classList.toggle('hidden', none || S.selecting);
   $('btn-select-mode').classList.toggle('hidden', none);
@@ -658,7 +673,7 @@ function placeOnPage(photoId, index, advance, slotIdx = null) {
 
 /* Bound, page 1 stands alone on the right; after that pages pair up
    (2,3), (4,5)... In zero-based indices page 0 is alone, then (1,2),
-   (3,4)... A photo may run across the fold of any real pair (A62). */
+   (3,4)... A photo may run across the fold of any real pair (A65). */
 function facingPage(index) {
   if (index < 1) return -1;                     // page 1 has no partner
   const partner = index % 2 === 1 ? index + 1 : index - 1;
@@ -2372,7 +2387,7 @@ async function pollPreview() {
     }
     // Bound, pages face each other: 1 stands alone on the right, then
     // (2,3), (4,5)... and the last page alone on the left. Showing the
-    // preview in those pairs is how the book will actually open (A61).
+    // preview in those pairs is how the book will actually open (A64).
     const figure = (url, i) => h('figure', { class: 'pv-page' },
       h('img', { src: url, alt: `Page ${i + 1}`, loading: 'lazy' }),
       h('figcaption', {}, String(i + 1)));

@@ -121,12 +121,18 @@ async def checkout(session: AsyncSession, book_id: uuid.UUID, edit_token: str, *
     _require_fresh_preview(book)
 
     photos = await _usable_photos(session, book_id)
-    if len(photos) < book.page_count:
+    # A grid page holds several photos and a photo across the fold fills two
+    # pages, so the gate is "can every page be filled", not one per page.
+    from app.services.placement import layout_progress
+
+    empty_pages, unplaced = layout_progress(book.layout,
+                                            {str(p.id) for p in photos})
+    if empty_pages > unplaced:
         raise DomainError(
             ErrorCode.PHOTOS_INSUFFICIENT,
-            f"you have {len(photos)} photos but the {book.page_count}-page "
-            f"book needs {book.page_count}",
-            {"have": len(photos), "need": book.page_count},
+            f"{empty_pages - unplaced} more photos are needed to fill this book",
+            {"have": len(photos), "empty_pages": empty_pages,
+             "unplaced_photos": unplaced, "shortfall": empty_pages - unplaced},
         )
     _require_complete_pages(book, {str(p.id) for p in photos})
 

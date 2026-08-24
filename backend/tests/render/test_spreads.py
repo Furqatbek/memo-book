@@ -1,4 +1,4 @@
-"""A photo across the fold (A62).
+"""A photo across the fold (A65).
 
 Pages are rendered one at a time, so such a photo lives on both pages as the
 same rectangle shifted by one trim width. What matters is that the two

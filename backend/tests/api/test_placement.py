@@ -146,7 +146,8 @@ class TestEligibility:
         assert (body["photo_count"], body["page_count"]) == (10, 16)
         issue = body["issues"][0]
         assert issue["code"] == "PHOTOS_INSUFFICIENT"
-        assert issue["details"] == {"have": 10, "need": 16, "shortfall": 6}
+        assert issue["details"] == {"have": 10, "empty_pages": 16,
+                                    "unplaced_photos": 10, "shortfall": 6}
         assert body["suggested_tier"] is None
 
     async def test_exact_count_eligible(self, client, db):

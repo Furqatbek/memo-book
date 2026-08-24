@@ -396,7 +396,7 @@ native colour input is replaced by a grid of large swatches (the OS colour
 dialog is painful on phones); the native picker stays behind "Custom" for
 an exact shade.
 
-**A58 — Static assets declare their caching.** The editor is a no-build ES
+**A61 — Static assets declare their caching.** The editor is a no-build ES
 module app, so index.html and the JS it imports are separate cached
 resources. With no `Cache-Control` header browsers apply *heuristic*
 caching and mobile browsers hold JS for hours — a freshly fetched
@@ -410,7 +410,7 @@ immutable. Module URLs also carry a one-time `?v=` stamp to break browsers
 out of caches poisoned before this rule existed; the header makes further
 bumps unnecessary.
 
-**A59 — The customer frames the crop.** A photo almost never shares its
+**A62 — The customer frames the crop.** A photo almost never shares its
 slot's aspect ratio, so "cover" framing has to discard part of it — with
 grid layouts that read as an arbitrary zoomed-in cut. `PlacementDoc`
 therefore carries `zoom` (1.0–4.0, 1.0 = just covers the slot) and
@@ -423,7 +423,7 @@ framing that prints: a ⠿ handle on the selected photo pans it, −/+ zoom,
 pinch zooms inside a fixed grid slot, and "Fit" still shows the whole
 photo letterboxed for people who want nothing cropped at all.
 
-**A60 — The customer buys sheets, the system counts pages.** A sheet of
+**A63 — The customer buys sheets, the system counts pages.** A sheet of
 paper carries two printed sides with ordinary double-sided printing, so the
 tier the customer picks (16/32/48/96 **sheets**) yields twice as many
 designed pages — a 16-sheet book is 32 pages. `page_count` remains the
@@ -437,13 +437,13 @@ the customer chooses; books created before sheet-counting keep validating
 and price by their own page count, and a book with the same number of
 printed sides costs the same however it was created.
 
-**A61 — Preview shows facing pages.** A bound book opens in spreads: page 1
+**A64 — Preview shows facing pages.** A bound book opens in spreads: page 1
 stands alone on the right, then (2,3), (4,5)… and the final page alone on
 the left. The preview groups the rendered pages that way so the customer
 confirms the book as it will actually open, rather than as a flat list.
 Editing is still page-by-page; photos spanning the gutter are not built yet.
 
-**A62 — A photo may cross the fold.** Pages are rendered one at a time, so
+**A65 — A photo may cross the fold.** Pages are rendered one at a time, so
 a photo spanning a spread is stored on BOTH pages: the same rectangle,
 shifted by exactly one trim width (148 mm), each page showing the half that
 falls on it. Because one trim width is exactly 1748 px at 300 dpi, the two
@@ -458,7 +458,7 @@ follows the binding — page 1 stands alone on the right, then (2,3), (4,5)…
 — and the editor shows the facing page beside the one being edited, as a
 picture that can be tapped to move editing there.
 
-**A63 — Gutter guide on the bound edge.** Every interior page is bound
+**A66 — Gutter guide on the bound edge.** Every interior page is bound
 along one edge — page 1 on its left, then alternating — and paper curves
 into the spine there, so a face placed in that strip disappears into the
 fold. The editor hatches the bleed plus a **5 mm gutter allowance**
@@ -467,3 +467,20 @@ two guides meet to form one strip down the fold. It is advisory only: the
 guide never blocks a drag and nothing is clamped, because a background
 photo is *meant* to run through the gutter. The 5 mm is a PLACEHOLDER
 pending the printer's own figure (printer-questions.md, question 13).
+
+**A67 — Enough photos means enough to fill the pages, not one each.** R1
+was written when a page held exactly one photo. A grid page now holds up to
+four and a photo across the fold fills two (A65), so counting photos
+against pages both refuses complete books (16 spread photos genuinely fill
+a 32-page book) and accepts incomplete ones (32 photos poured into four-up
+pages leave 24 pages bare). The gate is therefore `empty_pages >
+unplaced_photos` — every page with nothing on it needs a photo still spare
+to put there — computed from the live layout by `layout_progress()` and
+used by both checkout and `/checkout-eligibility`. A photo counts as used
+wherever it appears, including on both halves of a spread and on the cover.
+`/checkout-eligibility` stays a **tier** question: with nothing placed yet
+its defaults reduce to the old `photo_count >= page_count` rule, so an
+untouched book with enough photos still reads as eligible. Nagging about
+unplaced photos belongs to the editor banner, and refusing a genuinely
+blank page belongs to checkout's own `_require_complete_pages` — which is
+unchanged and remains the hard gate.

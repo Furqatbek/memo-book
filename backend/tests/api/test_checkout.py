@@ -125,7 +125,8 @@ class TestCheckoutGauntlet:
         assert resp.status_code == 409
         body = resp.json()["error"]
         assert body["code"] == "PHOTOS_INSUFFICIENT"
-        assert body["details"] == {"have": 0, "need": 16}
+        assert body["details"] == {"have": 0, "empty_pages": 16,
+                                   "unplaced_photos": 0, "shortfall": 16}
 
     async def test_enough_photos_but_empty_pages_rejected(self, client, db):
         book_id, headers = await ready_book(client, db)
