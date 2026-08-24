@@ -1,32 +1,62 @@
 """Page tiers and checkout eligibility — business rules R1 and R3.
 
+The customer buys **sheets of paper**; each sheet carries `sides_per_sheet`
+printed sides (2 with ordinary double-sided printing), and one printed side
+is one designed page. Everything downstream — the layout document, the
+renderer, the PDF — counts pages, so `page_count` stays the internal unit
+and `SHEET_TIERS` is only what the customer picks (A60).
+
 Never allow checkout with fewer photos than pages: blank printed pages are a
 guaranteed refund. On surplus, suggest the next larger tier; the backend never
 silently drops photos.
 """
 from dataclasses import dataclass, field
 
+from app.config import get_settings
 from app.domain.errors import DomainError, ErrorCode
 
-PAGE_TIERS: tuple[int, ...] = (16, 32, 48, 96)
+# What the customer chooses, in sheets of paper.
+SHEET_TIERS: tuple[int, ...] = (16, 32, 48, 96)
+
+# Books ordered before sheet-counting stored these page counts directly and
+# must keep loading, saving and pricing exactly as they always did.
+LEGACY_PAGE_TIERS: tuple[int, ...] = (16, 32, 48, 96)
+
+
+def sides_per_sheet() -> int:
+    return max(1, get_settings().sides_per_sheet)
+
+
+def pages_for_sheets(sheets: int) -> int:
+    return sheets * sides_per_sheet()
+
+
+def page_tiers() -> tuple[int, ...]:
+    """Page counts a NEW book may be created with."""
+    return tuple(pages_for_sheets(s) for s in SHEET_TIERS)
+
+
+def _known_page_counts() -> tuple[int, ...]:
+    return tuple(sorted(set(page_tiers()) | set(LEGACY_PAGE_TIERS)))
 
 
 def validate_tier(page_count: int) -> int:
-    if page_count not in PAGE_TIERS:
+    allowed = _known_page_counts()
+    if page_count not in allowed:
         raise DomainError(ErrorCode.INVALID_PAGE_TIER,
-                          f"page_count must be one of {PAGE_TIERS}",
-                          {"page_count": page_count, "allowed": list(PAGE_TIERS)})
+                          f"page_count must be one of {allowed}",
+                          {"page_count": page_count, "allowed": list(allowed)})
     return page_count
 
 
 def largest_qualifying_tier(photo_count: int) -> int | None:
     """The largest tier the user currently has enough photos for, or None."""
-    qualifying = [t for t in PAGE_TIERS if photo_count >= t]
+    qualifying = [t for t in page_tiers() if photo_count >= t]
     return max(qualifying) if qualifying else None
 
 
 def next_larger_tier(page_count: int) -> int | None:
-    larger = [t for t in PAGE_TIERS if t > page_count]
+    larger = [t for t in page_tiers() if t > page_count]
     return min(larger) if larger else None
 
 

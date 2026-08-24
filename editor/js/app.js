@@ -43,7 +43,8 @@ const S = {
   dirty: false, saving: false, saveQueued: false, saveTimer: null,
   photoTimer: null, orderTimer: null, previewTimer: null,
   pollIdle: 0, pendingSince: new Map(),
-  order: null, prices: null, bookType: null, devAvailable: null,
+  order: null, prices: null, tiers: null, sidesPerSheet: 2,
+  bookType: null, devAvailable: null,
 };
 
 /* Occasion picked before the page-count step. Everything here is only a
@@ -208,18 +209,54 @@ async function refetchBook() {
    displays what the API reports, so both always match. */
 async function loadPrices() {
   try {
-    S.prices = (await api.prices()).prices;
-  } catch (e) { S.prices = null; }
+    const r = await api.prices();
+    S.prices = r.prices;
+    S.tiers = r.tiers || null;
+    S.sidesPerSheet = r.sides_per_sheet || 2;
+  } catch (e) { S.prices = null; S.tiers = null; }
   renderPrices();
 }
 
+/* The customer buys sheets of paper; each sheet is printed on both sides,
+   so a 16-sheet book is 32 designed pages (A60). Page count stays the unit
+   everything below the picker speaks in. */
+const sheetsToPages = (sheets) => sheets * (S.sidesPerSheet || 2);
+const pagesToSheets = (pages) => Math.round(pages / (S.sidesPerSheet || 2));
+
+function priceForPages(pages) {
+  if (!S.prices) return null;
+  // Keyed by sheet tier; books made before sheet-counting fall back to their
+  // own page count, exactly as the backend prices them.
+  return S.prices[String(pagesToSheets(pages))] || S.prices[String(pages)] || null;
+}
+
 function renderPrices() {
-  for (const el of document.querySelectorAll('[data-tier-price]')) {
-    const minor = S.prices && S.prices[el.dataset.tierPrice];
-    el.textContent = minor ? fmtAmount(minor) : '';
+  for (const card of document.querySelectorAll('.tier')) {
+    const sheets = Number(card.dataset.tier);
+    const tier = (S.tiers || []).find((x) => x.sheets === sheets);
+    const pages = tier ? tier.pages : sheetsToPages(sheets);
+    card.dataset.pages = String(pages);
+    const priceEl = card.querySelector('[data-tier-price]');
+    if (priceEl) {
+      const minor = tier ? tier.price_minor : priceForPages(pages);
+      priceEl.textContent = minor ? fmtAmount(minor) : '';
+    }
+    const pagesEl = card.querySelector('[data-tier-pages]');
+    if (pagesEl) pagesEl.textContent = t('start.pagesEq', { n: pages });
+  }
+  // The header tier picker speaks sheets too, but carries page counts.
+  const sel = $('tier-select');
+  if (sel && S.tiers) {
+    const keep = sel.value;
+    sel.innerHTML = '';
+    for (const tier of S.tiers) {
+      sel.append(h('option', { value: String(tier.pages) },
+                   t('start.sheetsShort', { n: tier.sheets })));
+    }
+    if (keep) sel.value = keep;
   }
   if (S.book) {
-    const minor = S.prices && S.prices[String(S.book.page_count)];
+    const minor = priceForPages(S.book.page_count);
     $('pv-price').textContent = minor ? fmtAmount(minor) : '';
   }
 }
@@ -2155,11 +2192,21 @@ async function pollPreview() {
         h('img', { src: r.cover_url, alt: t('page.cover') }),
         h('figcaption', {}, t('page.cover'))));
     }
-    r.page_urls.forEach((url, i) => {
-      grid.append(h('figure', { class: 'pv-page' },
-        h('img', { src: url, alt: `Page ${i + 1}`, loading: 'lazy' }),
-        h('figcaption', {}, String(i + 1))));
-    });
+    // Bound, pages face each other: 1 stands alone on the right, then
+    // (2,3), (4,5)... and the last page alone on the left. Showing the
+    // preview in those pairs is how the book will actually open (A61).
+    const figure = (url, i) => h('figure', { class: 'pv-page' },
+      h('img', { src: url, alt: `Page ${i + 1}`, loading: 'lazy' }),
+      h('figcaption', {}, String(i + 1)));
+    const spread = (...kids) => h('div', { class: 'pv-spread' }, ...kids);
+    const blank = () => h('div', { class: 'pv-blank' });
+    const urls = r.page_urls;
+    if (urls.length) grid.append(spread(blank(), figure(urls[0], 0)));
+    for (let i = 1; i < urls.length; i += 2) {
+      grid.append(i + 1 < urls.length
+        ? spread(figure(urls[i], i), figure(urls[i + 1], i + 1))
+        : spread(figure(urls[i], i), blank()));
+    }
   } else if (r.status === 'failed') {
     $('pv-status').classList.remove('busy');
     $('pv-status').textContent = t('preview.failed');
@@ -2380,7 +2427,10 @@ function bind() {
   });
   $('tier-grid').addEventListener('click', (e) => {
     const b = e.target.closest('.tier');
-    if (b && !b.disabled) startNewBook(Number(b.dataset.tier));
+    // data-tier is sheets of paper; the book is created in pages.
+    if (b && !b.disabled) {
+      startNewBook(Number(b.dataset.pages || sheetsToPages(Number(b.dataset.tier))));
+    }
   });
   $('btn-resume').addEventListener('click', resumeBook);
   $('btn-new').addEventListener('click', () => {

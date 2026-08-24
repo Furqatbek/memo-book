@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     dev_payments_enabled: bool = True
     dev_payment_secret: str = "dev-secret-change-me"
 
+    # A sheet of paper carries this many printed sides. 2 = ordinary
+    # double-sided printing, so a 16-sheet book is 32 designed pages.
+    # Set to 1 if the printer uses photo-mount lay-flat binding, where
+    # sheets are printed on one side and glued back-to-back (A60).
+    sides_per_sheet: int = 2
+
     # Card-transfer pilot: shown on the order page while payment is pending;
     # the operator confirms received transfers with scripts/confirm_payment.py.
     # Empty = the card block never appears.

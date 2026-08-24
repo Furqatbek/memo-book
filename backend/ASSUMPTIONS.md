@@ -422,3 +422,23 @@ with the same arithmetic as `_fit_cover`, so the framing on screen is the
 framing that prints: a ⠿ handle on the selected photo pans it, −/+ zoom,
 pinch zooms inside a fixed grid slot, and "Fit" still shows the whole
 photo letterboxed for people who want nothing cropped at all.
+
+**A60 — The customer buys sheets, the system counts pages.** A sheet of
+paper carries two printed sides with ordinary double-sided printing, so the
+tier the customer picks (16/32/48/96 **sheets**) yields twice as many
+designed pages — a 16-sheet book is 32 pages. `page_count` remains the
+internal unit for the layout, renderer and PDF; only the picker and prices
+speak sheets. `SIDES_PER_SHEET` carries the assumption: set it to 1 if the
+printer uses photo-mount lay-flat binding, where sheets are printed on one
+side and glued back-to-back (the backs are the glue surface and cannot hold
+photos), and every tier returns to its original page count with no code
+change. Prices are keyed by sheet tier so the .env names still match what
+the customer chooses; books created before sheet-counting keep validating
+and price by their own page count, and a book with the same number of
+printed sides costs the same however it was created.
+
+**A61 — Preview shows facing pages.** A bound book opens in spreads: page 1
+stands alone on the right, then (2,3), (4,5)… and the final page alone on
+the left. The preview groups the rendered pages that way so the customer
+confirms the book as it will actually open, rather than as a flat list.
+Editing is still page-by-page; photos spanning the gutter are not built yet.
