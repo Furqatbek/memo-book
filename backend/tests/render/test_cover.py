@@ -7,7 +7,13 @@ from PIL import Image
 from pypdf import PdfReader
 
 from app.config import get_settings
-from app.render.cover import WRAP_MM, build_cover_pdf, cover_geometry
+from app.domain.tiers import page_tiers, pages_for_sheets, sides_per_sheet
+from app.render.cover import (
+    WRAP_MM,
+    build_cover_pdf,
+    cover_geometry,
+    spine_mm_for_tier,
+)
 from tests.render.helpers import solid_jpeg
 
 MM_TO_PT = 72 / 25.4
@@ -16,21 +22,25 @@ COVER = {"photo_id": "x", "title": "Italy 2026", "subtitle": "June",
          "title_font": "Inter", "title_size_pt": 28}
 
 
-def spine_for(tier: int) -> float:
+def spine_for(page_count: int) -> float:
+    """The rule, stated independently of the code under test: the SPINE_MM_*
+    table is indexed by sheets of paper, and a sheet carries two printed
+    sides, so a 32-page book is the 16-sheet entry (A63)."""
     s = get_settings()
-    return {16: s.spine_mm_16, 32: s.spine_mm_32,
-            48: s.spine_mm_48, 96: s.spine_mm_96}[tier]
+    table = {16: s.spine_mm_16, 32: s.spine_mm_32,
+             48: s.spine_mm_48, 96: s.spine_mm_96}
+    return table[page_count // sides_per_sheet()]
 
 
 class TestGeometry:
-    @pytest.mark.parametrize("tier", [16, 32, 48, 96])
+    @pytest.mark.parametrize("tier", page_tiers())
     def test_total_width_tracks_spine(self, tier):
         geo = cover_geometry(tier)
         expected_w = 2 * WRAP_MM + 2 * 148.0 + spine_for(tier)
         assert abs(geo.total_w_mm - expected_w) < 1e-9
         assert abs(geo.total_h_mm - (210.0 + 2 * WRAP_MM)) < 1e-9
 
-    @pytest.mark.parametrize("tier", [16, 96])
+    @pytest.mark.parametrize("tier", [page_tiers()[0], page_tiers()[-1]])
     def test_pdf_page_matches_geometry(self, tier):
         pdf = build_cover_pdf(COVER, tier, solid_jpeg(1200, 900, (180, 30, 30)),
                               cache_tag=f"test-{tier}")
@@ -79,3 +89,36 @@ class TestDeterminism:
         first = build_cover_pdf(COVER, 32, photo, cache_tag="det")
         second = build_cover_pdf(COVER, 32, photo, cache_tag="det")
         assert first == second
+
+
+class TestSpineFollowsSheets:
+    """A63 made the customer's tier a count of SHEETS, and sheets of paper are
+    what make a spine thick. The lookup missed that: two of the four live
+    tiers raised RenderError, so those books could not have a cover printed
+    at all — discovered only after the customer had paid."""
+
+    @pytest.mark.parametrize("page_count", page_tiers())
+    def test_every_live_tier_has_a_spine(self, page_count):
+        assert spine_mm_for_tier(page_count) > 0
+        assert cover_geometry(page_count).spine_mm > 0
+
+    @pytest.mark.parametrize("page_count", page_tiers())
+    def test_every_live_tier_renders_a_cover(self, page_count):
+        pdf = build_cover_pdf(COVER, page_count,
+                              solid_jpeg(900, 700, (40, 90, 160)),
+                              cache_tag=f"spine-{page_count}")
+        assert pdf.startswith(b"%PDF-")
+
+    def test_the_spine_is_keyed_by_sheets_not_printed_sides(self):
+        s = get_settings()
+        # A 16-sheet book is 32 pages; its spine is the 16-sheet figure.
+        assert spine_mm_for_tier(pages_for_sheets(16)) == s.spine_mm_16
+        assert spine_mm_for_tier(pages_for_sheets(96)) == s.spine_mm_96
+
+    def test_a_thicker_book_never_gets_a_thinner_spine(self):
+        spines = [spine_mm_for_tier(pc) for pc in page_tiers()]
+        assert spines == sorted(spines)
+
+    def test_an_unknown_tier_still_refuses_loudly(self):
+        with pytest.raises(Exception, match="no spine width configured"):
+            spine_mm_for_tier(7)

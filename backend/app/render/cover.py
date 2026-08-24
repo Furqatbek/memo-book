@@ -21,6 +21,7 @@ from reportlab.pdfgen import canvas as pdfcanvas
 
 from app.config import get_settings
 from app.domain.geometry import TRIM_H_MM, TRIM_W_MM, mm_to_px
+from app.domain.tiers import sides_per_sheet
 from app.render.compose import RenderError, _fit_cover, hex_to_rgb
 from app.render.interior import (
     MM_TO_PT,
@@ -35,12 +36,22 @@ COVER_JPEG_QUALITY = 95
 
 
 def spine_mm_for_tier(page_count: int) -> float:
+    """Spine width for a book of this many printed sides.
+
+    Keyed by SHEET tier, like prices (A63): SPINE_MM_16 is the 16-sheet book,
+    because sheets of paper are what actually make a spine thick and what the
+    customer picks. Books created before sheet-counting stored a page count
+    straight from those same numbers, so they fall back to a lookup by page
+    count and keep their original spine.
+    """
     settings = get_settings()
     spines = {16: settings.spine_mm_16, 32: settings.spine_mm_32,
               48: settings.spine_mm_48, 96: settings.spine_mm_96}
-    if page_count not in spines:
+    sheets = page_count // sides_per_sheet()
+    spine = spines.get(sheets) or spines.get(page_count)
+    if spine is None:
         raise RenderError(f"no spine width configured for tier {page_count}")
-    return spines[page_count]
+    return spine
 
 
 @dataclass(frozen=True)

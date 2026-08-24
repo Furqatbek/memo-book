@@ -8,14 +8,19 @@ produce correct print files. The Russian version is below —
 русская версия ниже.
 
 **Product recap:** A5 portrait photo book, 148×210 mm trim, lay-flat
-hardcover. Page counts: 16 / 32 / 48 / 96. We deliver two PDFs per order:
-a multi-page interior PDF and a one-sheet cover-wrap PDF.
+hardcover. The customer buys **sheets of paper**, printed on both sides:
+16 / 32 / 48 / 96 sheets, which is 32 / 64 / 96 / 192 printed pages. We
+deliver two PDFs per order: a multi-page interior PDF and a one-sheet
+cover-wrap PDF.
 
 ## 1. Cover geometry — blocks production (config `SPINE_MM_*`, `WRAP_MM`)
 
-1. **Spine width in mm for each page count — 16, 32, 48 and 96 pages** —
-   with the exact paper you'll print the interior on. If it depends on
-   paper choice, give the formula (mm per sheet + board allowance).
+1. **Spine width in mm for each size — 16, 32, 48 and 96 SHEETS**
+   (= 32, 64, 96 and 192 printed pages) — with the exact paper you'll
+   print the interior on. If it depends on paper choice, give the formula
+   (mm per sheet + board allowance). Please answer in sheets: our current
+   placeholders were written against page counts and are certainly wrong
+   for the 48- and 96-sheet books.
 2. **Turn-in (wrap) margin** for the hardcover: how many mm of printed
    cover must extend past the board on each side? (We currently assume
    16 mm.)
@@ -71,15 +76,19 @@ a multi-page interior PDF and a one-sheet cover-wrap PDF.
 # Технические вопросы типографии (RU)
 
 **О продукте:** фотокнига A5 портретная, обрезной формат 148×210 мм,
-твёрдая обложка с раскрытием lay-flat (на 180°). Кол-во страниц: 16 / 32 /
-48 / 96. На каждый заказ мы передаём два PDF: многостраничный блок и
-обложку одним разворотом.
+твёрдая обложка с раскрытием lay-flat (на 180°). Клиент выбирает
+количество **листов** бумаги с двусторонней печатью: 16 / 32 / 48 / 96
+листов, то есть 32 / 64 / 96 / 192 печатные страницы. На каждый заказ мы
+передаём два PDF: многостраничный блок и обложку одним разворотом.
 
 ## 1. Геометрия обложки — блокирует производство
 
-1. **Ширина корешка в мм для каждого объёма — 16, 32, 48 и 96 страниц** —
-   на той бумаге, на которой будет печататься блок. Если зависит от
-   бумаги — дайте формулу (мм на лист + допуск на картон).
+1. **Ширина корешка в мм для каждого объёма — 16, 32, 48 и 96 ЛИСТОВ**
+   (= 32, 64, 96 и 192 печатные страницы) — на той бумаге, на которой
+   будет печататься блок. Если зависит от бумаги — дайте формулу (мм на
+   лист + допуск на картон). Просим ответить именно в листах: наши текущие
+   ориентировочные значения записаны по страницам и для книг на 48 и 96
+   листов заведомо неверны.
 2. **Загиб (клапан) обложки**: сколько мм запечатанной обложки должно
    заходить за картон с каждой стороны? (Сейчас закладываем 16 мм.)
 3. Есть ли **биговка/шарнир** у корешка, где нельзя размещать текст?
