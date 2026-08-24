@@ -262,6 +262,16 @@ select {
 .sp-item img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .guide.trim { border: 1px solid rgba(36,86,214,.35); }
 .guide.safe { border: 1px dashed rgba(36,86,214,.22); }
+/* The bound edge: paper curves into the spine here, so anything important
+   placed in this strip is lost in the fold. Hatched rather than solid so
+   the photo underneath stays readable. */
+.guide.gutter {
+  top: 0; bottom: 0; z-index: 4;
+  background: repeating-linear-gradient(45deg,
+    rgba(22,24,29,.13) 0 5px, rgba(22,24,29,0) 5px 10px);
+}
+.guide.gutter.bound-left { left: 0; border-right: 1px dashed rgba(22,24,29,.4); }
+.guide.gutter.bound-right { right: 0; border-left: 1px dashed rgba(22,24,29,.4); }
 .placement { position: absolute; z-index: 1; display: flex; align-items: center;
   justify-content: center; background: rgba(0,0,0,.04); cursor: move;
   touch-action: none; overflow: hidden; }

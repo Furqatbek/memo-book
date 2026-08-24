@@ -45,7 +45,9 @@ a multi-page interior PDF and a one-sheet cover-wrap PDF.
 12. For lay-flat binding, are pages printed as **single leaves or
     spreads**? Does the first interior page sit on the right?
 13. Minimum **safe margin** from trim for text (we keep 5 mm) — enough,
-    or do you recommend more near the gutter for lay-flat?
+    or do you recommend more near the gutter for lay-flat? The editor
+    currently warns customers off a **5 mm strip along the bound edge**
+    of every page; tell us your figure and we will match it.
 
 ## 4. Paper and finishing
 
@@ -108,7 +110,9 @@ a multi-page interior PDF and a one-sheet cover-wrap PDF.
 12. Для lay-flat переплёта страницы печатаются **отдельными листами или
     разворотами**? Первая страница блока — справа?
 13. Минимальный **безопасный отступ** текста от реза (мы держим 5 мм) —
-    достаточно, или у корешка для lay-flat нужно больше?
+    достаточно, или у корешка для lay-flat нужно больше? Редактор сейчас
+    предупреждает клиента о **полосе 5 мм вдоль корешка** на каждой
+    странице; сообщите вашу цифру — приведём в соответствие.
 
 ## 4. Бумага и отделка
 

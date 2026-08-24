@@ -457,3 +457,13 @@ updates the other, and choosing a grid layout ends the span. Pairing
 follows the binding — page 1 stands alone on the right, then (2,3), (4,5)…
 — and the editor shows the facing page beside the one being edited, as a
 picture that can be tapped to move editing there.
+
+**A63 — Gutter guide on the bound edge.** Every interior page is bound
+along one edge — page 1 on its left, then alternating — and paper curves
+into the spine there, so a face placed in that strip disappears into the
+fold. The editor hatches the bleed plus a **5 mm gutter allowance**
+(`GUTTER` in the editor) along each page's bound edge; in spread view the
+two guides meet to form one strip down the fold. It is advisory only: the
+guide never blocks a drag and nothing is clamped, because a background
+photo is *meant* to run through the gutter. The 5 mm is a PLACEHOLDER
+pending the printer's own figure (printer-questions.md, question 13).

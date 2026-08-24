@@ -9,6 +9,11 @@ import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260821';
 import { makeJobs, runJobs } from './upload.js?v=20260821';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
+/* Every interior page is bound along one edge, and paper curves into the
+   spine there — a face placed in this strip disappears into the fold.
+   PLACEHOLDER: 5mm is a sane lay-flat allowance; replace it with the
+   printer's own figure (docs/printer-questions.md, question 13). */
+const GUTTER = 5;
 const CANVAS_W = TRIM_W + 2 * BLEED, CANVAS_H = TRIM_H + 2 * BLEED;
 const PT_MM = 25.4 / 72;
 const ORDER_FLOW = ['pending_payment', 'paid', 'rendering', 'rendered',
@@ -662,6 +667,15 @@ function facingPage(index) {
 
 const isLeftPage = (index) => index % 2 === 1;
 
+/* Page 1 is a right-hand page bound on its left; left-hand pages are bound
+   on the right. The strip covers the bleed plus the gutter allowance. */
+function gutterGuide(index) {
+  return h('div', {
+    class: 'guide gutter ' + (isLeftPage(index) ? 'bound-right' : 'bound-left'),
+    style: `width:${pct(BLEED + GUTTER, CANVAS_W)}`,
+  });
+}
+
 /* The full-spread rectangle as this page sees it: the photo starts at the
    left page's bleed edge, so the right page holds the same rectangle
    shifted back by one trim width. */
@@ -812,6 +826,7 @@ function renderFacingPage() {
    facing page, whose job is to show the join, not to be edited. */
 function renderStaticPage(el, page) {
   const scale = el.clientWidth / CANVAS_W;
+  el.append(gutterGuide(page.index));
   for (const pl of page.placements) {
     const box = h('div', { class: 'placement' });
     placeRect(box, pl);
@@ -1074,6 +1089,7 @@ function renderPage(canvas) {
   );
 
   const slots = pageSlots(page);
+  canvas.append(gutterGuide(S.page));
   page.placements.forEach((pl, i) => canvas.append(makePlacement(pl, i)));
   for (let i = page.placements.length; i < slots.length; i += 1) {
     canvas.append(makeEmptySlot(slots[i]));
