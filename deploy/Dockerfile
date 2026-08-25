@@ -27,6 +27,8 @@ COPY editor /app/editor
 # ADMIN_TOKEN, and with that unset the admin API does not exist (A72).
 COPY admin /app/admin
 COPY index.html /app/site/index.html
+COPY robots.txt /app/site/robots.txt
+COPY sitemap.xml /app/site/sitemap.xml
 COPY assets /app/site/assets
 COPY ru /app/site/ru
 COPY uz /app/site/uz

@@ -34,8 +34,13 @@ class WebAssets(StaticFiles):
     files are big, numerous (155 stickers) and effectively immutable.
     """
 
+    # .txt and .xml are here for robots.txt and sitemap.xml (A83): small text
+    # files whose entire purpose is being re-read, and the media branch would
+    # have given them a week of caching on the one thing you might need to
+    # change in a hurry.
     REVALIDATE_SUFFIXES = frozenset({"", ".html", ".htm", ".js", ".mjs",
-                                     ".css", ".json", ".map", ".webmanifest"})
+                                     ".css", ".json", ".map", ".webmanifest",
+                                     ".txt", ".xml"})
     MEDIA_MAX_AGE = 7 * 24 * 3600
 
     async def get_response(self, path: str, scope):

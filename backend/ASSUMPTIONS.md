@@ -1036,3 +1036,35 @@ Two smaller things found in the same sweep:
   JPEG/PNG/HEIC and the presigned PUT signs the content type, so this is
   belt-and-braces — but it is free, and what it prevents is a stored file
   being interpreted as markup.
+
+**A83 — `robots.txt` and `sitemap.xml`, and a test that they actually
+ship.** A five-language site with `hreflang` clusters and no sitemap is
+leaving the clearest signal it has on the table, and no `robots.txt` meant
+crawlers walking `/editor/` and `/admin/` — both already `noindex`, so
+nothing was being indexed that should not have been, but the trip was
+pointless and the requests hit the API.
+
+The sitemap repeats the full alternate set on every URL, itself included,
+because a cluster is only valid if each member points at every member. The
+codes match the pages' own tags exactly, `uz-Cyrl` capital included: a
+sitemap that disagreed with the markup would be worse than neither, and a
+test compares the two rather than trusting that they match.
+
+**No `<lastmod>`.** The file is hand-written, so any date in it is wrong the
+day after the site next changes, and a lastmod that cannot be trusted is
+ignored at best.
+
+The part worth more than the files: **three places enumerate the marketing
+site by hand** — the Dockerfile's COPY list, the Pages workflow's `cp -r`
+line, and that workflow's `paths:` trigger. A file added to the repository
+and to only one of them is served by one route and silently missing from the
+other, and "silently missing" for a `robots.txt` is a thing nothing in the
+product would ever complain about. `tests/test_site_deploy.py` derives both
+lists and requires them to agree, including that editing either file
+triggers a redeploy — otherwise it would sit correct in the repository and
+stale on the site.
+
+`.txt` and `.xml` join the revalidating suffixes in `WebAssets` (A58). They
+are small text files whose entire purpose is being re-read; the media branch
+would have given them a week of caching on the one thing you might need to
+change in a hurry.

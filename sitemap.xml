@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  One page, five languages. Every <url> repeats the full alternate set
+  including itself, which is what the protocol requires: a cluster is only
+  valid if each member points at every member.
+
+  The codes match the <link rel="alternate" hreflang> tags in the pages
+  themselves, case included ("uz-Cyrl"), because a sitemap that disagreed
+  with the markup would be worse than neither.
+
+  No <lastmod>: this file is written by hand, so any date in it would be
+  wrong the day after the site next changes, and a lastmod that cannot be
+  trusted is ignored — or held against the site.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <url>
+    <loc>https://rspixel.uz/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://rspixel.uz/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://rspixel.uz/ru/"/>
+    <xhtml:link rel="alternate" hreflang="uz" href="https://rspixel.uz/uz/"/>
+    <xhtml:link rel="alternate" hreflang="uz-Cyrl" href="https://rspixel.uz/uz-cyrl/"/>
+    <xhtml:link rel="alternate" hreflang="kaa" href="https://rspixel.uz/kaa/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://rspixel.uz/"/>
+  </url>
+
+  <url>
+    <loc>https://rspixel.uz/ru/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://rspixel.uz/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://rspixel.uz/ru/"/>
+    <xhtml:link rel="alternate" hreflang="uz" href="https://rspixel.uz/uz/"/>
+    <xhtml:link rel="alternate" hreflang="uz-Cyrl" href="https://rspixel.uz/uz-cyrl/"/>
+    <xhtml:link rel="alternate" hreflang="kaa" href="https://rspixel.uz/kaa/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://rspixel.uz/"/>
+  </url>
+
+  <url>
+    <loc>https://rspixel.uz/uz/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://rspixel.uz/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://rspixel.uz/ru/"/>
+    <xhtml:link rel="alternate" hreflang="uz" href="https://rspixel.uz/uz/"/>
+    <xhtml:link rel="alternate" hreflang="uz-Cyrl" href="https://rspixel.uz/uz-cyrl/"/>
+    <xhtml:link rel="alternate" hreflang="kaa" href="https://rspixel.uz/kaa/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://rspixel.uz/"/>
+  </url>
+
+  <url>
+    <loc>https://rspixel.uz/uz-cyrl/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://rspixel.uz/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://rspixel.uz/ru/"/>
+    <xhtml:link rel="alternate" hreflang="uz" href="https://rspixel.uz/uz/"/>
+    <xhtml:link rel="alternate" hreflang="uz-Cyrl" href="https://rspixel.uz/uz-cyrl/"/>
+    <xhtml:link rel="alternate" hreflang="kaa" href="https://rspixel.uz/kaa/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://rspixel.uz/"/>
+  </url>
+
+  <url>
+    <loc>https://rspixel.uz/kaa/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://rspixel.uz/"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://rspixel.uz/ru/"/>
+    <xhtml:link rel="alternate" hreflang="uz" href="https://rspixel.uz/uz/"/>
+    <xhtml:link rel="alternate" hreflang="uz-Cyrl" href="https://rspixel.uz/uz-cyrl/"/>
+    <xhtml:link rel="alternate" hreflang="kaa" href="https://rspixel.uz/kaa/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://rspixel.uz/"/>
+  </url>
+
+</urlset>

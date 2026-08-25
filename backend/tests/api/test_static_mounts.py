@@ -69,3 +69,33 @@ async def test_code_revalidates_and_media_is_cacheable(tmp_path, monkeypatch):
             assert again.status_code == 304
     finally:
         get_settings.cache_clear()
+
+
+async def test_the_crawler_files_are_reachable(tmp_path, monkeypatch):
+    """A83: robots.txt and sitemap.xml are only useful if the mount serves
+    them, and they revalidate rather than sitting in a week-long cache — the
+    media branch would apply otherwise, on the two files most likely to need
+    changing in a hurry."""
+    site = tmp_path / "site"
+    site.mkdir(parents=True)
+    (site / "index.html").write_text("<h1>home</h1>")
+    (site / "robots.txt").write_text("User-agent: *\nAllow: /\n")
+    (site / "sitemap.xml").write_text('<?xml version="1.0"?><urlset/>')
+
+    monkeypatch.setenv("SITE_DIR", str(site))
+    get_settings.cache_clear()
+    app = create_app()
+    transport = httpx.ASGITransport(app=app)
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+            robots = await c.get("/robots.txt")
+            assert robots.status_code == 200
+            assert "User-agent" in robots.text
+            assert robots.headers["cache-control"] == "no-cache"
+
+            sitemap = await c.get("/sitemap.xml")
+            assert sitemap.status_code == 200
+            assert sitemap.headers["cache-control"] == "no-cache"
+            assert "xml" in sitemap.headers["content-type"]
+    finally:
+        get_settings.cache_clear()
