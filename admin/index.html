@@ -33,14 +33,97 @@
     <header class="bar">
       <b class="brand">RS Pixel admin</b>
       <nav class="tabs">
-        <button class="tab active" data-tab="designs">Cover designs</button>
+        <button class="tab active" data-tab="orders">Orders</button>
+        <button class="tab" data-tab="designs">Cover designs</button>
       </nav>
       <span class="spacer"></span>
       <a class="btn small" href="../editor/" target="_blank" rel="noopener">Open editor</a>
       <button id="btn-signout" class="btn small">Sign out</button>
     </header>
 
-    <main class="main">
+    <!-- ============ ORDERS ============ -->
+    <main class="main" id="tab-orders">
+      <aside class="list-pane wide">
+        <div class="pane-head">
+          <b>Orders</b>
+          <button id="btn-orders-refresh" class="btn small">Refresh</button>
+        </div>
+        <div class="filters">
+          <input id="o-search" placeholder="Reference, name or phone"
+                 spellcheck="false">
+          <select id="o-status">
+            <option value="open">Open</option>
+            <option value="">All</option>
+          </select>
+        </div>
+        <div id="order-list" class="order-list"></div>
+        <p id="orders-empty" class="muted small hidden">Nothing here.</p>
+      </aside>
+
+      <section class="edit-pane">
+        <div id="order-empty" class="muted edit-empty">
+          Pick an order to see the customer, the print files and what to do next.
+        </div>
+
+        <article id="order-detail" class="order-detail hidden">
+          <header class="od-head">
+            <div>
+              <h2 id="od-ref"></h2>
+              <span id="od-status" class="status-pill"></span>
+            </div>
+            <div class="od-amount">
+              <b id="od-amount"></b>
+              <span id="od-book" class="muted small"></span>
+            </div>
+          </header>
+
+          <div id="od-alert" class="warn hidden"></div>
+
+          <div class="od-cols">
+            <section class="od-card">
+              <b>Customer</b>
+              <dl class="od-facts">
+                <dt>Name</dt><dd id="od-name"></dd>
+                <dt>Phone</dt><dd id="od-phone"></dd>
+                <dt>Email</dt><dd id="od-email"></dd>
+                <dt>Address</dt><dd id="od-address"></dd>
+              </dl>
+            </section>
+
+            <section class="od-card">
+              <b>Print files</b>
+              <div id="od-files" class="od-files"></div>
+              <p id="od-nofiles" class="muted small hidden">
+                Nothing to print yet — the files are made once the order is paid.
+              </p>
+              <button id="btn-resend" class="btn small hidden" type="button">
+                Send to the printer again
+              </button>
+              <p class="muted small">
+                These links are for you and the printer. Customers never see them.
+              </p>
+            </section>
+          </div>
+
+          <section class="od-card">
+            <b>What now</b>
+            <div id="od-actions" class="od-actions"></div>
+            <label class="od-note">
+              <span class="muted small">Note for the record (optional)</span>
+              <input id="od-note" placeholder="e.g. transfer seen 12:04, or who collected it">
+            </label>
+          </section>
+
+          <section class="od-card">
+            <b>History</b>
+            <ol id="od-events" class="od-events"></ol>
+          </section>
+        </article>
+      </section>
+    </main>
+
+    <!-- ============ COVER DESIGNS ============ -->
+    <main class="main hidden" id="tab-designs">
       <aside class="list-pane">
         <div class="pane-head">
           <b>Designs</b>

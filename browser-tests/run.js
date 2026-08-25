@@ -26,8 +26,14 @@ const NEEDS_SITE = new Set(['sitecheck']);
 const NEEDS = {
   admincheck: 'ADMIN_TOKEN=dev-admin (the dev server sets this by default)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
+  ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
+    + 'two cannot pass in the same run',
   paycard: 'PAY_CARD_NUMBER + PAY_CARD_HOLDER',
 };
+
+// autoflow needs auto-confirm ON and ordersadmin needs it OFF: they test the
+// two halves of the same decision. Run one pass each way.
+const CONFLICTS = [['autoflow', 'ordersadmin']];
 
 const all = fs.readdirSync(CHECKS)
   .filter((f) => f.endsWith('.js'))
@@ -86,6 +92,12 @@ function reachable(url) {
     }
   }
 
+  for (const pair of CONFLICTS) {
+    if (pair.every((n) => wanted.includes(n)) && pair.some((n) => failed.includes(n))) {
+      console.log(`\nNote: ${pair.join(' and ')} need opposite server settings, `
+        + 'so at most one of them can pass in a single run.');
+    }
+  }
   console.log(`\n${wanted.length - failed.length}/${wanted.length} passed`);
   if (failed.length) {
     console.log(`failed: ${failed.join(', ')}`);

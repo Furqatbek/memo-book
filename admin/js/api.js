@@ -76,3 +76,26 @@ export const patchDesign = (id, patch) =>
 
 export const retireDesign = (id) =>
   request('DELETE', `${V}/cover-designs/${id}`);
+
+/* ---------- orders (A73) ---------- */
+
+export function listOrders({ status = 'open', q = '' } = {}) {
+  const params = new URLSearchParams();
+  params.set('status', status);
+  if (q) params.set('q', q);
+  return request('GET', `${V}/orders?${params}`);
+}
+
+export const getOrder = (ref) =>
+  request('GET', `${V}/orders/${encodeURIComponent(ref)}`);
+
+export const confirmPayment = (ref, note) =>
+  request('POST', `${V}/orders/${encodeURIComponent(ref)}/confirm-payment`,
+          { body: { note: note || null } });
+
+export const setOrderStatus = (ref, target, note) =>
+  request('POST', `${V}/orders/${encodeURIComponent(ref)}/status`,
+          { body: { target, note: note || null } });
+
+export const resendToPrinter = (ref) =>
+  request('POST', `${V}/orders/${encodeURIComponent(ref)}/resend`);

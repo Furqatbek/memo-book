@@ -655,3 +655,41 @@ Uploads are `multipart/form-data` to the API rather than a presigned PUT.
 Photos use presigned PUTs because customers upload dozens at a time from
 phones; artwork is one file, occasionally, from a laptop, and routing it
 through the API keeps validation and the storage layout server-side.
+
+**A73 — The orders section runs the same machinery the scripts did.** The
+daily job — see what came in, confirm the transfer, hand the printer the
+files, move the order along — moves from three SSH scripts into the console.
+What matters is that it is the *same* job, not a parallel one: every status
+change goes through `apply_transition`, so the state machine and the
+append-only audit trail apply exactly as they do to an acquirer's webhook,
+and nothing assigns `order.status` directly.
+
+Three properties were built in rather than left to the page:
+
+* **The console never decides what an order may become.** `next_statuses`
+  comes from `ORDER_TRANSITIONS` on the server, intersected with the moves a
+  person should be driving. A page holding its own list of statuses would
+  drift away from the machine and start offering steps that get refused.
+* **`paid` is not an operator target.** Becoming paid locks the book and
+  enqueues the render, so it has its own action rather than being reachable
+  through the generic "set status" one. `_handle_pay` and the console's
+  confirm now share `mark_paid`, so an acquirer callback and a human seeing a
+  bank transfer produce identical consequences — including the render
+  enqueued exactly once. Confirming twice is a no-op, not a second print run.
+* **There is no delete.** Not for orders (the audit trail is the record of
+  what happened to someone's money) and not for cover designs (books already
+  using one must keep printing). Retiring is the only removal in the system.
+
+Cancelling from the console goes through `cancel_order`, which also unlocks
+the book — the operator's cancel is usually "they never paid", and stranding
+the customer's book would be the wrong half of that.
+
+The section shows customer names, phones and addresses, and hands out signed
+links to the print PDFs. That is the job; it is also why the lock in A72 is
+the load-bearing part of the feature. The public order page still refuses the
+print files outside dev environments, and a test asserts that specifically.
+
+Phone search compares digits on both sides. Numbers are stored as the
+customer typed them ("+998 90 123-45-67") and the operator will type them a
+different way, so both are reduced to digits in SQL. A normalised column
+would be faster and is the right answer at a scale this pilot will not reach.

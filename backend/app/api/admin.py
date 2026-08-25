@@ -18,15 +18,26 @@ import json
 import secrets
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.session import get_session
 from app.domain.book_types import BOOK_TYPES
+from app.domain.states import OrderStatus
 from app.models.cover_design import CoverDesign
 from app.rate_limit import rate_limit
+from app.services import admin_orders as admin_orders_svc
 from app.services.cover_designs import (
     ARTWORK_H_MM,
     ARTWORK_H_PX,
@@ -194,6 +205,51 @@ async def admin_patch(design_id: uuid.UUID, body: dict,
     await session.commit()
     await session.refresh(design)
     return _admin_view(design)
+
+
+# ---------------------------------------------------------------- orders
+#
+# The daily job: see what came in, confirm the transfer, hand the printer the
+# files, move the order along. Every status change goes through the state
+# machine, so the console can only offer what the order can actually do next
+# — the page never decides that.
+
+
+@router.get("/orders", dependencies=[Admin])
+async def admin_orders(status: str | None = Query(default="open"),
+                       q: str | None = Query(default=None),
+                       limit: int = Query(default=100, ge=1, le=500),
+                       session: AsyncSession = Session) -> dict:
+    orders = await admin_orders_svc.list_orders(session, status=status,
+                                                query=q, limit=limit)
+    return {"orders": orders, "statuses": [s.value for s in OrderStatus]}
+
+
+@router.get("/orders/{human_ref}", dependencies=[Admin])
+async def admin_order(human_ref: str,
+                      session: AsyncSession = Session) -> dict:
+    return await admin_orders_svc.order_detail(session, human_ref)
+
+
+@router.post("/orders/{human_ref}/confirm-payment", dependencies=[Admin])
+async def admin_confirm_payment(human_ref: str, body: dict | None = None,
+                                session: AsyncSession = Session) -> dict:
+    return await admin_orders_svc.confirm_payment(
+        session, human_ref, (body or {}).get("note"))
+
+
+@router.post("/orders/{human_ref}/status", dependencies=[Admin])
+async def admin_set_status(human_ref: str, body: dict,
+                           session: AsyncSession = Session) -> dict:
+    target = str(body.get("target") or "")
+    return await admin_orders_svc.set_status(session, human_ref, target,
+                                             body.get("note"))
+
+
+@router.post("/orders/{human_ref}/resend", dependencies=[Admin])
+async def admin_resend(human_ref: str,
+                       session: AsyncSession = Session) -> dict:
+    return await admin_orders_svc.resend_to_printer(session, human_ref)
 
 
 @router.delete("/cover-designs/{design_id}", dependencies=[Admin])

@@ -35,7 +35,10 @@ const TOKEN = 'dev-admin';
   console.log('2. signed in. artwork spec shown:',
     JSON.stringify((await page.textContent('#art-spec')).slice(0, 46) + '...'));
 
-  // 3. create a design: artwork + fields
+  // 3. create a design: artwork + fields. Orders is the landing tab now, so
+  //    the designs section has to be asked for.
+  await page.click('.tab[data-tab="designs"]');
+  await page.waitForSelector('#tab-designs:not(.hidden)');
   await page.click('#btn-new');
   await page.waitForSelector('#edit-form:not(.hidden)');
   await page.setInputFiles('#f-artwork', ART);

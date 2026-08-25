@@ -35,11 +35,23 @@ because they test behaviour that only exists when it is switched on:
 |---|---|
 | `admincheck` | `ADMIN_TOKEN` — the dev server sets `dev-admin` by default |
 | `autoflow` | `AUTO_CONFIRM_ORDERS=true` |
+| `ordersadmin` | `AUTO_CONFIRM_ORDERS=false` |
 | `paycard` | `PAY_CARD_NUMBER`, `PAY_CARD_HOLDER` |
 
+**`autoflow` and `ordersadmin` need opposite settings** — they test the two
+halves of the same decision, so at most one can pass per run. Do a pass each
+way:
+
 ```bash
+# pass 1 — trust-first checkout (what production runs)
 AUTO_CONFIRM_ORDERS=true PAY_CARD_NUMBER=8600123456789012 \
   PAY_CARD_HOLDER="NAME SURNAME" python scripts/devserver.py
+cd browser-tests && node run.js
+
+# pass 2 — orders that wait for the operator to confirm the transfer
+AUTO_CONFIRM_ORDERS=false PAY_CARD_NUMBER=8600123456789012 \
+  PAY_CARD_HOLDER="NAME SURNAME" python scripts/devserver.py
+cd browser-tests && node run.js ordersadmin
 ```
 
 `sitecheck` needs the marketing site on `:8090` (`python -m http.server 8090`

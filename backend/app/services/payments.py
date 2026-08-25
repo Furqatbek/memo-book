@@ -103,17 +103,34 @@ async def _handle_pay(session: AsyncSession, order: Order,
                           f"cannot mark a {order.status} order as paid",
                           {"order_status": order.status})
 
-    effects = apply_transition(session, order, OrderStatus.PAID,
-                               note=f"webhook {event.event_id}")
-    order.provider = event.raw.get("provider") or "dev"
-    order.provider_txn_id = event.event_id
+    await mark_paid(session, order,
+                    note=f"webhook {event.event_id}",
+                    provider=event.raw.get("provider") or "dev",
+                    txn_id=event.event_id)
+    return _ok(order, duplicate=duplicate)
+
+
+async def mark_paid(session: AsyncSession, order: Order, *, note: str,
+                    provider: str, txn_id: str | None) -> None:
+    """The one way an order becomes paid.
+
+    An acquirer callback and the operator confirming a card transfer by hand
+    are the same event as far as the book is concerned, so they share this:
+    the paid transition with its audit row, the book moving to `ordered`, and
+    the render enqueued exactly once (R8 — payment is the only render
+    trigger). What differs is upstream — a webhook must verify the amount and
+    swallow replays; a human has already seen the money.
+    """
+    effects = apply_transition(session, order, OrderStatus.PAID, note=note)
+    order.provider = provider
+    order.provider_txn_id = txn_id
     book = (await session.execute(
         select(Book).where(Book.id == order.book_id)
     )).scalar_one()
     transition_book(BookStatus(book.status), BookStatus.ORDERED)
     book.status = BookStatus.ORDERED.value
     await session.commit()
-    log.info("payment.paid", order=order.human_ref, event_id=event.event_id)
+    log.info("payment.paid", order=order.human_ref, note=note)
 
     if Effect.ENQUEUE_RENDER in effects:  # exactly once per paid transition
         if queue.eager():
@@ -122,7 +139,6 @@ async def _handle_pay(session: AsyncSession, order: Order,
             queue.enqueue_order_render(order.id)
 
     await session.refresh(order)
-    return _ok(order, duplicate=duplicate)
 
 
 async def _handle_cancel(session: AsyncSession, order: Order,

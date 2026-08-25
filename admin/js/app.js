@@ -8,6 +8,7 @@
    English only, deliberately: the audience is the founder, not customers.
    The five-language rule is about the people buying books. */
 import * as api from './api.js?v=20260825';
+import { bindOrders, refreshOrders, resetOrders } from './orders.js?v=20260825';
 
 const TRIM_W = 148, TRIM_H = 210, SAFE = 5;   // the front panel, in mm
 
@@ -19,6 +20,7 @@ const S = {
   bookTypes: [],
   artSpec: null,
   dirty: false,
+  tab: 'orders',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -67,13 +69,31 @@ async function signIn(candidate) {
       + `The outer 16 mm folds around the board.`;
   }
   showScreen('main');
-  await refresh();
+  showTab(S.tab);
+  await Promise.all([refresh(), refreshOrders(deps)]);
 }
+
+/* One section on screen at a time. Orders first: it is the daily job, and
+   designs are an occasional one. */
+function showTab(name) {
+  S.tab = name;
+  for (const el of document.querySelectorAll('.tab')) {
+    el.classList.toggle('active', el.dataset.tab === name);
+  }
+  for (const id of ['tab-orders', 'tab-designs']) {
+    $(id).classList.toggle('hidden', id !== `tab-${name}`);
+  }
+}
+
+/* What the orders section needs from here, passed in rather than imported
+   back, so the two files stay one-directional. */
+const deps = { toast, signOut: () => signOut() };
 
 function signOut() {
   api.setToken(null);
   S.designs = [];
   S.editing = null;
+  resetOrders();
   showScreen('login');
   $('login-token').value = '';
 }
@@ -405,6 +425,10 @@ function bind() {
     }
   });
   $('btn-signout').addEventListener('click', signOut);
+  for (const el of document.querySelectorAll('.tab')) {
+    el.addEventListener('click', () => showTab(el.dataset.tab));
+  }
+  bindOrders(deps);
   $('btn-new').addEventListener('click', () => edit(null));
   $('btn-cancel').addEventListener('click', closeEditor);
   $('btn-retire').addEventListener('click', retire);
