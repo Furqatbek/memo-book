@@ -294,3 +294,11 @@ input[type=color] {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
   word-break: break-word;
 }
+
+/* Low-resolution notice on an order (A79). Amber, not red: the customer
+   was warned and chose this, so it is information for the operator, not a
+   fault to fix. */
+.soft-note {
+  background: var(--warn-bg); color: var(--warn-ink); border: 1px solid #f0d48a;
+  border-radius: 8px; padding: 8px; font-size: 13px; line-height: 1.35;
+}

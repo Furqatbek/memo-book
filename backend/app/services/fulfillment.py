@@ -26,7 +26,7 @@ from app.models.payment import PdfArtifact
 from app.services import outbox
 from app.services.effects import When, run_effects
 from app.services.orders import apply_transition
-from app.services.render import render_cover, render_interior
+from app.services.render import render_cover, render_interior, soft_pages
 
 log = structlog.get_logger()
 
@@ -111,7 +111,8 @@ async def run_order_render(session: AsyncSession, order_id: uuid.UUID) -> None:
     await run_effects(session, order, effects, When.IN_TRANSACTION,
                       book=book,
                       interior_key=interior_meta["storage_key"],
-                      cover_key=cover_meta["storage_key"])
+                      cover_key=cover_meta["storage_key"],
+                      soft_pages=await soft_pages(session, order.book_id))
     await session.commit()
     await run_effects(session, order, effects, When.AFTER_COMMIT)
     log.info("render.rendered", order=order.human_ref,

@@ -46,6 +46,19 @@ def build_production_message(payload: dict) -> str:
     if payload.get("customer_email"):
         lines.append(f"Email: {payload['customer_email']}")
     lines.append(f"Amount: {amount} {payload.get('currency', 'UZS')}")
+    soft = payload.get("soft_pages") or []
+    if soft:
+        # Above the links on purpose: it is the one thing worth reading
+        # before the files are opened, and the last cheap moment to stop a
+        # reprint. The customer was warned twice and chose to go ahead, so
+        # this is a heads-up, not a hold (A79).
+        worst = "will print BLURRY" if any(s["status"] == "block" for s in soft) \
+            else "will print soft"
+        where = ", ".join(str(s["where"]) for s in soft[:8])
+        if len(soft) > 8:
+            where += f" (+{len(soft) - 8} more)"
+        lines.append(f"⚠️ Low resolution — {where} {worst}. "
+                     "The customer saw this warning and confirmed.")
     lines.append(f"Interior PDF (7-day link):\n{interior_url}")
     lines.append(f"Cover PDF (7-day link):\n{cover_url}")
     return "\n".join(lines)

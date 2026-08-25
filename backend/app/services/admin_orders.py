@@ -137,6 +137,26 @@ async def _load(session: AsyncSession, human_ref: str) -> OrderRow:
     return OrderRow(order=row[0], book=row[1])
 
 
+async def _soft_pages(session: AsyncSession, row) -> list[dict]:
+    """Low-resolution placements in this order's book, if the book is still
+    around. A cancelled order whose book went back to the customer may have
+    changed since; the honest answer then is what it says now."""
+    if row.book is None:
+        return []
+    from app.domain.resolution import soft_placements
+    from app.models.photo import Photo
+    from app.services.placement import USABLE_STATUSES
+
+    photos = (await session.execute(
+        select(Photo).where(Photo.book_id == row.book.id,
+                            Photo.status.in_(USABLE_STATUSES))
+    )).scalars().all()
+    return soft_placements(
+        row.book.layout,
+        {str(p.id): (p.orig_width, p.orig_height) for p in photos
+         if p.orig_width and p.orig_height})
+
+
 async def order_detail(session: AsyncSession, human_ref: str) -> dict:
     """Everything the operator needs on one screen: who, what, where it is,
     what happened to it, and the print files."""
@@ -162,6 +182,10 @@ async def order_detail(session: AsyncSession, human_ref: str) -> dict:
         "rendered_at": order.rendered_at,
         "shipped_at": order.shipped_at,
         "book_status": row.book.status if row.book else None,
+        # Pages that will print soft (A79). Shown to the operator because
+        # this is the last point where a reprint is still cheap — the
+        # customer already saw the warning and chose to go ahead.
+        "soft_pages": await _soft_pages(session, row),
         "events": [{"from": e.from_status, "to": e.to_status,
                     "note": e.note, "at": e.created_at} for e in events],
         # The print files, for the operator only. Customers never see these

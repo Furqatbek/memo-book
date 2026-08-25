@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # The admin console: low, because the only legitimate caller is one
     # person clicking, and the only illegitimate one is guessing the token.
     rate_limit_admin_per_min: int = 60
+    # The public order page (reference + phone). A wrong phone answers exactly
+    # like an unknown reference, on purpose — which means guessing is the only
+    # attack available, and volume is the only thing that makes it work. A
+    # customer refreshing their own order does so a handful of times (A77).
+    rate_limit_order_status_per_min: int = 20
 
     # --- Admin console (A72) ---
     # The shared secret the console signs in with. EMPTY DISABLES THE ADMIN

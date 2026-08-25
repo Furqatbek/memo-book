@@ -1,5 +1,14 @@
 """Per-IP rate limiting (spec Part 11) on the abuse-prone endpoints: book
-creation, upload-URL issuance, payment webhooks.
+creation, upload-URL issuance, payment webhooks, the admin console and the
+public order lookup.
+
+"Abuse-prone" here means one of two things, and the second is easy to miss:
+an endpoint that is expensive to serve, or an endpoint whose ONLY defence is
+that guessing takes many tries. The admin console and the order lookup are
+the second kind — both answer a wrong guess exactly as they answer a
+nonexistent one, which is the right design and is worth nothing if the
+attacker can guess a million times a minute (A77). `test_rate_limit_coverage`
+holds the list to that reasoning.
 
 In-process sliding window — sufficient for a single-instance MVP; swap the
 backing store for Redis when the API scales horizontally (the dependency

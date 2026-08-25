@@ -75,7 +75,8 @@ async def _notify_production(session: AsyncSession, order: Order,
     outbox.enqueue(session, outbox.TOPIC_ORDER_RENDERED,
                    outbox.rendered_payload(order, context["book"],
                                            context["interior_key"],
-                                           context["cover_key"]))
+                                           context["cover_key"],
+                                           context.get("soft_pages")))
 
 
 async def _alert_operator(session: AsyncSession, order: Order,

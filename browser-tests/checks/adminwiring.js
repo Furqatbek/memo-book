@@ -309,6 +309,15 @@ async function placeOrder(page) {
     check(`the order auto-confirmed (${status0}) — "mark paid" not applicable`, true);
   }
 
+  // A79: the low-resolution note. This order's photos are the good fixtures,
+  // so the correct behaviour here is silence — a note that shows on every
+  // order is one the operator stops reading.
+  const softShown = await page.isVisible('#od-soft');
+  const softFromApi = ((await (await api(`/orders/${ref}`)).json()).soft_pages || []);
+  check('the low-resolution note matches what the server reports',
+    softShown === (softFromApi.length > 0),
+    `page=${softShown} server=${softFromApi.length}`);
+
   // print files
   const links = await page.$$eval('#od-files a', (els) => els.map((e) => e.href));
   check('both print files are offered', links.length === 2, String(links.length));

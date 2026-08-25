@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import storage
 from app.config import get_settings
+from app.domain.resolution import soft_placements
 from app.models.book import Book
 from app.models.photo import Photo
 from app.render.color import convert_pdf_to_cmyk
@@ -55,6 +56,21 @@ def preflight(book: Book, photos: dict[str, Photo]) -> None:
     ]
     if missing:
         raise RenderError(f"placements reference unavailable photos: {missing}")
+
+
+async def soft_pages(session: AsyncSession, book_id: uuid.UUID) -> list[dict]:
+    """Which pages of this book will print soft (A79).
+
+    Computed here because this is where the layout and the real source
+    dimensions are both in hand. The customer has already been warned twice
+    in the editor; this is the copy that reaches the person about to put ink
+    on paper, who is the last one who can stop it cheaply.
+    """
+    book, photos = await _load_book_and_photos(session, book_id)
+    return soft_placements(
+        book.layout,
+        {pid: (p.orig_width, p.orig_height) for pid, p in photos.items()
+         if p.orig_width and p.orig_height})
 
 
 async def render_interior(session: AsyncSession, book_id: uuid.UUID) -> dict:

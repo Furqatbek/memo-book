@@ -248,6 +248,20 @@ function renderDetail(deps) {
     alert.classList.remove('hidden');
   }
 
+  // Low-resolution placements, above the files rather than below them: it
+  // is worth reading before the PDFs are opened, not after (A79).
+  const soft = o.soft_pages || [];
+  const softEl = $('od-soft');
+  softEl.classList.toggle('hidden', soft.length === 0);
+  if (soft.length) {
+    const worst = soft.some((s) => s.status === 'block')
+      ? 'will print blurry' : 'will print soft';
+    const where = soft.slice(0, 8).map((s) => s.where).join(', ')
+      + (soft.length > 8 ? ` (+${soft.length - 8} more)` : '');
+    softEl.textContent = `Low resolution: ${where} ${worst}. `
+      + 'The customer saw this warning and confirmed.';
+  }
+
   const files = $('od-files');
   files.innerHTML = '';
   $('od-nofiles').classList.toggle('hidden', o.artifacts.length > 0);

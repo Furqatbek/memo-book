@@ -854,3 +854,71 @@ the list, so the most important assertion in that file had not run against
 the endpoints that hand out customer addresses and print files. Deriving the
 list drops the promise and keeps the property: 5 routes covered before, 11
 after.
+
+**A77 — Every route is throttled or exempt on purpose.** `GET
+/api/v1/orders/{ref}?phone=` shipped unauthenticated and unthrottled. By
+design a wrong phone answers exactly like an unknown reference — the same
+principle as the 404s in A15 and A72 — which is right, and which makes the
+request rate the whole security boundary: an attacker has no signal to work
+with and nothing to do but try again, quickly. Unthrottled, that is a free
+oracle over reference × phone, and Uzbek mobile numbers are not a large
+space.
+
+An indistinguishable-answer design and a rate limit are two halves of one
+control. Shipping either without the other is the mistake.
+
+The limit is 20/minute per IP — a customer refreshing their own order does it
+a handful of times — and per IP rather than global, so one attacker cannot
+take the order page away from everyone who has paid. `test_rate_limit_
+coverage.py` reads the router and requires every route to be either throttled
+or on an EXEMPT list with the reason guessing at it is not a volume problem.
+That is deliberately the same shape as the admin lock test: a route inventory
+written in prose goes stale, and this one names the two exemption classes
+(a 32-byte edit token, and public data identical for everybody) instead of
+promising completeness.
+
+**A78 — An expired book says it expired.** `ErrorCode.BOOK_EXPIRED` was
+mapped to 410 from the first milestone and raised by nothing. An expired
+draft answered `BOOK_LOCKED` — "book is locked and can no longer be edited" —
+which is what a book says after it has been *bought*. A customer returning to
+an abandoned draft was told, in effect, that they had already ordered it. The
+editor has carried three branches handling BOOK_EXPIRED all along; none could
+fire.
+
+410 rather than 404 because R6 has already deleted the photos: there is
+nothing left to serve, and "not found" invites the customer to go hunting for
+a link that will never work again. Authentication still comes first, so a
+wrong edit token answers 404 exactly as before — expiry must not become an
+oracle for which book ids exist.
+
+**A79 — The low-resolution rule classifies; it does not refuse.** Its
+docstring used to claim it "prevents printing a visibly blurry book". It
+prevented nothing: `placement_resolution()` was called only by its own tests
+and `RESOLUTION_TOO_LOW` was raised nowhere.
+
+**Refusing is still the wrong answer, and that is a decision rather than an
+omission.** The threshold cannot tell a careless crop from the only
+surviving photograph of somebody's grandmother, and the customer is warned
+clearly — the editor names the pages that will print soft, on the preview
+screen, above the confirm box they must tick. What the system owes them is
+that nobody is surprised, not that the choice is taken away.
+
+What was missing is the third reader. The customer sees it before paying; the
+system knew it at render time; the person about to put ink on paper — the
+last one for whom it is a cheap problem — was told nothing. The production
+notification now names the pages above the file links, and the console shows
+the same on the order, both saying explicitly that the customer saw the
+warning and confirmed, so the printer's first instinct is not to stop and
+ask.
+
+**The editor's copy of the rules is now tested against this one.** It
+reimplements the arithmetic in JavaScript under a comment calling itself an
+exact mirror "thresholds and all", and nothing checked. Drift is not
+cosmetic: the editor's numbers decide what the customer is warned about, the
+Python decides what the printer is told, and a disagreement means someone is
+told the wrong thing invisibly. The test asserts the constants exactly and
+the formula by shape — zoom still divides, contain still takes the better
+axis and cover the worse, contain stays exempt from the 800px floor, an
+un-ingested photo is still skipped rather than condemned. Parsing rather than
+running: a JS engine in the backend suite would cost more than it protects,
+and these are the edits that realistically happen.

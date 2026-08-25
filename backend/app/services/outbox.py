@@ -110,8 +110,12 @@ def attention_payload(order, reason: str, detail: str | None = None) -> dict:
     }
 
 
-def rendered_payload(order, book, interior_key: str, cover_key: str) -> dict:
+def rendered_payload(order, book, interior_key: str, cover_key: str,
+                     soft: list[dict] | None = None) -> dict:
     return {
+        # Pages that will print soft (A79). The printer sees this before the
+        # ink goes on, which is the last cheap moment to stop a reprint.
+        "soft_pages": soft or [],
         "order_id": str(order.id),
         "human_ref": order.human_ref,
         "customer_name": order.customer_name,

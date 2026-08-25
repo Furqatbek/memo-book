@@ -61,10 +61,29 @@ async def get_book_authed(session: AsyncSession, book_id: uuid.UUID, edit_token:
     # Constant-time comparison; a wrong token looks exactly like a missing book.
     if book is None or not hmac.compare_digest(book.edit_token, edit_token or ""):
         raise _not_found()
+    # An expired draft is not a book any more: R6 deleted its photos from
+    # storage half an hour after this status was set. Serving it would hand
+    # the customer an editor full of broken images and refuse every change
+    # with "locked", which is what a checked-out book says — so they would
+    # think they had bought it. Say what actually happened (A78).
+    if book.status == BookStatus.EXPIRED.value:
+        raise _expired(book)
     return book
 
 
+def _expired(book: Book) -> DomainError:
+    return DomainError(
+        ErrorCode.BOOK_EXPIRED,
+        "this book expired and its photos have been deleted — "
+        "start a new one",
+        {"status": book.status,
+         "expired_at": book.expires_at.isoformat() if book.expires_at else None},
+    )
+
+
 def _require_mutable(book: Book) -> None:
+    if book.status == BookStatus.EXPIRED.value:
+        raise _expired(book)
     if not layout_mutable(BookStatus(book.status)):
         raise DomainError(ErrorCode.BOOK_LOCKED,
                           "book is locked and can no longer be edited",
