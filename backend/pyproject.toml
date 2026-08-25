@@ -25,6 +25,7 @@ dependencies = [
     "rq>=1.16",
     "anyio>=4.0",
     "reportlab>=4.1",
+    "python-multipart>=0.0.9",  # admin artwork upload (UploadFile)
 ]
 
 [project.optional-dependencies]

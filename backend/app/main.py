@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.admin import router as admin_router
 from app.api.books import router as books_router
 from app.api.cover_designs import router as cover_designs_router
 from app.api.errors import register_error_handlers
@@ -69,9 +70,15 @@ def create_app() -> FastAPI:
     app.include_router(payments_router)
     app.include_router(pricing_router)
     app.include_router(cover_designs_router)
+    app.include_router(admin_router)
     if settings.editor_dir and Path(settings.editor_dir).is_dir():
         app.mount("/editor", WebAssets(directory=settings.editor_dir, html=True),
                   name="editor")
+    if settings.admin_dir and Path(settings.admin_dir).is_dir():
+        # Static markup only. Every action it offers goes through the admin
+        # API, which is dead unless ADMIN_TOKEN is set (A72).
+        app.mount("/admin", WebAssets(directory=settings.admin_dir, html=True),
+                  name="admin")
     if settings.site_dir and Path(settings.site_dir).is_dir():
         # Mounted last: everything the API and /editor don't claim.
         app.mount("/", WebAssets(directory=settings.site_dir, html=True),

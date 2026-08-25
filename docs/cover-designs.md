@@ -46,9 +46,30 @@ A design can either leave a window for the customer's photo, or be a
 complete cover with no photo at all. Both work; say which with
 `--photo-rect`.
 
-## Adding a design
+## Adding a design — the console
 
-On the server, from `backend/`:
+Go to **`https://your-domain/admin/`** and sign in with `ADMIN_TOKEN` from the
+server's `.env`. Then **+ New**, choose the artwork file, and fill in the form.
+
+The console exists for one reason above all: you **drag** the photo window
+and the title over the real artwork and watch where they land, instead of
+guessing `19,24,110,110` and finding out at print time. Everything you see
+in that preview — the framing, the safe margin, the automatic title ink — is
+computed the same way the print renderer computes it.
+
+Two things the console does that the command line cannot:
+
+- It warns you *before upload* if the file is too small or the wrong shape.
+- **Save** on an existing design updates it without re-uploading the artwork,
+  so nudging a photo window costs nothing.
+
+If `ADMIN_TOKEN` is empty on the server, sign-in always fails — that is the
+switch that keeps the admin API off entirely.
+
+## Adding a design — the command line
+
+Still there, and still the same validation, for scripting or when you are
+already in an SSH session. From `backend/`:
 
 ```bash
 python scripts/cover_design.py add romance-gold ~/art/romance-gold.png \
@@ -77,6 +98,12 @@ never have to look it up here.
 
 ## Managing the gallery
 
+In the console: click a design to edit it, tick **Visible** off (or press
+**Retire**) to take it out of the gallery. Retired designs stay in the list
+with a `RETIRED` badge so you can put them back.
+
+The same from the command line:
+
 ```bash
 python scripts/cover_design.py list                 # everything visible
 python scripts/cover_design.py list --type love     # what a love-story customer sees
@@ -95,7 +122,8 @@ Two things worth knowing:
 
 ## Checking a design before you offer it
 
-Add it, open the editor, pick that occasion, and choose the design. What you
+Add it, open the editor (the console has an **Open editor** link), pick that
+occasion, and choose the design. What you
 see on the cover is what prints — the editor, the preview and the print file
 all place the artwork by the same rule.
 

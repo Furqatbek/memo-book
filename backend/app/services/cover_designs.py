@@ -10,6 +10,7 @@ spine take the design's own `bg_color`, so one file serves every page tier —
 the spine width changes with the tier, and a fixed-width wrap image would
 have to be redrawn for each one.
 """
+import io
 import uuid
 from datetime import UTC, datetime
 
@@ -36,6 +37,7 @@ DISPLAY_W_PX = 1200
 THUMB_W_PX = 400
 
 DESIGN_PREFIX = "cover-designs"
+JPEG_QUALITY = 92
 
 
 def _now() -> datetime:
@@ -52,6 +54,57 @@ def display_key(slug: str) -> str:
 
 def thumb_key(slug: str) -> str:
     return f"{DESIGN_PREFIX}/{slug}/thumb.jpg"
+
+
+def build_renditions(data: bytes) -> tuple[bytes, bytes, bytes, int, int]:
+    """Validate uploaded artwork and cut the three sizes we keep.
+
+    Shared by the admin console and the CLI so the two cannot disagree about
+    what is acceptable — the console would otherwise accept art the script
+    refuses, and the founder would find out from a printed book.
+
+    Raises ValueError with a message meant for a human to read.
+    """
+    from PIL import Image, ImageOps
+
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception as exc:
+        raise ValueError("that file is not an image we can read") from exc
+    img = ImageOps.exif_transpose(img)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    if img.width < MIN_ARTWORK_W_PX or img.height < MIN_ARTWORK_H_PX:
+        raise ValueError(
+            f"artwork is {img.width}x{img.height}px; the minimum is "
+            f"{MIN_ARTWORK_W_PX}x{MIN_ARTWORK_H_PX} and the target is "
+            f"{ARTWORK_W_PX}x{ARTWORK_H_PX}. Below that it prints soft.")
+
+    def jpeg(im) -> bytes:
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+        return buf.getvalue()
+
+    def scaled(width: int):
+        height = max(1, round(img.height * width / img.width))
+        return img.resize((width, height), Image.LANCZOS)
+
+    return (jpeg(img), jpeg(scaled(DISPLAY_W_PX)), jpeg(scaled(THUMB_W_PX)),
+            img.width, img.height)
+
+
+def aspect_note(width: int, height: int) -> str | None:
+    """A warning worth showing, or nothing. Off-aspect artwork still works —
+    it is centre-cropped — but the founder should learn that before print,
+    not after."""
+    want = ARTWORK_W_PX / ARTWORK_H_PX
+    got = width / height if height else 0
+    if not got or abs(got - want) / want <= 0.02:
+        return None
+    return (f"aspect {got:.3f} differs from {want:.3f} — the artwork will be "
+            f"centre-cropped. Draw at {ARTWORK_W_PX}x{ARTWORK_H_PX} to "
+            f"control exactly what is kept.")
 
 
 def parse_book_types(raw: str | None) -> list[str]:

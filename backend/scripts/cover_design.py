@@ -21,13 +21,10 @@ correcting one never leaves a second copy in the gallery.
 """
 import argparse
 import asyncio
-import io
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from PIL import Image, ImageOps  # noqa: E402
 
 from app.db.session import _get_sessionmaker  # noqa: E402
 from app.services.cover_designs import (  # noqa: E402
@@ -35,16 +32,14 @@ from app.services.cover_designs import (  # noqa: E402
     ARTWORK_H_PX,
     ARTWORK_W_MM,
     ARTWORK_W_PX,
-    DISPLAY_W_PX,
     MIN_ARTWORK_H_PX,
     MIN_ARTWORK_W_PX,
-    THUMB_W_PX,
+    aspect_note,
+    build_renditions,
     list_designs,
     parse_book_types,
     upsert_design,
 )
-
-JPEG_Q = 92
 
 
 def _rect(raw: str | None) -> dict | None:
@@ -86,35 +81,16 @@ def _hex(value: str | None, field: str) -> str | None:
 
 
 def _renditions(path: Path) -> tuple[bytes, bytes, bytes, int, int]:
-    img = Image.open(path)
-    img.load()
-    img = ImageOps.exif_transpose(img)
-    if img.mode != "RGB":
-        img = img.convert("RGB")
-    if img.width < MIN_ARTWORK_W_PX or img.height < MIN_ARTWORK_H_PX:
-        raise SystemExit(
-            f"artwork is {img.width}x{img.height}px; the minimum is "
-            f"{MIN_ARTWORK_W_PX}x{MIN_ARTWORK_H_PX} and the target is "
-            f"{ARTWORK_W_PX}x{ARTWORK_H_PX}. Below that it prints soft.")
-
-    want = ARTWORK_W_PX / ARTWORK_H_PX
-    got = img.width / img.height
-    if abs(got - want) / want > 0.02:
-        print(f"  ! aspect {got:.3f} differs from {want:.3f} — the artwork "
-              f"will be centre-cropped to fit. Draw at {ARTWORK_W_PX}x"
-              f"{ARTWORK_H_PX} to control exactly what is kept.")
-
-    def jpeg(im: Image.Image) -> bytes:
-        buf = io.BytesIO()
-        im.save(buf, format="JPEG", quality=JPEG_Q, optimize=True)
-        return buf.getvalue()
-
-    def scaled(width: int) -> Image.Image:
-        height = max(1, round(img.height * width / img.width))
-        return img.resize((width, height), Image.LANCZOS)
-
-    return (jpeg(img), jpeg(scaled(DISPLAY_W_PX)), jpeg(scaled(THUMB_W_PX)),
-            img.width, img.height)
+    """The same validation and resizing the admin console does — one
+    implementation, so the two cannot disagree about acceptable artwork."""
+    try:
+        out = build_renditions(path.read_bytes())
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    note = aspect_note(out[3], out[4])
+    if note:
+        print(f"  ! {note}")
+    return out
 
 
 async def cmd_add(args) -> None:

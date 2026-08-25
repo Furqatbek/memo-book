@@ -23,6 +23,9 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install -e .
 # editor at /editor (EDITOR_DIR) and the marketing site, all five language
 # versions, at / (SITE_DIR). One origin, zero CORS configuration.
 COPY editor /app/editor
+# The admin console. Static markup only — everything it can DO needs
+# ADMIN_TOKEN, and with that unset the admin API does not exist (A72).
+COPY admin /app/admin
 COPY index.html /app/site/index.html
 COPY assets /app/site/assets
 COPY ru /app/site/ru

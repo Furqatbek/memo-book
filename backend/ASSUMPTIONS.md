@@ -615,3 +615,43 @@ thumbnail and a display-sized copy, and the renderer reads the full-resolution
 file server-side. Design names are not translated (the founder types one
 name); thumbnails carry the meaning, and the alternative is asking a solo
 founder for five translations per design.
+
+**A72 — The admin console, and the lock on it.** Managing the cover
+catalogue over SSH does not scale past the first few designs, so the same
+operations are a web console at `/admin`. One decision matters more than the
+rest of the feature: **an empty `ADMIN_TOKEN` disables the admin API
+entirely.** A deploy that forgets to set it fails closed — every admin route
+answers 404 — rather than shipping an open door on a public domain. A test
+asserts that for every route, and the route list in the test is the thing a
+future route has to be added to.
+
+Failures are 404, never 401: a wrong token, a missing token and a
+switched-off admin are indistinguishable, so the console is not an oracle
+for whether an admin API lives at this host. Comparison is constant-time and
+attempts are rate-limited per IP.
+
+The token is a single shared secret in `.env`, not accounts — there is one
+operator, and a login system would be more code to get wrong than it would
+protect. It rides in `X-Admin-Token` and is kept in localStorage, which is
+readable by any script that gets into the page; the console renders no
+user-supplied HTML, so that risk is bounded, and revoking is an `.env` edit
+plus a restart. If a second operator ever needs access, this is the piece to
+replace.
+
+The console is **English only**, deliberately. The five-language rule exists
+for people buying books; the audience here is the founder.
+
+The reason it is worth a UI rather than a nicer CLI is the **preview**:
+placing a photo window by typing `19,24,110,110` and discovering the result
+at print time is precisely the loop this removes. The photo window and title
+are dragged and resized over the real artwork, and the preview computes
+framing, the safe margin and the automatic title ink exactly as the print
+renderer does. Upload validation is shared code (`build_renditions`), not a
+second implementation, so the console and the CLI cannot disagree about what
+artwork is acceptable — the alternative is learning the difference from a
+printed book.
+
+Uploads are `multipart/form-data` to the API rather than a presigned PUT.
+Photos use presigned PUTs because customers upload dozens at a time from
+phones; artwork is one file, occasionally, from a laptop, and routing it
+through the API keeps validation and the storage layout server-side.

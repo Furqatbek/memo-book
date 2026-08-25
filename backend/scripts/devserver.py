@@ -40,6 +40,9 @@ def main() -> None:
     os.environ.setdefault("S3_ACCESS_KEY", "test")
     os.environ.setdefault("S3_SECRET_KEY", "test")
     os.environ.setdefault("EDITOR_DIR", str(EDITOR))
+    os.environ.setdefault("ADMIN_DIR", str(BACKEND.parent / "admin"))
+    # A local console needs a token; production sets its own in .env.
+    os.environ.setdefault("ADMIN_TOKEN", "dev-admin")
 
     import threading
 

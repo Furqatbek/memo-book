@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>RS Pixel — admin</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='4' width='24' height='24' rx='4' fill='%2316181d'/%3E%3Cpath d='M11 20V12h4a3 3 0 010 6h-4l6 2' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="admin.css?v=20260825">
+  <script src="../editor/config.js"></script>
+</head>
+<body>
+  <div id="toasts" aria-live="polite"></div>
+
+  <!-- ============ SIGN IN ============ -->
+  <section id="screen-login" class="screen">
+    <form id="login-form" class="card login">
+      <h1>RS Pixel admin</h1>
+      <p class="muted">Paste the admin token from the server's <code>.env</code>.</p>
+      <input id="login-token" type="password" autocomplete="current-password"
+             placeholder="Admin token" spellcheck="false">
+      <button class="btn primary" type="submit">Sign in</button>
+      <p id="login-error" class="err hidden"></p>
+      <p class="muted small">
+        If sign-in always fails, check that <code>ADMIN_TOKEN</code> is set on
+        the server. When it is empty the admin API is switched off entirely.
+      </p>
+    </form>
+  </section>
+
+  <!-- ============ CONSOLE ============ -->
+  <section id="screen-main" class="screen">
+    <header class="bar">
+      <b class="brand">RS Pixel admin</b>
+      <nav class="tabs">
+        <button class="tab active" data-tab="designs">Cover designs</button>
+      </nav>
+      <span class="spacer"></span>
+      <a class="btn small" href="../editor/" target="_blank" rel="noopener">Open editor</a>
+      <button id="btn-signout" class="btn small">Sign out</button>
+    </header>
+
+    <main class="main">
+      <aside class="list-pane">
+        <div class="pane-head">
+          <b>Designs</b>
+          <button id="btn-new" class="btn small primary">+ New</button>
+        </div>
+        <div id="design-list" class="design-list"></div>
+        <p id="list-empty" class="muted small hidden">
+          No designs yet. Click <b>+ New</b>, drop in your artwork, and it goes
+          live for the occasions you tick.
+        </p>
+      </aside>
+
+      <section class="edit-pane">
+        <div id="edit-empty" class="muted edit-empty">
+          Pick a design on the left, or create one.
+        </div>
+
+        <form id="edit-form" class="edit-form hidden">
+          <div class="edit-cols">
+            <!-- live preview: what the customer will see -->
+            <div class="preview-col">
+              <div class="preview-head">
+                <b>Front cover</b>
+                <span class="muted small">drag the boxes</span>
+              </div>
+              <div id="cover" class="cover">
+                <img id="cover-art" alt="" draggable="false">
+                <div id="cover-safe" class="cover-safe"></div>
+                <div id="cover-photo" class="cover-photo hidden">
+                  <span>photo</span>
+                  <i class="rs se"></i>
+                </div>
+                <div id="cover-title" class="cover-title hidden">Title</div>
+              </div>
+              <p class="muted small preview-note">
+                The pale border is the 5 mm safe margin — keep text inside it.
+                The turn-in is already excluded from this view.
+              </p>
+              <p id="art-note" class="warn small hidden"></p>
+            </div>
+
+            <!-- settings -->
+            <div class="fields">
+              <label class="field">
+                <span>Artwork</span>
+                <input id="f-artwork" type="file" accept="image/png,image/jpeg">
+                <small id="art-spec" class="muted"></small>
+              </label>
+
+              <label class="field">
+                <span>Slug</span>
+                <input id="f-slug" spellcheck="false" placeholder="romance-gold">
+                <small class="muted">Stable id. Re-using one replaces that design.</small>
+              </label>
+
+              <label class="field">
+                <span>Name</span>
+                <input id="f-name" placeholder="Gold hearts">
+                <small class="muted">Shown under the thumbnail in the gallery.</small>
+              </label>
+
+              <fieldset class="field">
+                <span>Occasions</span>
+                <div id="f-types" class="checks"></div>
+                <small class="muted">None ticked = shown for every occasion.</small>
+              </fieldset>
+
+              <fieldset class="field">
+                <span>Customer photo</span>
+                <label class="check">
+                  <input id="f-has-photo" type="checkbox">
+                  <span>This design has a window for the customer's photo</span>
+                </label>
+                <div id="f-rect" class="numbers">
+                  <label>x<input id="f-rect-x" type="number" step="1"></label>
+                  <label>y<input id="f-rect-y" type="number" step="1"></label>
+                  <label>w<input id="f-rect-w" type="number" step="1"></label>
+                  <label>h<input id="f-rect-h" type="number" step="1"></label>
+                  <small class="muted">mm from the top-left of the 148 × 210 front.</small>
+                </div>
+              </fieldset>
+
+              <fieldset class="field">
+                <span>Title</span>
+                <div class="numbers">
+                  <label>x<input id="f-title-x" type="number" step="1"></label>
+                  <label>y<input id="f-title-y" type="number" step="1"></label>
+                  <label>pt<input id="f-title-size" type="number" step="1"></label>
+                </div>
+              </fieldset>
+
+              <div class="field row">
+                <label class="col">
+                  <span>Title colour</span>
+                  <span class="colour">
+                    <input id="f-title-color" type="color">
+                    <button id="f-title-auto" class="btn small" type="button">Auto</button>
+                  </span>
+                  <small class="muted">Auto = chosen from the background.</small>
+                </label>
+                <label class="col">
+                  <span>Back &amp; spine</span>
+                  <input id="f-bg" type="color">
+                  <small class="muted">The artwork does not cover these.</small>
+                </label>
+              </div>
+
+              <div class="field row">
+                <label class="col">
+                  <span>Sort order</span>
+                  <input id="f-order" type="number" step="10">
+                  <small class="muted">Lower comes first.</small>
+                </label>
+                <label class="col check-col">
+                  <span>Visible</span>
+                  <label class="check">
+                    <input id="f-active" type="checkbox">
+                    <span>Offered to customers</span>
+                  </label>
+                  <small class="muted">Retiring never changes ordered books.</small>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <footer class="edit-foot">
+            <button id="btn-save" class="btn primary" type="submit">Save</button>
+            <button id="btn-cancel" class="btn" type="button">Cancel</button>
+            <span class="spacer"></span>
+            <button id="btn-retire" class="btn danger hidden" type="button">Retire</button>
+          </footer>
+        </form>
+      </section>
+    </main>
+  </section>
+
+  <script type="module" src="js/app.js?v=20260825"></script>
+</body>
+</html>

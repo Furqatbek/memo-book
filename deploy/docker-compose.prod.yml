@@ -29,6 +29,7 @@ services:
     env_file: .env
     environment:
       EDITOR_DIR: /app/editor
+      ADMIN_DIR: /app/admin
       SITE_DIR: /app/site
       S3_ENDPOINT_URL: http://minio:9000
     # Migrations run once at boot; safe for a single instance. --proxy-headers:

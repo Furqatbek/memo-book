@@ -1,0 +1,12 @@
+{
+  "name": "memo-book-browser-tests",
+  "private": true,
+  "description": "Browser checks for the editor and admin console",
+  "scripts": {
+    "test": "node run.js",
+    "list": "node run.js --list"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
+  }
+}

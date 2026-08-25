@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     rate_limit_book_create_per_min: int = 30
     rate_limit_upload_url_per_min: int = 240
     rate_limit_webhook_per_min: int = 120
+    # The admin console: low, because the only legitimate caller is one
+    # person clicking, and the only illegitimate one is guessing the token.
+    rate_limit_admin_per_min: int = 60
+
+    # --- Admin console (A72) ---
+    # The shared secret the console signs in with. EMPTY DISABLES THE ADMIN
+    # API ENTIRELY, deliberately: a deploy that forgets to set it must fail
+    # closed, not ship an open door. Generate with
+    # `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+    admin_token: str = ""
 
     # --- Payments (Milestone 9) ---
     # Dev mode: the "dev" provider treats any correctly-signed webhook as a
@@ -91,6 +101,9 @@ class Settings(BaseSettings):
     # Serve the static editor from this directory at /editor. Dev convenience —
     # in production the editor is a static site on its own host/CDN.
     editor_dir: str = ""
+    # Serve the admin console from this directory at /admin. The page itself
+    # is public static markup; everything it can DO is gated on ADMIN_TOKEN.
+    admin_dir: str = ""
     # Serve the marketing site (all language versions + assets) from this
     # directory at /. Lets one VPS host the whole product on one origin;
     # API routes always win over the static mount.
