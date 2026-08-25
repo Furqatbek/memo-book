@@ -1,7 +1,16 @@
 """Photo service: presigned upload issuance, ingest orchestration, listing,
 deletion. Uploads go direct to object storage (never through the API);
-the ingest job runs in a worker (or inline when TASK_EAGER is set)."""
+the ingest job runs in a worker (or inline when TASK_EAGER is set).
+
+Everything here that changes what the book is made of runs through
+`_require_mutable` first. Nothing did, for a long time: deleting a photo is
+the most destructive edit in the product — the row AND the object go — and it
+was the one mutation with no gate at all. A customer still holding their edit
+link could empty a book that was locked, paid and mid-render, and the file is
+not recoverable afterwards (A80).
+"""
 import uuid
+from copy import deepcopy
 from datetime import UTC, datetime
 
 import anyio
@@ -15,7 +24,7 @@ from app.domain.geometry import CANVAS_H_MM, CANVAS_W_MM
 from app.domain.resolution import resolution_status
 from app.models.book import Book
 from app.models.photo import Photo, PhotoStatus
-from app.services.books import get_book_authed
+from app.services.books import _require_mutable, get_book_authed
 from app.services.image_processing import IngestError, process_image
 
 log = structlog.get_logger()
@@ -48,6 +57,7 @@ async def _get_photo(session: AsyncSession, book: Book, photo_id: uuid.UUID) -> 
 async def issue_upload_url(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
                            filename: str, mime: str, size_bytes: int) -> tuple[Photo, str]:
     book = await get_book_authed(session, book_id, edit_token)
+    _require_mutable(book)
     if mime not in ALLOWED_MIMES:
         raise DomainError(ErrorCode.VALIDATION_ERROR,
                           f"unsupported content type {mime}",
@@ -80,6 +90,7 @@ async def complete_upload(session: AsyncSession, book_id: uuid.UUID, edit_token:
                           photo_id: uuid.UUID,
                           taken_at_exif: str | None = None) -> Photo:
     book = await get_book_authed(session, book_id, edit_token)
+    _require_mutable(book)
     photo = await _get_photo(session, book, photo_id)
     if taken_at_exif:
         # Browser-downscaled uploads carry no EXIF; the client forwards the
@@ -167,13 +178,50 @@ async def list_photos(session: AsyncSession, book_id: uuid.UUID,
     return list(result.scalars())
 
 
+def _forget_photo(book: Book, photo_id: str) -> bool:
+    """Strip every reference to this photo out of the book's layout."""
+    layout = deepcopy(book.layout)
+    changed = False
+    for page in layout.get("pages") or []:
+        placements = page.get("placements") or []
+        kept = [pl for pl in placements if pl.get("photo_id") != photo_id]
+        if len(kept) != len(placements):
+            page["placements"] = kept
+            changed = True
+    cover = layout.get("cover") or {}
+    if cover.get("photo_id") == photo_id:
+        cover["photo_id"] = None
+        changed = True
+    if changed:
+        # Assigning a NEW dict, not mutating the old one: SQLAlchemy compares
+        # by identity for a JSON column, so an in-place edit commits as a
+        # silent no-op.
+        book.layout = layout
+        book.layout_version += 1
+        book.updated_at = _now()
+    return changed
+
+
 async def delete_photo(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
                        photo_id: uuid.UUID) -> None:
+    """Remove a photo, and every placement of it, in one transaction.
+
+    Cleaning the layout is the server's job, not the editor's. The editor
+    does tidy up and autosave, so the invariant held for exactly as long as
+    that request landed — and stopped the moment it did not. A layout
+    pointing at a photo that no longer exists refuses checkout with
+    PAGES_INCOMPLETE, and the page it blames still has a placement on it, so
+    it does not read as empty and the customer has nowhere to go (A80).
+    """
     book = await get_book_authed(session, book_id, edit_token)
+    _require_mutable(book)
     photo = await _get_photo(session, book, photo_id)
     keys = [photo.original_key, photo.display_key, photo.thumb_key]
     await session.delete(photo)
+    _forget_photo(book, str(photo_id))
     await session.commit()
+    # Objects go after the commit, as in the expiry job: a crash between the
+    # two leaves a re-runnable delete, never a live layout with missing bytes.
     await anyio.to_thread.run_sync(storage.delete_keys, keys)
 
 

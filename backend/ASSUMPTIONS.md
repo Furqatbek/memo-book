@@ -922,3 +922,84 @@ axis and cover the worse, contain stays exempt from the 800px floor, an
 un-ingested photo is still skipped rather than condemned. Parsing rather than
 running: a JS engine in the backend suite would cost more than it protects,
 and these are the edits that realistically happen.
+
+**A80 — A book that has been paid for keeps its photos.** `photos.py` had no
+mutability check of any kind. Every other layout mutation runs through
+`_require_mutable`; `books.py` opens with a docstring saying every one of
+them does; `checkout` tells the customer, in those words, that "after payment
+the book cannot be edited". Deleting a photo — the most destructive edit in
+the product, since the row and the object both go — was the one path with no
+gate at all.
+
+The sequence that mattered: check out, pay, and then delete a photo while the
+render is still running. Preflight finds a placement pointing at a photo that
+is not there, the order lands in `render_failed`, and the file is not coming
+back. The customer's own edit link was enough; no attacker required, just a
+second browser tab and a change of mind. Upload issuance and completion are
+gated the same way, because a book somebody has paid for is finished.
+
+**Deleting a photo now removes its placements, server-side, in the same
+transaction.** The editor already tidied up and autosaved, so the invariant
+held for exactly as long as that one request landed. When it did not, the
+result was a book that could neither be ordered nor repaired: checkout
+refuses with `PAGES_INCOMPLETE` naming a page that still has a placement on
+it, so the page does not read as empty, and "take me to the first empty page"
+went somewhere else. Cleaning up in the layer that owns the data removes the
+whole failure mode rather than narrowing the window.
+
+The layout version is bumped with the cleanup, so an editor holding the old
+document loses the If-Match race instead of saving the deleted photo back —
+and is left alone entirely when the photo was not placed anywhere, so tidying
+the tray does not cost an open editor its next save.
+
+Books already in production may still carry a dangling reference from before
+this. The editor's "first page that needs a photo" therefore counts a
+placement whose photo is missing as unfinished, which repairs the dead end
+for those without a migration.
+
+**A81 — The launch checklist is a program.** Every placeholder in this
+product was tracked in prose: a comment here, a line in a deployment guide
+there, a paragraph in this file, a sentence in a chat message. Prose is how
+`ADMIN_TOKEN` came to be missing from the production env template (A75), how
+the admin lock test came to cover five routes out of eleven (A76), and how
+`Effect.ALERT_OPERATOR` sat declared and executed by nothing for the life of
+the state machine. All of those were found by reading. `scripts/launch_
+check.py` exists so the next one does not have to be.
+
+It reads the real files — `deploy/.env` if the machine has one, the site's
+own HTML, the shipped defaults — and prints what stands between here and
+taking money, with the fix beside each, exiting non-zero while anything
+blocks.
+
+**It does not check that the numbers are right, and cannot.** Only the
+printer knows the spine width; only the founder knows the price. What it
+checks is that somebody has been *asked*, which is the failure that actually
+happens — the spine values are still the ones the specification invented, and
+they will stay plausible-looking forever unless something counts them.
+
+Two design points worth keeping:
+
+* **Absent reads as not-done.** A missing `PRICES_CONFIRMED` is not
+  permission, and empty `SPINE_MM_*` means the defaults, which are the
+  guesses. A checklist that treats silence as a pass is the same false
+  confidence as a backup job that runs nightly and stores nothing.
+* **No backups warns; it does not block.** Selling without backups is
+  serious and is not a reason to refuse to sell. Keeping that distinction is
+  what stops the STOP list becoming background noise.
+
+Every check is tested in both directions — it must fire on the placeholder
+and go quiet on a real value — because the failure mode of a checklist is
+saying "all clear" too readily. Writing those tests immediately caught a
+bug in the card check: `"8600000000000000".strip("0")` is `"86"`, not
+`"8600"`, so the placeholder card was only being caught by its placeholder
+holder name.
+
+The site contacts are on the list for a reason beyond tidiness. They render
+as working links: a visitor who taps the phone number or the Telegram handle
+on the live site reaches a dead end, which reads worse than no link at all.
+
+The physical test book is on the list too, and no program can verify it. It
+stays outstanding until a human explicitly says otherwise by creating
+`docs/.test-book-printed`. Every geometry number in this system is unverified
+against paper until then, and a checklist that quietly omitted the one item
+it could not measure would be worse than useless.

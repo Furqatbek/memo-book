@@ -413,8 +413,19 @@ async function resumeBook() {
   }
 }
 
+/* The first page that still needs the customer's attention.
+   "Empty" is not the only way a page can be unfinished: a placement whose
+   photo is gone counts too. The server now strips those when a photo is
+   deleted (A80), but books made before that fix — where the tidy-up autosave
+   never landed — still carry them, and for those the old version of this
+   sent the customer to page 1 while checkout complained about page 7. */
+function pageNeedsPhoto(page) {
+  if (!page.placements.length) return true;
+  return page.placements.some((pl) => !photoById(pl.photo_id));
+}
+
 function firstEmptyPage() {
-  const i = S.book.layout.pages.findIndex((p) => p.placements.length === 0);
+  const i = S.book.layout.pages.findIndex(pageNeedsPhoto);
   return i === -1 ? 0 : i;
 }
 

@@ -280,6 +280,25 @@ Restic deduplicates, so the second night's backup of a 20 GB photo store
 costs megabytes, not 20 GB; failures are reported to the same Telegram chat
 as orders, because a backup nobody is told has stopped is not a backup.
 
+### What is still fake
+
+```bash
+cd backend && python scripts/launch_check.py
+```
+
+One command, one answer. It reads `deploy/.env`, the site's own HTML and the
+shipped defaults, and lists everything standing between here and taking
+money, with the fix next to each. Exit code 1 while anything blocks, so it
+can gate a deploy script.
+
+It does **not** check that the numbers are right — nothing can, since only
+the printer knows the spine width and only you know the price. It checks that
+somebody has been asked, which is the failure mode that actually happens.
+
+The one item no program can verify is the physical test book. It stays on the
+list until you print one, check the spine, the gutter and the trim, and then
+`touch docs/.test-book-printed`.
+
 ### When an order gets stuck
 
 A paid order can stop moving for reasons nobody chose: the render crashes,

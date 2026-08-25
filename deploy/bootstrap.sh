@@ -143,6 +143,9 @@ cat <<DONE
     Sign in with ADMIN_TOKEN from deploy/.env:
         grep '^ADMIN_TOKEN=' $DIR/deploy/.env
 
+  What is still fake — one command, any time:
+    cd $DIR/backend && python scripts/launch_check.py
+
   Next steps (see $DIR/docs/deployment.md):
     - BACKUPS. Nothing is being backed up until you do this:
         set RESTIC_REPOSITORY + RESTIC_PASSWORD in deploy/.env (somewhere
