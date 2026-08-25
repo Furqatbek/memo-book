@@ -2645,7 +2645,11 @@ async function changeTier(next) {
   if (next === cur) return;
   if (next < cur) {
     const trailing = S.book.layout.pages.slice(next);
-    const hasContent = trailing.some((p) => p.placements.length || p.texts.length);
+    // Stickers count too. The server's warning counts all three, so
+    // checking two here meant a customer whose trailing pages held only
+    // stickers lost them with no chance to say no (A82).
+    const hasContent = trailing.some(
+      (p) => p.placements.length || p.texts.length || (p.stickers || []).length);
     if (hasContent && !confirm(t('confirm.shrink'))) {
       $('tier-select').value = String(cur);
       return;

@@ -127,7 +127,6 @@ cat <<DONE
 
   Site + editor:   https://$DOMAIN   (editor at /editor/)
   API health:      https://$DOMAIN/health     /ready
-  Swagger:         https://$DOMAIN/docs
 
   Card-transfer payments (pilot):
     docker compose -f docker-compose.prod.yml exec api \\

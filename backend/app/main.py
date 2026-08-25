@@ -52,7 +52,26 @@ class WebAssets(StaticFiles):
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(debug=settings.debug)
-    app = FastAPI(title=settings.app_name, version="0.1.0")
+    # The interactive docs and the schema behind them are DEV ONLY (A82).
+    #
+    # A72 goes to some length to make the admin API unfindable: every
+    # refusal is a 404 so a wrong token, a missing token and a switched-off
+    # admin are indistinguishable, the comparison is constant-time, and the
+    # attempts are rate-limited. `/openapi.json` published all nine admin
+    # routes — paths, methods, request schemas — unauthenticated, on the same
+    # host, even with ADMIN_TOKEN empty and the whole admin API answering
+    # 404. The lock was excellent and the key was taped to the door.
+    #
+    # Serving them is a development convenience; the cost of losing it in
+    # production is one `ENV=dev` away, and the cost of keeping it is that
+    # A72 means nothing.
+    interactive = settings.env == "dev"
+    app = FastAPI(
+        title=settings.app_name, version="0.1.0",
+        docs_url="/docs" if interactive else None,
+        redoc_url="/redoc" if interactive else None,
+        openapi_url="/openapi.json" if interactive else None,
+    )
     if settings.cors_origins:
         app.add_middleware(
             CORSMiddleware,

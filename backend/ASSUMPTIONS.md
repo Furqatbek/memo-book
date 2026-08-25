@@ -1003,3 +1003,36 @@ stays outstanding until a human explicitly says otherwise by creating
 `docs/.test-book-printed`. Every geometry number in this system is unverified
 against paper until then, and a checklist that quietly omitted the one item
 it could not measure would be worse than useless.
+
+**A82 — The API documentation does not publish what A72 hides.** A72 makes
+the admin API deliberately unfindable: every refusal is a 404 so a wrong
+token, a missing token and a switched-off admin are indistinguishable, the
+comparison is constant-time, and attempts are rate-limited per IP. That
+reasoning is written out, tested per route, and load-bearing.
+
+`/openapi.json` published all nine admin routes — paths, methods, parameter
+names, request schemas — unauthenticated, on the same host, **with
+`ADMIN_TOKEN` empty and every admin route answering 404**. The lock was
+excellent and the key was taped to the door.
+
+The interactive docs and the schema behind them are now dev-only, on the same
+`ENV=dev` gate as the simulated-payment config. Losing them in production
+costs one environment variable; keeping them costs A72 its entire point.
+`/health` and `/ready` stay public, because a load balancer, an uptime
+monitor and `bootstrap.sh` all need them, and a test asserts that hiding one
+did not hide the other.
+
+Two smaller things found in the same sweep:
+
+* **Shrinking a book asked about two kinds of content and dropped three.**
+  `reflow_layout` counts placements, text boxes and stickers in its warning —
+  the API warns, it never silently drops (R3) — but the editor's confirmation
+  prompt tested only placements and texts. A customer whose trailing pages
+  held nothing but stickers lost them without being asked. Same drift as the
+  resolution mirror: two implementations of one rule, with a promise instead
+  of a test.
+* **The storage host sent no `X-Content-Type-Options`.** Everything it serves
+  is a file a stranger uploaded. Uploads are already restricted to
+  JPEG/PNG/HEIC and the presigned PUT signs the content type, so this is
+  belt-and-braces — but it is free, and what it prevents is a stored file
+  being interpreted as markup.

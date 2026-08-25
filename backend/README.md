@@ -2,7 +2,9 @@
 
 Backend for the self-serve photo book platform.
 **API reference with request/response examples: [`API.md`](API.md)**
-(interactive Swagger UI at `/docs` when the server is running).
+(interactive Swagger UI at `/docs` when the server is running **with
+`ENV=dev`** — it is off in production, because the schema would otherwise
+publish the admin routes A72 goes to some trouble to hide).
 Spec: [`../backend-build-prompt.md`](../backend-build-prompt.md)
 (build milestones in Part 10). Current state: **all 13 milestones complete** —
 FastAPI skeleton, fully unit-tested pure domain core, the books API

@@ -145,6 +145,20 @@ def check_backups(env: dict) -> Finding:
             "somewhere that is not this VPS")
 
 
+def check_env_is_production(env: dict) -> Finding:
+    """`ENV` defaults to "dev", which is the right default for a laptop and
+    the wrong one for a public host: it turns the interactive API docs back
+    on, and the schema behind them lists every admin route (A82)."""
+    value = (env.get("ENV") or "dev").strip().lower()
+    return Finding(
+        ok=value == "prod", blocking=True,
+        what="Running as production",
+        detail=("yes" if value == "prod" else
+                f"ENV={value or 'unset'}, so /docs and /openapi.json are "
+                "public — and the schema names every admin route"),
+        fix="ENV=prod in deploy/.env")
+
+
 SITE_PAGES = ["index.html", "ru/index.html", "uz/index.html",
               "uz-cyrl/index.html", "kaa/index.html"]
 PLACEHOLDER_CONTACT = re.compile(r"XXXXXXXX|example\.com|\+998XXX")
@@ -189,7 +203,7 @@ def main() -> int:
     findings = [
         check_prices(env), check_spines(env), check_admin_token(env),
         check_telegram(env), check_pay_card(env), check_site_contacts(),
-        check_backups(env), check_test_book(),
+        check_env_is_production(env), check_backups(env), check_test_book(),
     ]
 
     print(f"\n{DIM}config read from {env['__source__']}{OFF}\n")

@@ -21,5 +21,13 @@ www.{$DOMAIN} {
 storage.{$DOMAIN} {
 	# Photo uploads are up to 25MB; no request body limit needed (Caddy
 	# streams by default). Presigned URLs carry their own auth.
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		# Everything served from here is a file a stranger uploaded. Uploads
+		# are restricted to JPEG/PNG/HEIC and the presigned PUT signs the
+		# content type, so this is belt-and-braces — but it is free, and the
+		# thing it prevents is a stored file being interpreted as markup.
+		X-Content-Type-Options "nosniff"
+	}
 	reverse_proxy minio:9000
 }

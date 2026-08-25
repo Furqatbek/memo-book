@@ -185,3 +185,24 @@ class TestTheReportItself:
         human explicitly says a book was printed and inspected."""
         assert not lc.check_test_book().ok or (
             lc.REPO / "docs" / ".test-book-printed").exists()
+
+
+class TestProductionMode:
+    def test_fires_when_env_is_unset(self):
+        """The default is "dev", which is right for a laptop and wrong for a
+        public host: it puts /docs and the full schema back (A82)."""
+        finding = lc.check_env_is_production({})
+        assert not finding.ok
+        assert "/docs" in finding.detail
+
+    @pytest.mark.parametrize("value", ["dev", "staging", "DEV", ""])
+    def test_fires_on_anything_that_is_not_prod(self, value):
+        assert not lc.check_env_is_production({"ENV": value}).ok
+
+    def test_quiet_on_prod(self):
+        assert lc.check_env_is_production({"ENV": "prod"}).ok
+
+    def test_it_mentions_the_admin_routes(self):
+        """The reason this matters is not tidiness — the schema is what
+        makes A72's hidden admin API findable."""
+        assert "admin" in lc.check_env_is_production({}).detail
