@@ -16,6 +16,7 @@ const S = {
   status: 'open',
   query: '',
   busy: false,
+  statusesBuilt: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -97,12 +98,29 @@ export async function refreshOrders(deps) {
   try {
     const body = await api.listOrders({ status: S.status, q: S.query });
     S.orders = body.orders || [];
+    // The server tells us which statuses exist; the filter is built from
+    // that rather than a list here that would drift from the state machine.
+    if (body.statuses && !S.statusesBuilt) buildStatusFilter(body.statuses);
   } catch (e) {
     if (e.status === 404) return deps.signOut();
     deps.toast(e.message || 'Could not load orders.', 'warn');
     return;
   }
   renderOrderList(deps);
+}
+
+/* "Open" and "All" answer most days; the rest let the operator ask a real
+   question — "what is at the printer right now". */
+function buildStatusFilter(statuses) {
+  const select = $('o-status');
+  for (const value of statuses) {
+    if ([...select.options].some((o) => o.value === value)) continue;
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = STATUS_LABEL[value] || value;
+    select.append(option);
+  }
+  S.statusesBuilt = true;
 }
 
 function renderOrderList(deps) {
@@ -135,8 +153,7 @@ export async function openOrder(ref, deps) {
   try {
     S.current = await api.getOrder(ref);
   } catch (e) {
-    if (e.status === 404) return deps.toast(`No order ${ref}.`, 'warn');
-    return deps.toast(e.message || 'Could not load that order.', 'warn');
+    return deps.adminError(e, `Could not load ${ref}.`);
   }
   renderDetail(deps);
   renderOrderList(deps);
@@ -247,8 +264,7 @@ async function act(deps, what, spec) {
     renderDetail(deps);
     await refreshOrders(deps);
   } catch (e) {
-    if (e.status === 404) return deps.signOut();
-    deps.toast(e.message || 'That did not work.', 'warn');
+    await deps.adminError(e, 'That did not work.');
     renderActions(deps);
   } finally {
     S.busy = false;
@@ -263,7 +279,7 @@ async function resend(deps) {
     deps.toast(`Production message queued again for ${ref}.`);
     renderDetail(deps);
   } catch (e) {
-    deps.toast(e.message || 'Could not send it again.', 'warn');
+    await deps.adminError(e, 'Could not send it again.');
   }
 }
 

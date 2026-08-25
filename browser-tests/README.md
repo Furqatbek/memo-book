@@ -28,12 +28,13 @@ Chromium comes from `PLAYWRIGHT_BROWSERS_PATH` if it is set; otherwise
 
 ## What needs configuring
 
-Most checks run against a plain `python scripts/devserver.py`. Three want more,
+Most checks run against a plain `python scripts/devserver.py`. A few want more,
 because they test behaviour that only exists when it is switched on:
 
 | Check | Needs |
 |---|---|
 | `admincheck` | `ADMIN_TOKEN` — the dev server sets `dev-admin` by default |
+| `adminwiring` | `ADMIN_TOKEN` — it signs into the console and drives every control |
 | `designflow`, `designswap` | `ADMIN_TOKEN` — they seed their own cover designs through the admin API |
 | `autoflow` | `AUTO_CONFIRM_ORDERS=true` |
 | `ordersadmin` | `AUTO_CONFIRM_ORDERS=false` |

@@ -87,7 +87,7 @@ function showTab(name) {
 
 /* What the orders section needs from here, passed in rather than imported
    back, so the two files stay one-directional. */
-const deps = { toast, signOut: () => signOut() };
+const deps = { toast, signOut: () => signOut(), adminError };
 
 function signOut() {
   api.setToken(null);
@@ -96,6 +96,24 @@ function signOut() {
   resetOrders();
   showScreen('login');
   $('login-token').value = '';
+}
+
+/* Every refusal the admin API can give is a 404, deliberately (A72) — which
+   means a dead token and a missing row look identical from here. On a 404
+   against one resource, ask whether the session itself is still good: if the
+   ping fails too, sign out rather than leave the operator clicking at a
+   console that will never work again. */
+async function adminError(e, fallback) {
+  if (e.status === 404) {
+    try {
+      await api.ping(api.token());
+    } catch {
+      toast('Your session ended — sign in again.', 'warn');
+      signOut();
+      return;
+    }
+  }
+  toast(e.message || fallback, 'warn');
 }
 
 /* Every rejection the server can give is a 404, so there is one honest
@@ -173,12 +191,21 @@ function edit(design) {
 
   const d = S.editing;
   $('f-slug').value = d.slug || '';
-  $('f-slug').disabled = false;
+  // The slug names this design's files in storage, and editing a design
+  // cannot move them — so on an existing one it is shown, not offered. A
+  // field that accepted a new value and silently kept the old one would be
+  // worse than no field.
+  $('f-slug').disabled = !!d.design_id;
+  $('slug-hint').textContent = d.design_id
+    ? 'Fixed once created — it names the artwork in storage. Change the name '
+      + 'above instead.'
+    : 'Stable id. Re-using an existing one replaces that design.';
   $('f-name').value = d.name || '';
   for (const cb of $('f-types').querySelectorAll('input')) {
     cb.checked = (d.book_types || []).includes(cb.value);
   }
   $('f-has-photo').checked = !!d.photo_rect;
+  $('f-rect').classList.toggle('off', !d.photo_rect);
   const rect = d.photo_rect || { x_mm: 19, y_mm: 24, w_mm: 110, h_mm: 110 };
   $('f-rect-x').value = rect.x_mm;
   $('f-rect-y').value = rect.y_mm;
@@ -210,6 +237,13 @@ function closeEditor() {
 }
 
 const markDirty = () => { S.dirty = true; };
+
+/* The human name of a field, for an error that names it. */
+function labelFor(el) {
+  const owner = el.closest('label, fieldset');
+  const span = owner && owner.querySelector('span');
+  return (span && span.textContent.trim()) || el.id.replace(/^f-/, '');
+}
 
 function readRect() {
   if (!$('f-has-photo').checked) return null;
@@ -342,6 +376,16 @@ async function save(e) {
   e.preventDefault();
   const d = S.editing;
   if (!d) return;
+  // Nothing below runs if the browser rejects the form first, and its own
+  // message for a number field is unhelpful — so check ourselves and say
+  // which field is wrong. A Save button that does nothing is the worst
+  // possible answer.
+  const bad = $('edit-form').querySelector(':invalid');
+  if (bad) {
+    bad.focus();
+    return toast(`Check the ${labelFor(bad)} field — ${bad.validationMessage}`,
+                 'warn');
+  }
   const slug = $('f-slug').value.trim();
   if (!slug) return toast('A slug is needed — it identifies the design.', 'warn');
 
@@ -386,8 +430,7 @@ async function save(e) {
     const fresh = S.designs.find((x) => x.design_id === saved.design_id);
     edit(fresh || saved);
   } catch (err) {
-    if (err.status === 404 && !d.design_id) signOut();
-    else toast(err.message || 'Could not save.', 'warn');
+    await adminError(err, 'Could not save.');
   } finally {
     $('btn-save').disabled = false;
   }
@@ -405,7 +448,7 @@ async function retire() {
     await refresh();
     closeEditor();
   } catch (err) {
-    toast(err.message || 'Could not retire.', 'warn');
+    await adminError(err, 'Could not retire.');
   }
 }
 

@@ -176,7 +176,7 @@
               <label class="field">
                 <span>Slug</span>
                 <input id="f-slug" spellcheck="false" placeholder="romance-gold">
-                <small class="muted">Stable id. Re-using one replaces that design.</small>
+                <small id="slug-hint" class="muted">Stable id. Re-using one replaces that design.</small>
               </label>
 
               <label class="field">
@@ -234,7 +234,7 @@
               <div class="field row">
                 <label class="col">
                   <span>Sort order</span>
-                  <input id="f-order" type="number" step="10">
+                  <input id="f-order" type="number" step="1" min="0">
                   <small class="muted">Lower comes first.</small>
                 </label>
                 <label class="col check-col">

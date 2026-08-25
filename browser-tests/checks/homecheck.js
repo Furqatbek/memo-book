@@ -30,4 +30,6 @@ const { chromium } = require('playwright');
   await page.screenshot({ path: SHOTS + '/41-home-btn-editor.png' });
   console.log('errors:', errors.length ? errors : 'none');
   await browser.close();
+  if (errors.length) throw new Error('page errors');
+  console.log('HOME LINK CHECK PASSED');
 })().catch((e) => { console.error('FAILED', e); process.exit(1); });

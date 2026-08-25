@@ -25,6 +25,7 @@ const NEEDS_SITE = new Set(['sitecheck']);
 // Checks that need a specific server configuration to mean anything.
 const NEEDS = {
   admincheck: 'ADMIN_TOKEN=dev-admin (the dev server sets this by default)',
+  adminwiring: 'ADMIN_TOKEN=dev-admin (it drives the console as an operator)',
   // These two seed their own catalogue through the admin API rather than
   // depending on designs someone uploaded by hand.
   designflow: 'ADMIN_TOKEN=dev-admin (it seeds its own cover designs)',

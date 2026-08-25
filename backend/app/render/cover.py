@@ -20,8 +20,8 @@ from reportlab.lib.colors import Color, HexColor
 from reportlab.pdfgen import canvas as pdfcanvas
 
 from app.config import get_settings
-from app.domain.geometry import TRIM_H_MM, TRIM_W_MM, mm_to_px
 from app.domain.cover_templates import FULL_RECT, photo_rect_for, title_on_photo
+from app.domain.geometry import TRIM_H_MM, TRIM_W_MM, mm_to_px
 from app.domain.tiers import sides_per_sheet
 from app.render.compose import RenderError, _fit_cover, hex_to_rgb
 from app.render.interior import (

@@ -630,6 +630,13 @@ switched-off admin are indistinguishable, so the console is not an oracle
 for whether an admin API lives at this host. Comparison is constant-time and
 attempts are rate-limited per IP.
 
+That secrecy costs the console one thing, so it pays for it explicitly: a
+token revoked mid-session is indistinguishable from "no such design". Every
+handler therefore routes its failure through one helper, which on a 404 asks
+`/admin/ping` whether the session is still good and, if it is not, says so
+and signs out. Without that, a revoked operator would spend the afternoon
+reading "not found" and concluding the catalogue had vanished.
+
 The token is a single shared secret in `.env`, not accounts — there is one
 operator, and a login system would be more code to get wrong than it would
 protect. It rides in `X-Admin-Token` and is kept in localStorage, which is
@@ -650,6 +657,17 @@ renderer does. Upload validation is shared code (`build_renditions`), not a
 second implementation, so the console and the CLI cannot disagree about what
 artwork is acceptable — the alternative is learning the difference from a
 printed book.
+
+The slug is editable while creating a design and locked afterwards. It names
+the artwork in storage and is what `POST /cover-designs` upserts on, so a
+typed-over slug would either create a second design or overwrite an unrelated
+one — and `PATCH` does not carry it at all, meaning an editable field would
+have accepted a new value, reported "Saved", and changed nothing. A field
+that lies about what it did is worse than a field that is disabled, so it is
+disabled, with a line of text saying why and pointing at the name instead.
+The console applies the same rule to its own inputs generally: a control that
+cannot take effect is greyed out, and a refused save names the field it
+stumbled on rather than failing silently.
 
 Uploads are `multipart/form-data` to the API rather than a presigned PUT.
 Photos use presigned PUTs because customers upload dozens at a time from
