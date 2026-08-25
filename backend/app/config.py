@@ -98,6 +98,14 @@ class Settings(BaseSettings):
     # but refuses to create an order (A74).
     prices_confirmed: bool = False
 
+    # How long an order may sit in `rendering` before the watchdog declares
+    # the worker dead and moves it to render_failed, which alerts and is
+    # retryable (A76). This is a "certainly dead" threshold, not a deadline:
+    # a real render of the largest book takes a couple of minutes, and a job
+    # that is merely slow rather than dead walks itself back when it
+    # finishes. Err generous.
+    render_stall_after_s: int = 1800
+
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 

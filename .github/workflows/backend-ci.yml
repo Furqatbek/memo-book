@@ -5,13 +5,16 @@ on:
     branches:
       - main
       - claude/memo-book-project-duulu7
-    paths:
+    # tests/test_deploy_config.py asserts properties of deploy/ — the env
+    # template, the compose file, the bootstrap script. Triggering only on
+    # backend/** meant the test guarding those files never ran when those
+    # files changed, which is the one moment it exists for.
+    paths: &watched
       - "backend/**"
+      - "deploy/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
+    paths: *watched
 
 jobs:
   test:
@@ -50,7 +53,9 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Lint
-        run: ruff check app tests
+        # scripts/ too: it is linted locally and shipped in the image, so
+        # leaving it out of CI meant the two disagreed about what passes.
+        run: ruff check app tests scripts
 
       - name: Migrations run against real Postgres (the deploy boot command)
         env:

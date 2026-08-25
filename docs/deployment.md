@@ -280,6 +280,28 @@ Restic deduplicates, so the second night's backup of a 20 GB photo store
 costs megabytes, not 20 GB; failures are reported to the same Telegram chat
 as orders, because a backup nobody is told has stopped is not a backup.
 
+### When an order gets stuck
+
+A paid order can stop moving for reasons nobody chose: the render crashes,
+the worker is killed mid-job, or the message carrying the print files to the
+printer exhausts its retries. All three used to be silent. Now:
+
+- you get a Telegram alert (order reference only — open the console for the
+  rest);
+- the console shows a panel above the orders list with everything stuck,
+  **including messages that were never delivered** — which is the case a
+  Telegram alert cannot report, because it is Telegram that is broken;
+- a render that stops making progress is moved to `render_failed` by the
+  watchdog within about five minutes, where it is retryable from the console.
+
+The panel is hidden when there is nothing wrong. If you want to check
+deliberately, hit Refresh on the orders list.
+
+`RENDER_STALL_AFTER_S` (default 1800) is how long a render may run before the
+watchdog assumes the worker died. It is a "certainly dead" threshold, not a
+deadline — a render that turns out to be merely slow finishes normally and
+puts itself back.
+
 ### Logs and reboots
 
 Every long-running container is `restart: unless-stopped` and `bootstrap.sh`

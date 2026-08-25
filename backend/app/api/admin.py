@@ -38,6 +38,7 @@ from app.domain.states import OrderStatus
 from app.models.cover_design import CoverDesign
 from app.rate_limit import rate_limit
 from app.services import admin_orders as admin_orders_svc
+from app.services.attention import needs_attention
 from app.services.cover_designs import (
     ARTWORK_H_MM,
     ARTWORK_H_PX,
@@ -223,6 +224,16 @@ async def admin_orders(status: str | None = Query(default="open"),
     orders = await admin_orders_svc.list_orders(session, status=status,
                                                 query=q, limit=limit)
     return {"orders": orders, "statuses": [s.value for s in OrderStatus]}
+
+
+@router.get("/attention", dependencies=[Admin])
+async def admin_attention(session: AsyncSession = Session) -> dict:
+    """Everything stuck, including the alerts that never arrived (A76).
+
+    Deliberately not derivable from the orders list: a message that failed to
+    reach the printer leaves the order looking perfectly healthy.
+    """
+    return await needs_attention(session)
 
 
 @router.get("/orders/{human_ref}", dependencies=[Admin])

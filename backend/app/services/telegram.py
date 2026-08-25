@@ -70,3 +70,19 @@ def _post_telegram(text: str) -> None:
 
 def send_production_notification(payload: dict) -> None:
     _post_telegram(build_production_message(payload))
+
+
+def build_attention_message(payload: dict) -> str:
+    """Short, and free of customer PII: the operator opens the console to see
+    the rest, and unlike this chat the console is authenticated (A76)."""
+    lines = [f"⚠️ Order {payload['human_ref']} needs you",
+             f"Status: {payload.get('status', 'unknown')}",
+             f"What happened: {payload.get('reason', 'unknown')}"]
+    if payload.get("detail"):
+        lines.append(f"Detail: {payload['detail']}")
+    lines.append("Open the admin console → Orders to retry or cancel.")
+    return "\n".join(lines)
+
+
+def send_attention_alert(payload: dict) -> None:
+    _post_telegram(build_attention_message(payload))

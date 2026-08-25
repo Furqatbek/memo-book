@@ -103,8 +103,15 @@ async def queue_reminders(session: AsyncSession,
 
 async def run_nightly(session: AsyncSession,
                       now: datetime | None = None) -> dict:
+    # The watchdog also runs in the outbox worker, every few minutes, which
+    # is where a stalled render is actually caught. It runs here too so a
+    # deployment that only schedules this job by cron — no long-running
+    # worker — still notices, a day late rather than never (A76).
+    from app.services.fulfillment import reap_stalled_renders
+
     expired = await expire_drafts(session, now=now)
     reminders = await queue_reminders(session, now=now)
+    stalled = await reap_stalled_renders(session, now=now)
     delivered = await outbox.deliver_pending(session)
     return {"expired": expired, "reminders_queued": reminders,
-            "outbox_delivered": delivered}
+            "stalled_renders_reaped": stalled, "outbox_delivered": delivered}

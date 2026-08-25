@@ -269,3 +269,28 @@ input[type=color] {
   }
   .preview-col { width: 100%; max-width: 300px; }
 }
+
+/* ---------- what needs a person (A76) ---------- *
+ * Hidden entirely when there is nothing wrong. A panel that is always on
+ * screen is a panel the operator stops seeing, and this one has to be
+ * believed on the day it finally says something. */
+.attention {
+  border: 1px solid #f0d48a; background: var(--warn-bg); color: var(--warn-ink);
+  border-radius: var(--radius); padding: 10px; display: flex;
+  flex-direction: column; gap: 8px;
+}
+.attention-head { display: flex; align-items: center; justify-content: space-between; }
+.attention ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.attention li {
+  background: #fff; border: 1px solid #f0d48a; border-radius: 8px;
+  padding: 8px; display: flex; flex-direction: column; gap: 2px;
+  font-size: 13px; line-height: 1.35;
+}
+.attention li.clickable { cursor: pointer; }
+.attention li.clickable:hover { border-color: var(--warn-ink); }
+.attention li small { color: var(--muted); }
+/* The raw error is for when the summary is not enough — present, not loud. */
+.attention li small.detail {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+  word-break: break-word;
+}

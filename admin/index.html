@@ -44,6 +44,16 @@
     <!-- ============ ORDERS ============ -->
     <main class="main" id="tab-orders">
       <aside class="list-pane wide">
+        <!-- A76. The operator also gets these on Telegram — except when
+             Telegram is what is broken, which is exactly when an order is
+             most likely to be stuck. This does not depend on it. -->
+        <div id="attention" class="attention hidden">
+          <div class="attention-head">
+            <b id="attention-count"></b>
+            <button id="btn-attention-refresh" class="btn small">Re-check</button>
+          </div>
+          <ul id="attention-list"></ul>
+        </div>
         <div class="pane-head">
           <b>Orders</b>
           <button id="btn-orders-refresh" class="btn small">Refresh</button>

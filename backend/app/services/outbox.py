@@ -15,12 +15,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.outbox import OutboxMessage, OutboxStatus
-from app.services.telegram import send_production_notification
+from app.services.telegram import send_attention_alert, send_production_notification
 
 log = structlog.get_logger()
 
 TOPIC_ORDER_RENDERED = "order.rendered"
 TOPIC_BOOK_REMINDER = "book.reminder"
+TOPIC_ORDER_ATTENTION = "order.attention"
 
 
 def _send_reminder(payload: dict) -> None:
@@ -38,6 +39,7 @@ MAX_ATTEMPTS = 8
 HANDLERS: dict[str, Callable[[dict], None]] = {
     TOPIC_ORDER_RENDERED: send_production_notification,
     TOPIC_BOOK_REMINDER: _send_reminder,
+    TOPIC_ORDER_ATTENTION: send_attention_alert,
 }
 
 
@@ -93,6 +95,19 @@ async def deliver_pending(session: AsyncSession, limit: int = 20) -> int:
         delivered += 1
         log.info("outbox.sent", message_id=str(message.id), topic=message.topic)
     return delivered
+
+
+def attention_payload(order, reason: str, detail: str | None = None) -> dict:
+    """Deliberately thin. This message says an order needs a person and which
+    one; the details live in the admin console, which is authenticated. A
+    Telegram chat is not, particularly, so it carries no customer PII beyond
+    the reference the operator needs to look the order up."""
+    return {
+        "human_ref": order.human_ref,
+        "status": order.status,
+        "reason": reason,
+        "detail": (detail or "")[:500] or None,
+    }
 
 
 def rendered_payload(order, book, interior_key: str, cover_key: str) -> dict:

@@ -20,14 +20,35 @@ from app.services.cover_designs import (
 TOKEN = "test-admin-token"
 AUTH = {"X-Admin-Token": TOKEN}
 
-# Every route the console can reach, so a new one cannot quietly skip the lock.
-ROUTES = [
-    ("GET", "/api/v1/admin/ping"),
-    ("GET", "/api/v1/admin/cover-designs"),
-    ("POST", "/api/v1/admin/cover-designs"),
-    ("PATCH", "/api/v1/admin/cover-designs/00000000-0000-0000-0000-000000000001"),
-    ("DELETE", "/api/v1/admin/cover-designs/00000000-0000-0000-0000-000000000001"),
-]
+def _admin_routes() -> list[tuple[str, str]]:
+    """Every admin route, read from the router rather than typed out here.
+
+    This list used to be written by hand, with a comment promising that a new
+    route could not quietly skip the lock. Then the orders section (A73)
+    added seven routes and none of them were added to the list, so for the
+    whole of its life the most important assertion in this file was not
+    running against the part of the API that hands out customer addresses and
+    print files. Deriving it removes the promise and keeps the property.
+    """
+    from app.api.admin import router
+
+    placeholders = {"design_id": "00000000-0000-0000-0000-000000000001",
+                    "human_ref": "UB-NOPE1"}
+    found: list[tuple[str, str]] = []
+    for route in router.routes:
+        path = route.path
+        for name, value in placeholders.items():
+            path = path.replace("{" + name + "}", value)
+        assert "{" not in path, (
+            f"{route.path} has a path parameter this test cannot fill in — "
+            "add it to `placeholders`")
+        for method in sorted(route.methods - {"HEAD", "OPTIONS"}):
+            found.append((method, path))
+    assert found, "no admin routes found — did the router move?"
+    return sorted(found)
+
+
+ROUTES = _admin_routes()
 
 
 @pytest.fixture

@@ -43,6 +43,12 @@ def main() -> None:
     os.environ.setdefault("ADMIN_DIR", str(BACKEND.parent / "admin"))
     # A local console needs a token; production sets its own in .env.
     os.environ.setdefault("ADMIN_TOKEN", "dev-admin")
+    # 60/min is right in production — it exists to make guessing the token
+    # expensive, and one operator never comes close. The browser checks drive
+    # the console far faster than a person can, and three admin checks in the
+    # same minute trip it, which reads as a broken feature rather than a
+    # working rate limiter. The limiter itself is covered by test_hardening.
+    os.environ.setdefault("RATE_LIMIT_ADMIN_PER_MIN", "1000")
     # Dev sells happily at placeholder prices — there is no money here (A74).
     os.environ.setdefault("PRICES_CONFIRMED", "true")
 

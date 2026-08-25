@@ -790,3 +790,67 @@ reported to the operator's Telegram, because a backup nobody is told has
 stopped is indistinguishable from no backup. `restore.sh --drill` exists so
 the restore path is exercised on a normal Tuesday rather than discovered on
 the worst day of the year.
+
+**A76 — Nothing on the money path fails quietly.** The state machine has
+always declared what entering a status *means* (`EFFECTS_ON_ENTER`) and left
+the doing to the service layer. That split is right. It has exactly one
+failure mode, and the codebase had it: **`Effect.ALERT_OPERATOR` was
+declared on entering `render_failed` from the first day and executed by
+nothing.** The single place that received it wrote a log line and a comment
+promising the wiring later. A customer's paid order could fail to render and
+the only trace was a log nobody reads.
+
+Three ways a paid order could stop moving in silence, all now closed:
+
+* **The render raised.** The order went to `render_failed` and the declared
+  alert went nowhere.
+* **The render worker was killed** — OOM, a deploy, a reboot. The order sat
+  in `rendering` with nothing to finish it, nothing to retry it, and nothing
+  to notice. It looks busy forever.
+* **The message to the printer gave up.** After eight attempts the outbox
+  abandons a message. The order stays `rendered`, which looks entirely
+  healthy, and the printer has heard nothing.
+
+**Effects are executed from a registry, not by hand at each call site**
+(`app/services/effects.py`), and a test asserts every declared effect has an
+executor. Declaring an effect nobody runs now fails the suite, which is when
+the mistake is cheap. The registry also records *when* each effect runs,
+because two of them sit on opposite sides of one commit and putting either on
+the wrong side is a silent race rather than an error: an outbox row must be
+written in the same transaction as the status it announces, and a queue job
+must not be dispatched until that transaction is durable — enqueue first and
+the worker can read the order in its pre-paid state and quietly do nothing.
+
+**The watchdog re-labels; it does not kill.** A render past
+`RENDER_STALL_AFTER_S` is moved to `render_failed`, which is retryable and
+loud. The threshold is therefore a "certainly dead" figure, not a deadline —
+30 minutes against real renders measured in a couple of minutes. It will
+still occasionally be wrong about a job that is merely slow, so a render that
+finishes after being declared stalled **walks itself back through
+`rendering`**, the legal route, rather than overwriting the watchdog's status
+behind its back. Without that the finishing job raises `IllegalTransition`
+and the completed render is lost; the test that covers it fails exactly that
+way when the walk-back is removed.
+
+**The console carries its own view, and this is the load-bearing part.** An
+alert cannot report that alerting is broken. If the bot token is wrong or the
+network to Telegram is down, every alert retries and is abandoned, including
+the one carrying the print files. So `/admin/attention` reads the database
+directly — failed renders, stalled renders, and outbox messages that gave up
+— and the console shows it above the orders list. It is **hidden entirely
+when there is nothing wrong**: a panel that is always on screen is one the
+operator stops seeing, and this one has to be believed on the day it finally
+says something. Abandoned messages are described by what they mean ("the
+printer was never sent this order's files"), not by their topic —
+`order.rendered` reads like good news.
+
+Alerts carry the order reference and no other customer PII. A Telegram chat
+is not an authenticated surface; the console is, and it is one tap away.
+
+**The lock test now derives its route list from the router.** It used to be
+typed out by hand under a comment promising that no new route could skip the
+lock. The orders section (A73) then added six routes and none were added to
+the list, so the most important assertion in that file had not run against
+the endpoints that hand out customer addresses and print files. Deriving the
+list drops the promise and keeps the property: 5 routes covered before, 11
+after.

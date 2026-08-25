@@ -99,3 +99,8 @@ export const setOrderStatus = (ref, target, note) =>
 
 export const resendToPrinter = (ref) =>
   request('POST', `${V}/orders/${encodeURIComponent(ref)}/resend`);
+
+/* Everything stuck, including alerts that never arrived (A76). Not derivable
+   from the orders list: a message that failed to reach the printer leaves the
+   order looking perfectly healthy. */
+export const attention = () => request('GET', `${V}/attention`);

@@ -107,6 +107,62 @@ export async function refreshOrders(deps) {
     return;
   }
   renderOrderList(deps);
+  await refreshAttention(deps);
+}
+
+/* A76. Everything stuck, at the top of the screen the operator already
+   opens. Silent when there is nothing — a panel that is always there is a
+   panel nobody reads. */
+export async function refreshAttention(deps) {
+  const panel = $('attention');
+  if (!panel) return;
+  let body;
+  try {
+    body = await api.attention();
+  } catch (e) {
+    // Never let this break the orders list: it is a helper, not the job.
+    if (e.status === 404) return;
+    return;
+  }
+  const items = body.items || [];
+  panel.classList.toggle('hidden', items.length === 0);
+  if (!items.length) return;
+
+  $('attention-count').textContent = items.length === 1
+    ? '1 thing needs you'
+    : `${items.length} things need you`;
+
+  const list = $('attention-list');
+  list.innerHTML = '';
+  for (const item of items) {
+    const li = document.createElement('li');
+    const ref = document.createElement('b');
+    ref.textContent = item.human_ref || '—';
+    li.append(ref);
+
+    const what = document.createElement('span');
+    what.textContent = ` ${item.summary}`;
+    li.append(what);
+
+    if (item.action) {
+      const action = document.createElement('small');
+      action.className = 'muted';
+      action.textContent = item.action;
+      li.append(action);
+    }
+    if (item.detail) {
+      const detail = document.createElement('small');
+      detail.className = 'muted detail';
+      detail.textContent = item.detail;
+      li.append(detail);
+    }
+    // Clicking opens the order, which is where every fix lives.
+    if (item.human_ref) {
+      li.className = 'clickable';
+      li.addEventListener('click', () => openOrder(item.human_ref, deps));
+    }
+    list.append(li);
+  }
 }
 
 /* "Open" and "All" answer most days; the rest let the operator ask a real
@@ -287,6 +343,8 @@ async function resend(deps) {
 
 export function bindOrders(deps) {
   $('btn-orders-refresh').addEventListener('click', () => refreshOrders(deps));
+  $('btn-attention-refresh').addEventListener('click',
+    () => refreshAttention(deps));
   $('btn-resend').addEventListener('click', () => resend(deps));
   $('o-status').addEventListener('change', (e) => {
     S.status = e.target.value;

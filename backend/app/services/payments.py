@@ -18,16 +18,15 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import queue
 from app.domain.errors import DomainError, ErrorCode
 from app.domain.money import assert_amount_matches
-from app.domain.states import BookStatus, Effect, OrderStatus, transition_book
+from app.domain.states import BookStatus, OrderStatus, transition_book
 from app.models.book import Book
 from app.models.order import Order
 from app.models.payment import PaymentEvent
 from app.payments.base import ParsedEvent
 from app.payments.registry import get_provider
-from app.services.fulfillment import run_order_render
+from app.services.effects import When, run_effects
 from app.services.orders import apply_transition
 
 log = structlog.get_logger()
@@ -132,11 +131,11 @@ async def mark_paid(session: AsyncSession, order: Order, *, note: str,
     await session.commit()
     log.info("payment.paid", order=order.human_ref, note=note)
 
-    if Effect.ENQUEUE_RENDER in effects:  # exactly once per paid transition
-        if queue.eager():
-            await run_order_render(session, order.id)
-        else:
-            queue.enqueue_order_render(order.id)
+    # ENQUEUE_RENDER runs only after the commit above: a worker that picked
+    # the job up first would read the order in its pre-paid state and quietly
+    # do nothing (A76). Exactly once per paid transition, because the state
+    # machine refuses a second one.
+    await run_effects(session, order, effects, When.AFTER_COMMIT)
 
     await session.refresh(order)
 

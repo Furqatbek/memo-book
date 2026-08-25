@@ -34,6 +34,7 @@ const NEEDS = {
   pricegate: 'PRICES_CONFIRMED=false (the dev server sets it true)',
   admincheck: 'ADMIN_TOKEN=dev-admin (the dev server sets this by default)',
   adminwiring: 'ADMIN_TOKEN=dev-admin (it drives the console as an operator)',
+  attention: 'ADMIN_TOKEN=dev-admin (it signs into the console)',
   // These two seed their own catalogue through the admin API rather than
   // depending on designs someone uploaded by hand.
   designflow: 'ADMIN_TOKEN=dev-admin (it seeds its own cover designs)',
