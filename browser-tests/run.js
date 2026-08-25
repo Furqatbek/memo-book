@@ -25,6 +25,10 @@ const NEEDS_SITE = new Set(['sitecheck']);
 // Checks that need a specific server configuration to mean anything.
 const NEEDS = {
   admincheck: 'ADMIN_TOKEN=dev-admin (the dev server sets this by default)',
+  // These two seed their own catalogue through the admin API rather than
+  // depending on designs someone uploaded by hand.
+  designflow: 'ADMIN_TOKEN=dev-admin (it seeds its own cover designs)',
+  designswap: 'ADMIN_TOKEN=dev-admin (it seeds its own cover designs)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',

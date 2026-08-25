@@ -34,6 +34,7 @@ because they test behaviour that only exists when it is switched on:
 | Check | Needs |
 |---|---|
 | `admincheck` | `ADMIN_TOKEN` — the dev server sets `dev-admin` by default |
+| `designflow`, `designswap` | `ADMIN_TOKEN` — they seed their own cover designs through the admin API |
 | `autoflow` | `AUTO_CONFIRM_ORDERS=true` |
 | `ordersadmin` | `AUTO_CONFIRM_ORDERS=false` |
 | `paycard` | `PAY_CARD_NUMBER`, `PAY_CARD_HOLDER` |
