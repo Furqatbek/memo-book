@@ -34,7 +34,7 @@ from app.models.order import Order, OrderEvent
 from app.services.books import get_book_authed
 from app.services.placement import _usable_photos
 from app.services.preview import PREVIEW_READY
-from app.services.pricing import price_minor_for_tier
+from app.services.pricing import price_minor_for_tier, require_sellable_prices
 
 # No 0/O/1/I — the ref is read over the phone.
 REF_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
@@ -108,6 +108,11 @@ def _require_complete_pages(book: Book, usable_photo_ids: set[str]) -> None:
 async def checkout(session: AsyncSession, book_id: uuid.UUID, edit_token: str, *,
                    name: str, phone: str, address: str, email: str | None,
                    confirmed_preview: bool) -> Order:
+    # Asked before anything else, and before the book is even looked up: if
+    # the shop is not open, every check below is work done to reach a refusal.
+    # There is nothing to leak — it is the same answer for everybody (A74).
+    require_sellable_prices()
+
     book = await get_book_authed(session, book_id, edit_token)
     if book.status != BookStatus.DRAFT.value:
         raise DomainError(ErrorCode.BOOK_LOCKED,

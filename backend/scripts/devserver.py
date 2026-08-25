@@ -43,6 +43,8 @@ def main() -> None:
     os.environ.setdefault("ADMIN_DIR", str(BACKEND.parent / "admin"))
     # A local console needs a token; production sets its own in .env.
     os.environ.setdefault("ADMIN_TOKEN", "dev-admin")
+    # Dev sells happily at placeholder prices — there is no money here (A74).
+    os.environ.setdefault("PRICES_CONFIRMED", "true")
 
     import threading
 

@@ -83,12 +83,20 @@ class Settings(BaseSettings):
     spine_mm_48: float = 8.0
     spine_mm_96: float = 14.0
 
-    # PLACEHOLDER prices per tier, UZS in tiyin (1 sum = 100 tiyin).
+    # PLACEHOLDER prices per SHEET tier, UZS in tiyin (1 sum = 100 tiyin).
     # Set the real prices before going live.
     price_minor_16: int = 29_900_000   # 299,000 UZS
     price_minor_32: int = 39_900_000   # 399,000 UZS
     price_minor_48: int = 49_900_000   # 499,000 UZS
     price_minor_96: int = 79_900_000   # 799,000 UZS
+
+    # The switch that says the numbers above are real. Off by default, and
+    # deliberately separate from the numbers themselves: a placeholder price
+    # is a perfectly valid integer, so nothing else can tell the difference
+    # between "299,000 because that is the price" and "299,000 because
+    # somebody had to write something". While it is off the API quotes prices
+    # but refuses to create an order (A74).
+    prices_confirmed: bool = False
 
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""

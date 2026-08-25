@@ -27,7 +27,7 @@ const PHOTOS = Array.from({ length: 4 }, (_, i) =>
 
   await page.setInputFiles('#file-input', PHOTOS);
   await page.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('4 '),
+    () => document.getElementById('tray-count').textContent.startsWith('4 '), undefined,
     { timeout: 90000 });
 
   // go to page 1 (layout button is hidden on the cover)
@@ -51,7 +51,7 @@ const PHOTOS = Array.from({ length: 4 }, (_, i) =>
   await page.waitForTimeout(300);
   await page.click('#tray-grid .ph-card:nth-child(2)');
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 20000 });
   const onCanvas = await page.$$eval('#page-canvas .placement', (els) => els.length);
   console.log('3. placements on canvas:', onCanvas);

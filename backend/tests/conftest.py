@@ -88,6 +88,9 @@ async def client(sessionmaker, s3, monkeypatch):
 
     monkeypatch.setenv("TASK_EAGER", "true")  # queue jobs run inline in tests
     monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")  # dedicated tests re-enable
+    # The shop is shut by default (A74); tests about checkout are testing
+    # checkout, so open it here and let the guard's own tests turn it back off.
+    monkeypatch.setenv("PRICES_CONFIRMED", "true")
     get_settings.cache_clear()
     app = create_app()
 

@@ -12,7 +12,7 @@ const PHOTOS = Array.from({ length: 16 }, (_, i) =>
 
   // tier cards show .env prices
   await page.waitForFunction(
-    () => document.querySelector('[data-tier-price="16"]').textContent.length > 0,
+    () => document.querySelector('[data-tier-price="16"]').textContent.length > 0, undefined,
     { timeout: 10000 });
   const p16 = await page.$eval('[data-tier-price="16"]', (el) => el.textContent);
   const p96 = await page.$eval('[data-tier-price="96"]', (el) => el.textContent);
@@ -29,15 +29,15 @@ const PHOTOS = Array.from({ length: 16 }, (_, i) =>
   await page.waitForSelector('#screen-editor.active');
   await page.setInputFiles('#file-input', PHOTOS);
   await page.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('16 '),
+    () => document.getElementById('tray-count').textContent.startsWith('16 '), undefined,
     { timeout: 120000 });
   await page.click('#btn-autofill');
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
   await page.click('#btn-preview');
   await page.waitForFunction(
-    () => document.getElementById('pv-price').textContent.length > 0,
+    () => document.getElementById('pv-price').textContent.length > 0, undefined,
     { timeout: 15000 });
   const pv = await page.$eval('#pv-price', (el) => el.textContent);
   console.log('preview footer price:', JSON.stringify(pv));

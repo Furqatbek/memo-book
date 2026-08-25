@@ -24,19 +24,19 @@ const PHOTOS = Array.from({ length: 32 }, (_, i) =>
   await page.waitForSelector('#screen-editor.active');
   await page.setInputFiles('#file-input', PHOTOS);
   await page.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('32 '),
+    () => document.getElementById('tray-count').textContent.startsWith('32 '), undefined,
     { timeout: 120000 });
   await page.click('#btn-autofill');
   // wait for the auto-place result to be adopted, not just for "saved"
   await page.waitForFunction(
-    () => document.querySelectorAll('#filmstrip .film-item img').length >= 32,
+    () => document.querySelectorAll('#filmstrip .film-item img').length >= 32, undefined,
     { timeout: 30000 });
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
   await page.click('#btn-preview');
   await page.waitForFunction(
-    () => document.querySelectorAll('#pv-grid figure').length >= 32,
+    () => document.querySelectorAll('#pv-grid figure').length >= 32, undefined,
     { timeout: 120000 });
 
   // checkout screen shows the highlighted card-transfer hint
@@ -59,7 +59,7 @@ const PHOTOS = Array.from({ length: 32 }, (_, i) =>
     const done = document.querySelectorAll('#or-timeline li.done').length;
     const now = document.querySelector('#or-timeline li.now');
     return done >= 2 && now; // paid + preparing done/underway
-  }, { timeout: 60000 });
+  }, undefined, { timeout: 60000 });
   const timeline = await page.$$eval('#or-timeline li', (els) =>
     els.map((el) => `${el.className || '-'}:${el.textContent}`).slice(0, 4));
   console.log('timeline:', timeline);

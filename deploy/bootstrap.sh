@@ -57,6 +57,17 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 docker compose version >/dev/null 2>&1 || die "docker compose plugin missing — install docker-compose-plugin"
 
+# `restart: unless-stopped` only brings containers back if the daemon itself
+# starts. Distro packages usually enable it; a VPS image with a trimmed
+# systemd preset may not, and the symptom — the site simply gone after a
+# reboot nobody remembers — is expensive to diagnose. Enabling it is
+# idempotent, so we just do it every run.
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl enable docker >/dev/null 2>&1 \
+    && say "docker will start on boot" \
+    || warn "could not enable docker at boot — check 'systemctl enable docker'"
+fi
+
 # ---------- firewall (only if ufw exists and is already active) -------------
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q 'Status: active'; then
   ufw allow 22/tcp >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null
@@ -80,10 +91,15 @@ if [ ! -f "$ENV" ]; then
   PG_PW=$(openssl rand -hex 24)
   MINIO_PW=$(openssl rand -hex 24)
   DEV_PW=$(openssl rand -hex 24)
+  # Without this the admin console does not exist: an empty ADMIN_TOKEN
+  # switches every admin route to 404 on purpose (A72), which is the right
+  # failure for a forgotten secret and a terrible one for a fresh install.
+  ADMIN_TOKEN=$(openssl rand -hex 24)
   sed -e "s/^DOMAIN=.*/DOMAIN=$DOMAIN/" \
       -e "s/CHANGE_ME_PG/$PG_PW/g" \
       -e "s/CHANGE_ME_MINIO/$MINIO_PW/g" \
       -e "s/CHANGE_ME_SECRET/$DEV_PW/g" \
+      -e "s/CHANGE_ME_ADMIN/$ADMIN_TOKEN/g" \
       -e "s/rspixel\.uz/$DOMAIN/g" \
       "$DIR/deploy/.env.prod.example" > "$ENV"
   chmod 600 "$ENV"
@@ -97,7 +113,7 @@ cd "$DIR/deploy"
 docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 
 say "Waiting for the API"
-for i in $(seq 1 60); do
+for _ in $(seq 1 60); do
   if docker compose -f docker-compose.prod.yml exec -T api curl -sf http://localhost:8000/health >/dev/null 2>&1; then
     break
   fi
@@ -123,13 +139,21 @@ cat <<DONE
     cd $DIR/deploy && docker compose -f docker-compose.prod.yml exec api \\
         python scripts/order_status.py REF sent_to_production|shipped|delivered
 
+  Admin console:   https://$DOMAIN/admin
+    Sign in with ADMIN_TOKEN from deploy/.env:
+        grep '^ADMIN_TOKEN=' $DIR/deploy/.env
+
   Next steps (see $DIR/docs/deployment.md):
+    - BACKUPS. Nothing is being backed up until you do this:
+        set RESTIC_REPOSITORY + RESTIC_PASSWORD in deploy/.env (somewhere
+        that is NOT this VPS), then:  $DIR/deploy/install-backup.sh
     - set TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID in deploy/.env, then:
         docker compose -f docker-compose.prod.yml up -d
         docker compose -f docker-compose.prod.yml exec api python scripts/telegram_check.py
     - set PAY_CARD_NUMBER / PAY_CARD_HOLDER (shown on the order page)
-    - set real PRICE_MINOR_* and the printer's SPINE_MM_* the same way
-    - set up the backup crontab from the deployment guide
+    - set the printer's real SPINE_MM_* (docs/printer-questions.md Q1)
+    - set real PRICE_MINOR_*, then PRICES_CONFIRMED=true — until you do,
+      checkout refuses on purpose and no order can be placed.
 DONE
 if [ "$DNS_OK" = 0 ]; then
   warn "Reminder: DNS was not fully pointing here — HTTPS activates once it is."

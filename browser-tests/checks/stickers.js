@@ -58,7 +58,7 @@ const PHOTOS = [path.join(__dirname, '..', 'fixtures', 'photo00.jpg')];
 
   // --- server roundtrip ---
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
   const creds = await page.evaluate(() => JSON.parse(localStorage.getItem('mb-book')));
   const book = await (await fetch(`http://127.0.0.1:8000/api/v1/books/${creds.book_id}`,

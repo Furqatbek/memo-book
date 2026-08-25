@@ -225,15 +225,69 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # update
 docker compose -f docker-compose.prod.yml up -d --scale worker=3      # more render throughput
 ```
 
-**Backups** (nightly crontab; database + photos/PDFs are the two things
-that matter):
+### Backups
+
+Two things are irreplaceable: the database (orders, books, the audit trail
+of who paid what) and the object store (customers' photos and the print
+PDFs). Both are backed up nightly, encrypted, to somewhere that is **not
+this VPS** — a backup that lives on the machine it is protecting only
+survives a bad deploy, not a dead server or a lost provider account.
+
+Pick a destination and put it in `deploy/.env`:
 
 ```bash
-0 3 * * * docker exec memobook-postgres-1 pg_dump -U memobook memobook | gzip > /backup/db-$(date +\%F).sql.gz
-30 3 * * * tar czf /backup/minio-$(date +\%F).tar.gz -C /var/lib/docker/volumes/memobook_minio_data/_data .
+# Any S3-compatible bucket — Backblaze B2, Wasabi, Hetzner, AWS:
+RESTIC_REPOSITORY=s3:https://s3.eu-central-003.backblazeb2.com/my-bucket/rspixel
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+
+# …or another machine you can ssh into with a key:
+RESTIC_REPOSITORY=sftp:backup@other-host:/srv/rspixel
+
+RESTIC_PASSWORD=a-long-random-string
 ```
 
-Copy `/backup` somewhere off the VPS regularly.
+Then:
+
+```bash
+deploy/install-backup.sh     # installs restic, the crontab, log rotation,
+                             # runs one real backup and rehearses a restore
+```
+
+**Write `RESTIC_PASSWORD` down somewhere that is not this server.** Without
+it the backups are unreadable — by you as well as by whoever steals them.
+
+Day to day:
+
+```bash
+deploy/restore.sh --list        # what snapshots exist
+deploy/restore.sh --drill       # rehearse a restore, change nothing
+deploy/backup.sh --check        # verify the repository (also runs Sundays)
+tail -f /var/log/memobook-backup.log
+```
+
+Restoring for real:
+
+```bash
+deploy/restore.sh --db      latest    # stops the writers, pg_restore, starts
+deploy/restore.sh --objects latest    # stops minio, restores photos, starts
+```
+
+Run `--drill` after setting this up and once a quarter after that. Every way
+this can be broken — wrong password, half-configured repository, a dump
+nothing can read — looks exactly like success until the day you need it.
+Restic deduplicates, so the second night's backup of a 20 GB photo store
+costs megabytes, not 20 GB; failures are reported to the same Telegram chat
+as orders, because a backup nobody is told has stopped is not a backup.
+
+### Logs and reboots
+
+Every long-running container is `restart: unless-stopped` and `bootstrap.sh`
+enables Docker at boot, so the stack comes back on its own after a reboot or
+an OOM kill. Container logs are capped at 10 MB × 3 files per service —
+Docker's default is *unlimited*, and a full disk presents as everything
+failing at once for reasons that look nothing like logging. `tests/
+test_deploy_config.py` in the backend suite keeps both properties true.
 
 ## Troubleshooting
 

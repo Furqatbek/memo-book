@@ -711,3 +711,82 @@ Phone search compares digits on both sides. Numbers are stored as the
 customer typed them ("+998 90 123-45-67") and the operator will type them a
 different way, so both are reduced to digits in SQL. A normalised column
 would be faster and is the right answer at a scale this pilot will not reach.
+
+**A74 — The shop is shut until somebody says the prices are real.** The
+founder's decision was to leave `PRICE_MINOR_*` at its placeholder numbers
+for now. That is fine as a decision and dangerous as a state: a placeholder
+is a perfectly valid integer, so no code downstream can tell "299,000
+because that is the price" from "299,000 because the spec needed a number",
+and the checkout path would charge either one just as happily. The gap is
+real money — sheet-counting (A63) doubled what a tier delivers without
+touching what it costs, so today's placeholders would sell a 32-page book at
+the old 16-page price.
+
+So the confirmation is a separate switch: `PRICES_CONFIRMED`, off by
+default. While it is off, `POST /checkout` refuses with 503
+`PRICES_NOT_CONFIRMED` before it looks anything up, and no order row, no
+lock and no charge results — the customer's book is untouched and orderable
+the moment the flag flips.
+
+It is a second variable rather than "empty means unset" because a price of
+zero and a price nobody has checked are different problems, and because the
+question it answers is not about any one number: it is "has a human been
+through the pricing". Nothing but a human can answer that, so nothing but an
+explicit flag should encode it.
+
+**Off by default is the whole design.** Forgetting to set it costs a deploy
+and an obvious symptom — no orders, loudly, in a way the founder finds in
+minutes. The other polarity costs the margin on every book sold until
+somebody reconciles a bank statement. This is the same fail-closed reasoning
+as `ADMIN_TOKEN` in A72, applied to the other direction of the money.
+
+The price list still quotes the numbers, with `"confirmed": false` alongside.
+Hiding them would leave the tier picker blank and teach the customer
+nothing; quoting them silently would let someone build a whole book and
+discover at the last step that nobody can sell it to them. The editor shows
+the figures with a notice above them, in all five languages, and the 503 is
+handled at checkout too in case the flag changes mid-session. Dev and the
+test suite set the flag on, since the thing they are testing is checkout.
+
+**A75 — A fresh VPS is reproducible from this repository, and that is
+tested.** The founder's choice was to harden the deploy, and the first thing
+that exercise found was a real hole: `ADMIN_TOKEN` appeared nowhere in
+`.env.prod.example` and `bootstrap.sh` never generated one, so every fresh
+deploy came up with the admin console answering 404 on every route. Nothing
+was broken — A72's fail-closed rule was working exactly as written, on a
+machine where nobody had been given the chance to set the token — and
+nothing said so, because 404 is also what a wrong token returns. The console
+would simply not have existed, silently.
+
+That class of defect is invisible to the rest of the suite, because every
+other test builds its own configuration. `tests/test_deploy_config.py`
+instead reads the deployment files the way a deployer does and asserts the
+properties that make a fresh machine work:
+
+* every field in `Settings` is either in `.env.prod.example` or on an
+  explicit exemption list with a reason (and the exemption list is checked
+  for names that no longer exist);
+* no key in the example is one the backend never reads — a typo there is
+  otherwise completely silent;
+* every `CHANGE_ME_*` placeholder is substituted by `bootstrap.sh`, so none
+  can reach production as the literal string;
+* every long-running service restarts itself, and only Caddy publishes ports.
+
+**Log limits are part of this, not housekeeping.** Docker's default
+json-file driver has no size cap at all. One chatty container fills the
+partition, and the symptom is every service failing at once for reasons that
+look nothing like logging — a genuinely expensive afternoon. 10 MB × 3 files
+per service bounds the whole stack at roughly 250 MB.
+
+**Backups go off-box, deduplicated, encrypted, and rehearsed.** restic
+rather than `tar` + `scp` because the photos are the bulk of the data and
+barely change between nights: the second backup of a 20 GB store costs
+megabytes. The database dump is written to a file and decoded in full
+(`pg_restore -f /dev/null`) *before* it enters the repository — `--list`
+reads only the table of contents at the front of the archive and passes a
+dump that was cut off halfway, and piping `pg_dump` straight into restic
+stores a truncated stream as a perfectly good snapshot. Failures are
+reported to the operator's Telegram, because a backup nobody is told has
+stopped is indistinguishable from no backup. `restore.sh --drill` exists so
+the restore path is exercised on a normal Tuesday rather than discovered on
+the worst day of the year.

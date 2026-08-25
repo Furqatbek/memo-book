@@ -50,7 +50,7 @@ const S = {
   dirty: false, saving: false, saveQueued: false, saveTimer: null,
   photoTimer: null, orderTimer: null, previewTimer: null,
   pollIdle: 0, pendingSince: new Map(),
-  order: null, prices: null, tiers: null, sidesPerSheet: 2,
+  order: null, prices: null, tiers: null, sidesPerSheet: 2, pricesConfirmed: true,
   bookType: null, devAvailable: null,
   // Ready-made covers: the gallery for this occasion, plus a lookup so
   // a resumed book can draw the artwork it was made with (A71).
@@ -240,8 +240,13 @@ async function loadPrices() {
     S.prices = r.prices;
     S.tiers = r.tiers || null;
     S.sidesPerSheet = r.sides_per_sheet || 2;
+    // Absent on an older backend, which only ever ran with real prices —
+    // treat a missing flag as confirmed rather than shutting the shop.
+    S.pricesConfirmed = r.confirmed !== false;
   } catch (e) { S.prices = null; S.tiers = null; }
   renderPrices();
+  const banner = $('prices-draft');
+  if (banner) banner.classList.toggle('hidden', S.pricesConfirmed !== false);
 }
 
 /* The customer buys sheets of paper; each sheet is printed on both sides,
@@ -2788,6 +2793,12 @@ async function submitCheckout(e) {
       S.page = firstEmptyPage();   // show exactly what is blocking the order
       S.sel = null;
       enterEditor();
+    } else if (err.code === 'PRICES_NOT_CONFIRMED') {
+      // The banner on the start screen should have said this already; if the
+      // flag flipped mid-session, say it here rather than showing a generic
+      // failure. The book is saved either way.
+      S.pricesConfirmed = false;
+      toast(err.message || t('start.pricesDraftHint'), 'warn');
     } else if (err.code === 'BOOK_LOCKED') {
       const saved = load('mb-order');
       if (saved) { S.order = saved; showOrder(); } else toast(t('err.locked'), 'warn');

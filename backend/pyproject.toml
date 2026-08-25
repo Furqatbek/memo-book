@@ -39,6 +39,7 @@ dev = [
     "pypdf>=4.2",
     "pymupdf~=1.28.0",  # pinned: the golden-raster test depends on its output
     "fonttools>=4.50",  # glyph-coverage regression test for shipped fonts
+    "pyyaml>=6.0",  # reads deploy/docker-compose.prod.yml in the deploy tests
 ]
 
 [tool.setuptools.packages.find]

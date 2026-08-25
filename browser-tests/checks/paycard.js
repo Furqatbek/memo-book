@@ -27,15 +27,15 @@ const PHOTOS = Array.from({ length: 32 }, (_, i) =>
   // fill the book, order it
   await page.setInputFiles('#file-input', PHOTOS);
   await page.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('32 '),
+    () => document.getElementById('tray-count').textContent.startsWith('32 '), undefined,
     { timeout: 120000 });
   await page.click('#btn-autofill');
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
   await page.click('#btn-preview');
   await page.waitForFunction(
-    () => document.querySelectorAll('#pv-grid figure').length >= 32,
+    () => document.querySelectorAll('#pv-grid figure').length >= 32, undefined,
     { timeout: 120000 });
   await page.check('#pv-confirm');
   await page.waitForSelector('#pv-checkout:not([disabled])', { timeout: 30000 });
@@ -44,7 +44,18 @@ const PHOTOS = Array.from({ length: 32 }, (_, i) =>
   await page.fill('[name=name]', 'Pay Card Test');
   await page.fill('[name=phone]', '+998901234567');
   await page.fill('[name=address]', 'Tashkent, test street 1');
+  // If checkout is refused, the order screen never arrives and the timeout
+  // says nothing about why. Catch the response so a failure names its cause.
+  const checkout = page.waitForResponse(
+    (r) => r.url().includes('/checkout') && r.request().method() === 'POST',
+    { timeout: 30000 });
   await page.click('#co-form button[type=submit]');
+  const co = await checkout;
+  if (!co.ok()) {
+    const body = await co.json().catch(() => ({}));
+    throw new Error(`checkout refused: HTTP ${co.status()} `
+      + `${JSON.stringify(body.error || body)}`);
+  }
   await page.waitForSelector('#screen-order.active', { timeout: 30000 });
 
   // item 4: bank card appears with formatted number + holder

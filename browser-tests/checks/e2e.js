@@ -33,7 +33,7 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   // 2. Upload 32 photos, wait for ingest
   await page.setInputFiles('#file-input', PHOTOS);
   await page.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('32 '),
+    () => document.getElementById('tray-count').textContent.startsWith('32 '), undefined,
     { timeout: 120000 });
   console.log('uploads ready:', await page.textContent('#tray-count'));
   await page.screenshot({ path: SHOT('03-photos-uploaded.png') });
@@ -41,10 +41,10 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   // 3. Auto-fill
   await page.click('#btn-autofill');
   await page.waitForFunction(
-    () => document.querySelectorAll('#filmstrip .film-item.empty').length === 0,
+    () => document.querySelectorAll('#filmstrip .film-item.empty').length === 0, undefined,
     { timeout: 30000 });
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
   await page.screenshot({ path: SHOT('04-autofilled.png') });
 
@@ -54,7 +54,7 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   await page.click('.textbox .textbox-content');
   await page.keyboard.type('Samarkand, June 2026');
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
   await page.screenshot({ path: SHOT('05-text-added.png') });
 
@@ -64,7 +64,7 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   await page.fill('.cover-title', 'Our Trip');
   await page.fill('.cover-subtitle', 'Uzbekistan 2026');
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
   await page.screenshot({ path: SHOT('06-cover.png') });
 
@@ -72,7 +72,7 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   await page.click('#btn-preview');
   await page.waitForFunction(
     () => document.querySelectorAll('.pv-page img').length === 33
-      && document.querySelector('.pv-cover'),
+      && document.querySelector('.pv-cover'), undefined,
     { timeout: 180000 });
   await page.screenshot({ path: SHOT('07-preview.png') });
 
@@ -103,7 +103,7 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
     const now = document.querySelector('#or-timeline li.now');
     return now && !now.textContent.includes('payment') &&
            document.querySelectorAll('#or-timeline li.done').length >= 3;
-  }, { timeout: 300000 });
+  }, undefined, { timeout: 300000 });
   const status = await page.textContent('#or-timeline li.now');
   console.log('order status now:', status.trim());
   await page.waitForSelector('#or-files:not(.hidden)', { timeout: 30000 });
@@ -133,7 +133,7 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   await mob.waitForSelector('#screen-editor.active', { timeout: 15000 });
   await mob.setInputFiles('#file-input', PHOTOS.slice(0, 3));
   await mob.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('3 '),
+    () => document.getElementById('tray-count').textContent.startsWith('3 '), undefined,
     { timeout: 60000 });
   await mob.click('#tray-grid .ph-card:first-child');  // becomes the cover photo
   await mob.waitForTimeout(800);

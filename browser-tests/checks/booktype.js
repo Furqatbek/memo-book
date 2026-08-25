@@ -27,7 +27,7 @@ const { chromium } = require('playwright');
   if (await page.isVisible('#design-step')) await page.click('#design-skip');
   await page.waitForSelector('#screen-editor.active');
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
   const title = await page.$eval('.cover-title', (el) => el.value);
   const bg = await page.$eval('#page-canvas', (el) => el.style.background);

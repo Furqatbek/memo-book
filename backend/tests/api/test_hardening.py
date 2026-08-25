@@ -65,9 +65,32 @@ class TestErrorEnvelopeAudit:
         unmapped = [code for code in ErrorCode if code not in STATUS_BY_CODE]
         assert unmapped == [], f"codes without a status mapping: {unmapped}"
 
+    # Domain errors are almost always the caller's problem, so 4xx is the
+    # rule. The exceptions are listed here rather than allowed by a looser
+    # bound, so adding a 5xx is a deliberate edit and the reason is written
+    # down next to it.
+    SERVER_SIDE = {
+        # Nobody has confirmed the price list yet, so there is nothing the
+        # customer could have sent that would have worked (A74).
+        ErrorCode.PRICES_NOT_CONFIRMED: 503,
+    }
+
     def test_statuses_are_sane(self):
         for code, status in STATUS_BY_CODE.items():
+            if code in self.SERVER_SIDE:
+                assert status == self.SERVER_SIDE[code], (
+                    f"{code} maps to {status}, not the "
+                    f"{self.SERVER_SIDE[code]} recorded here")
+                continue
             assert 400 <= status < 500, f"{code} maps to {status}"
+
+    def test_the_server_side_list_is_not_a_dumping_ground(self):
+        """Every entry above must still be an error, and must still exist."""
+        for code, status in self.SERVER_SIDE.items():
+            assert code in STATUS_BY_CODE, f"{code} is no longer mapped"
+            assert 500 <= status < 600, (
+                f"{code} is listed as server-side but maps to {status} — "
+                "move it out of SERVER_SIDE")
 
     async def test_unknown_book_returns_envelope(self, client):
         resp = await client.get(

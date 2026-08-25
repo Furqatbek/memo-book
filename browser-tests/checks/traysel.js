@@ -30,7 +30,7 @@ fs.writeFileSync(EMPTY, Buffer.alloc(0)); // zero-byte -> job fails client-side
   // --- real uploads ---
   await page.setInputFiles('#file-input', PHOTOS);
   await page.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('4 '),
+    () => document.getElementById('tray-count').textContent.startsWith('4 '), undefined,
     { timeout: 60000 });
 
   // dimension tooltip on cards
@@ -58,7 +58,7 @@ fs.writeFileSync(EMPTY, Buffer.alloc(0)); // zero-byte -> job fails client-side
   page.once('dialog', (d) => d.accept());
   await page.click('#btn-delete-sel');
   await page.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('2 '),
+    () => document.getElementById('tray-count').textContent.startsWith('2 '), undefined,
     { timeout: 30000 });
   const stillSelecting = await page.$eval('#btn-select-mode', (el) => el.classList.contains('active'));
   console.log('select mode exited after delete:', !stillSelecting);
@@ -67,7 +67,7 @@ fs.writeFileSync(EMPTY, Buffer.alloc(0)); // zero-byte -> job fails client-side
   page.once('dialog', (d) => d.accept());
   await page.click('#btn-delete-all');
   await page.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('0 '),
+    () => document.getElementById('tray-count').textContent.startsWith('0 '), undefined,
     { timeout: 30000 });
   const hiddenAfter = await page.$eval('#btn-select-mode', (el) => el.classList.contains('hidden'));
   console.log('select hidden at 0 photos:', hiddenAfter);

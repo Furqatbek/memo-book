@@ -8,7 +8,29 @@ sheet-counting stored a page count straight from those same numbers, so they
 fall back to a lookup by page count and keep their original price (A63).
 """
 from app.config import get_settings
+from app.domain.errors import DomainError, ErrorCode
 from app.domain.tiers import sides_per_sheet, validate_tier
+
+
+def prices_confirmed() -> bool:
+    """Has anybody said these numbers are the real ones? (A74)"""
+    return bool(get_settings().prices_confirmed)
+
+
+def require_sellable_prices() -> None:
+    """Refuse to turn a placeholder into somebody's bill.
+
+    A price nobody has confirmed is still a number, and the whole checkout
+    path would happily charge it. This is the one place that says no — it
+    fails closed, so forgetting `PRICES_CONFIRMED=true` costs a deploy, not
+    the margin on every book sold until somebody notices.
+    """
+    if not prices_confirmed():
+        raise DomainError(
+            ErrorCode.PRICES_NOT_CONFIRMED,
+            "we are not taking orders just yet — the prices shown are not "
+            "final. Your book is saved; nothing has been charged.",
+        )
 
 
 def _price_table() -> dict[int, int]:

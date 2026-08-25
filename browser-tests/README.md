@@ -39,6 +39,7 @@ because they test behaviour that only exists when it is switched on:
 | `autoflow` | `AUTO_CONFIRM_ORDERS=true` |
 | `ordersadmin` | `AUTO_CONFIRM_ORDERS=false` |
 | `paycard` | `PAY_CARD_NUMBER`, `PAY_CARD_HOLDER` |
+| `pricegate` | `PRICES_CONFIRMED=false` |
 
 **`autoflow` and `ordersadmin` need opposite settings** — they test the two
 halves of the same decision, so at most one can pass per run. Do a pass each
@@ -56,8 +57,20 @@ AUTO_CONFIRM_ORDERS=false PAY_CARD_NUMBER=8600123456789012 \
 cd browser-tests && node run.js ordersadmin
 ```
 
-`sitecheck` needs the marketing site on `:8090` (`python -m http.server 8090`
-from the repo root) and is excluded from a plain `node run.js`.
+Two checks are left out of a plain `node run.js` because they need something
+the rest of the suite cannot share. Ask for them by name:
+
+- **`sitecheck`** needs the marketing site on `:8090`
+  (`python -m http.server 8090` from the repo root).
+- **`pricegate`** needs `PRICES_CONFIRMED=false` (A74), which stops every
+  other check that reaches checkout — so it gets a server of its own:
+
+  ```bash
+  PRICES_CONFIRMED=false python scripts/devserver.py
+  cd browser-tests && node run.js pricegate
+  ```
+
+`node run.js --list` prints all of this without opening this file.
 
 ## Writing one
 
@@ -68,12 +81,20 @@ Copy the shape of an existing check:
 - collect `pageerror` and `console` errors and fail on them at the end
 - end with a single `... CHECK PASSED` line; the runner prints the last line
 
-Two traps this codebase has hit repeatedly, both now avoided in every check
-here:
+Two traps this codebase has hit repeatedly:
 
 - **`page.waitForFunction(fn, { timeout })` silently ignores that timeout.**
   The second positional argument is `arg`, not options — pass
   `waitForFunction(fn, undefined, { timeout })`.
+
+  This one bit twice. The note above used to claim it was "avoided in every
+  check here"; it was not — 29 calls across nine files were still passing
+  options into the `arg` slot and silently taking Playwright's 30-second
+  default, including ones written to allow 120, 180 and 300 seconds. They
+  all pass on an idle machine, which is exactly why nobody noticed: the
+  failure only appears when the box is busy, and then it looks like a
+  product bug rather than a test bug. All 29 are fixed. If you add a check,
+  grep for `waitForFunction(` with a two-argument call before you trust it.
 - **A selector may match something a previous run left behind.** Wait for the
   new state (`:not(.retired)`, a changed name), not merely for a matching
   element to exist.

@@ -25,6 +25,9 @@ STATUS_BY_CODE: dict[ErrorCode, int] = {
     ErrorCode.PREVIEW_NOT_CONFIRMED: 422,
     ErrorCode.PREVIEW_STALE: 409,
     ErrorCode.PAGES_INCOMPLETE: 409,
+    # 503: the shop is not refusing this customer, it is not open. Temporary
+    # by nature — one .env edit and a restart away from 200.
+    ErrorCode.PRICES_NOT_CONFIRMED: 503,
     ErrorCode.NOT_FOUND: 404,
     ErrorCode.RATE_LIMITED: 429,
 }

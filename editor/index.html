@@ -25,6 +25,15 @@
         <span data-i18n="start.offlineHint"></span>
       </div>
 
+      <!-- Shown while PRICES_CONFIRMED is off: the prices below are real
+           numbers on screen but nobody has confirmed them, so checkout will
+           refuse. Saying so here beats letting someone build a whole book
+           first (A74). -->
+      <div id="prices-draft" class="notice warn hidden">
+        <b data-i18n="start.pricesDraft"></b>
+        <span data-i18n="start.pricesDraftHint"></span>
+      </div>
+
       <div id="resume-card" class="card resume hidden">
         <div>
           <b data-i18n="start.resumeTitle"></b>

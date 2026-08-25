@@ -20,10 +20,18 @@ const http = require('http');
 const CHECKS = path.join(__dirname, 'checks');
 const BASE = process.env.MB_BASE || 'http://127.0.0.1:8000';
 
-// Checks that need the marketing site served separately (see README).
-const NEEDS_SITE = new Set(['sitecheck']);
+/* Checks left out of a plain `node run.js`, because they need a server or a
+   setting the rest of the suite cannot share. Ask for one by name to run it.
+   Each entry says what it wants, so nobody has to read this file to find out. */
+const SOLO = {
+  sitecheck: 'the marketing site on :8090 — `python -m http.server 8090` '
+    + 'from the repo root',
+  pricegate: 'PRICES_CONFIRMED=false, which stops every other check that '
+    + 'reaches checkout',
+};
 // Checks that need a specific server configuration to mean anything.
 const NEEDS = {
+  pricegate: 'PRICES_CONFIRMED=false (the dev server sets it true)',
   admincheck: 'ADMIN_TOKEN=dev-admin (the dev server sets this by default)',
   adminwiring: 'ADMIN_TOKEN=dev-admin (it drives the console as an operator)',
   // These two seed their own catalogue through the admin API rather than
@@ -49,12 +57,14 @@ const args = process.argv.slice(2);
 if (args.includes('--list')) {
   for (const name of all) {
     const note = NEEDS[name] ? `   (needs ${NEEDS[name]})` : '';
-    console.log(`  ${name}${note}`);
+    console.log(`  ${name}${SOLO[name] ? '  [not in a default run]' : ''}${note}`);
   }
+  console.log('\nRun on their own, because they need something the rest cannot share:');
+  for (const [name, why] of Object.entries(SOLO)) console.log(`  ${name} — needs ${why}`);
   process.exit(0);
 }
 
-const wanted = args.length ? args : all.filter((n) => !NEEDS_SITE.has(n));
+const wanted = args.length ? args : all.filter((n) => !SOLO[n]);
 
 function reachable(url) {
   return new Promise((resolve) => {

@@ -10,7 +10,7 @@ const SHOT = (n) => path.join(__dirname, 'shots', n);
 
 async function waitSaved(page) {
   await page.waitForFunction(
-    () => document.getElementById('save-state').classList.contains('saved'),
+    () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
 }
 
@@ -42,7 +42,7 @@ async function setColor(page, container, index, value) {
   await page.waitForSelector('#screen-editor.active');
   await page.setInputFiles('#file-input', PHOTOS);
   await page.waitForFunction(
-    () => document.getElementById('tray-count').textContent.startsWith('3 '),
+    () => document.getElementById('tray-count').textContent.startsWith('3 '), undefined,
     { timeout: 60000 });
 
   // --- page 1: place a photo ---
