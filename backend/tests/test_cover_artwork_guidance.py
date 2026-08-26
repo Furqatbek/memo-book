@@ -107,6 +107,21 @@ def test_both_documents_state_the_real_numbers():
         assert f"{safe} mm" in text, f"{name}: safe margin on the trimmed edges"
 
 
+def test_the_overlay_is_the_size_it_claims_to_be():
+    """`docs/cover-artwork-guide.png` is laid over a draft to check framing.
+    An overlay that is not exactly the artwork size lines up with nothing and
+    is worse than none at all."""
+    from PIL import Image
+
+    guide = DOC.parent / "cover-artwork-guide.png"
+    assert guide.is_file(), f"{guide} is referenced by the doc but not shipped"
+    with Image.open(guide) as im:
+        assert im.size == (ARTWORK_W_PX, ARTWORK_H_PX), im.size
+        assert im.mode == "RGBA", (
+            f"the overlay is {im.mode}; it has to be transparent to lie over "
+            "a draft")
+
+
 def test_the_doc_tells_you_where_to_centre_a_subject():
     """Centring in the file puts the subject 8 mm off-centre on the book,
     which is the practical consequence of the flush-left panel."""

@@ -56,6 +56,11 @@ If you centre your subject in the *file* it will sit 8 mm off-centre on the
 printed cover. Centre it in the 148 × 210 mm panel instead: that is
 x = 74 mm from the left edge of the file, y = 121 mm from the top.
 
+**`cover-artwork-guide.png`** in this folder is the same thing as a layer:
+1937 × 2858 px with transparency, red over everything the turn-in eats, the
+visible panel and the safe area outlined, and the true centre marked. Drop it
+on top of a draft in any editor to check the framing before uploading.
+
 A design can either leave a window for the customer's photo, or be a
 complete cover with no photo at all. Both work; say which with
 `--photo-rect`.
