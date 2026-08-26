@@ -20,27 +20,41 @@ in a flat colour you choose, which is what lets one file work for all four
 book sizes. Only the spine width changes between sizes, and the spine is not
 in your file.
 
+**The turn-in is on three sides, not four.** The left edge of your file is
+the spine fold: nothing is lost there, and the visible panel sits flush
+against it. The seen area is therefore *not* centred in the file.
+
 ```
-      ┌──────────────── 1937 px (164 mm) ────────────────┐
-      │  ← 16 mm turn-in: folds out of sight →           │  ┐
-      │   ┌───────────────────────────────────────────┐  │  │
-      │   │                                           │  │  │
-      │   │        148 × 210 mm — what is seen        │  │  2858 px
-      │   │        on the closed book                 │  │  (242 mm)
-      │   │                                           │  │  │
-      │   └───────────────────────────────────────────┘  │  │
-      │                                                  │  ┘
-      └──────────────────────────────────────────────────┘
+    x=0                                     x=148mm      x=164mm
+    │                                          │            │
+    ├──────────────── 1937 px (164 mm) ─────────────────────┤
+ y=0┌───────────────────────────────────────────────────────┐ ┐
+    │ ▓▓▓▓▓▓▓▓▓ 16 mm — folds out of sight ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ │
+    ├───────────────────────────────────────────┬───────────┤ │
+    │                                           │▓▓▓▓▓▓▓▓▓▓▓│ │
+    │      148 × 210 mm — what is seen on       │▓ 16 mm  ▓▓│ 2858 px
+    │      the closed book. Flush LEFT.         │▓ folds  ▓▓│ (242 mm)
+    │                                           │▓ away   ▓▓│ │
+    ├───────────────────────────────────────────┴───────────┤ │
+    │ ▓▓▓▓▓▓▓▓▓ 16 mm — folds out of sight ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ │
+    └───────────────────────────────────────────────────────┘ ┘
+    ↑ spine fold: visible, nothing trimmed          y=226mm ↑
 ```
 
 Three rules:
 
-1. **16 mm all round folds out of sight.** Let the background run to the
-   edge; put nothing there you need to keep.
-2. **Keep text and faces 21 mm inside every edge** (16 mm turn-in + 5 mm safe
-   margin). The guillotine has about ±1 mm of play.
+1. **16 mm folds out of sight on the top, bottom and right — nothing on the
+   left.** Let the background bleed off those three edges; put nothing there
+   you need to keep. Art at the very left edge *does* survive.
+2. **Keep text and faces 21 mm inside the top, bottom and right edges**
+   (16 mm turn-in + 5 mm safe margin) and **5 mm inside the left**. The
+   guillotine has about ±1 mm of play.
 3. **Pick a back/spine colour that belongs with the art** — usually the
    design's darkest or most common tone.
+
+If you centre your subject in the *file* it will sit 8 mm off-centre on the
+printed cover. Centre it in the 148 × 210 mm panel instead: that is
+x = 74 mm from the left edge of the file, y = 121 mm from the top.
 
 A design can either leave a window for the customer's photo, or be a
 complete cover with no photo at all. Both work; say which with

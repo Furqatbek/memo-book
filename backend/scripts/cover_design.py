@@ -154,10 +154,21 @@ def cmd_spec(_args) -> None:
   Format    PNG or JPEG, sRGB
 
   The artwork is the FRONT of the book plus the turn-in that folds around
-  the board. Only the middle 148 x 210 mm is seen on the closed book:
+  the board. The turn-in is on THREE sides only — the left edge is the
+  spine fold, where nothing is lost:
 
-    - keep the design's edges quiet: 16 mm all round folds out of sight
-    - keep text and faces 21 mm inside every edge (turn-in + 5 mm safe)
+    x =   0 mm  spine fold. Visible. Nothing is trimmed here.
+    x = 148 mm  the fore-edge of the closed book
+    x = 164 mm  right edge of your file; the last 16 mm folds out of sight
+    y =   0 mm  top edge; the first 16 mm folds out of sight
+    y = 226 mm  the foot of the closed book; 16 mm more folds under
+
+  So the seen area is the 148 x 210 mm panel flush against the LEFT edge,
+  16 mm down from the top — not the middle of the file.
+
+    - let the art bleed off the top, bottom and right; nothing there survives
+    - keep text and faces 21 mm inside the top, bottom and right edges
+      (16 mm turn-in + 5 mm safe margin), and 5 mm inside the left
     - the back panel and the spine are NOT in this file; they print in the
       flat colour you pass as --bg, so pick one that belongs with the art
 

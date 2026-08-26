@@ -1234,3 +1234,34 @@ never gets a certificate for that name and it stays unreachable while
 everything else works — so the README list and the Caddyfile are now
 compared to each other rather than maintained side by side.
 
+**A88 — the turn-in is on three sides, and both documents said four.**
+Asked what size a cover template should be, the honest answer needed
+checking rather than repeating: `docs/cover-designs.md` and
+`cover_design.py spec` both said "16 mm all round folds out of sight" and
+"only the middle 148 x 210 mm is seen on the closed book". Measured against
+the renderer, neither is true.
+
+The artwork is 164 x 242 mm because it is the 148 x 210 front panel plus
+**one** 16 mm turn-in in width and **two** in height. The left edge is the
+spine fold — `photo_box_px` says so in as many words ("the left edge is
+never extended: the spine is there, not a turn-in") — so the visible panel
+sits flush against the left of the file, not centred in it.
+
+Rendering a cover and measuring each edge gives 0 / 16 / 16 / 16 mm for
+left / right / top / bottom. A designer following the old text would have
+kept a 16 mm margin that does not exist on the left, losing that much usable
+width, and centring a subject in the file would put it **8 mm off-centre on
+the printed book** — findable only from a printed proof, which is the most
+expensive place to find anything.
+
+Both documents now state the per-edge margins and where the real centre is
+(x = 74 mm from the file's left edge). `tests/test_cover_artwork_guidance.py`
+derives those margins from the renderer's own paste box and requires both
+documents to state them, including refusing the exact phrases that were
+wrong. Prose about geometry, checked against the geometry.
+
+The px→mm arithmetic lands a fiftieth of a millimetre short because the
+paste box is computed in whole pixels; the test rounds that away but asserts
+first that the error really is sub-pixel, so a genuine half-millimetre drift
+could not hide inside the rounding.
+
