@@ -28,6 +28,8 @@ const SOLO = {
     + 'from the repo root',
   pricegate: 'PRICES_CONFIRMED=false, which stops every other check that '
     + 'reaches checkout',
+  shots: 'nothing — but it is a camera, not a check: it walks the whole '
+    + 'flow twice and asserts nothing. `node checks/shots.js <tag>`',
 };
 // Checks that need a specific server configuration to mean anything.
 const NEEDS = {

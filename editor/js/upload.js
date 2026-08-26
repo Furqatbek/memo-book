@@ -8,7 +8,7 @@
    what the print needs: MAX_EDGE keeps a full-bleed A5 page at 300dpi even
    for a landscape photo cropped to portrait (the worst case). Anything the
    browser cannot decode (HEIC outside Safari) uploads untouched. */
-import * as api from './api.js?v=20260821';
+import * as api from './api.js?v=20260826';
 
 // Absurd-file guard only; the shrink step is what actually keeps uploads
 // small, and the server enforces its own limit on what arrives.

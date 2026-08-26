@@ -35,6 +35,7 @@ because they test behaviour that only exists when it is switched on:
 |---|---|
 | `admincheck` | `ADMIN_TOKEN` — the dev server sets `dev-admin` by default |
 | `adminwiring` | `ADMIN_TOKEN` — it signs into the console and drives every control |
+| `startflow` | nothing — the screens before the editor and the checkout summary |
 | `attention` | `ADMIN_TOKEN` — it checks what the console shows when orders are stuck |
 | `designflow`, `designswap` | `ADMIN_TOKEN` — they seed their own cover designs through the admin API |
 | `autoflow` | `AUTO_CONFIRM_ORDERS=true` |

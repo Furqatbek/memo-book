@@ -2,13 +2,13 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260821';
-import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js?v=20260821';
-import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260821';
-import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260821';
+import * as api from './api.js?v=20260826';
+import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js?v=20260826';
+import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
+import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
   from './cover-templates.js?v=20260824';
-import { makeJobs, runJobs } from './upload.js?v=20260821';
+import { makeJobs, runJobs } from './upload.js?v=20260826';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
 /* Every interior page is bound along one edge, and paper curves into the
@@ -295,10 +295,31 @@ function renderPrices() {
 
 /* The start screen is three questions in order: what kind of book, how big,
    and which ready-made cover (A71). Only one is on screen at a time. */
+const START_STEPS = ['type-step', 'tier-step', 'design-step'];
+
 function showStartStep(which) {
-  for (const id of ['type-step', 'tier-step', 'design-step']) {
+  for (const id of START_STEPS) {
     $(id).classList.toggle('hidden', id !== which);
   }
+  // Mark the rail: everything before the current step is done, the current
+  // one is on, the rest are still to come. The third step is skipped when
+  // the catalogue is empty, and the rail hides with it rather than showing
+  // a step nobody will ever reach.
+  const at = START_STEPS.indexOf(which);
+  const rail = $('start-steps');
+  if (!rail) return;
+  for (const li of rail.children) {
+    const i = START_STEPS.indexOf(`${li.dataset.step}-step`);
+    li.classList.toggle('done', i < at);
+    li.classList.toggle('on', i === at);
+  }
+}
+
+/* The cover step only exists when there are covers. Called once the
+   catalogue answers. */
+function setCoverStepOffered(offered) {
+  const li = $('start-steps') && $('start-steps').querySelector('[data-step="design"]');
+  if (li) li.classList.toggle('hidden', !offered);
 }
 
 function showTypeStep() {
@@ -330,6 +351,7 @@ async function pickTier(pageCount) {
   }
   S.designs = designs;
   for (const d of designs) S.designById[d.design_id] = d;
+  setCoverStepOffered(designs.length > 0);
   if (!designs.length) {
     await startNewBook(pageCount, null);
     return;
@@ -2779,6 +2801,22 @@ async function pollPreview() {
 
 /* ---------- checkout & order ---------- */
 
+/* What the customer is about to buy, beside the form (A84). Everything here
+   is already known — no request, nothing that can fail — so a checkout page
+   never has to show a blank where the price should be. */
+function renderCheckoutSummary() {
+  if (!S.book) return;
+  const type = S.book.book_type;
+  const pages = S.book.page_count;
+  const minor = priceForPages(pages);
+  $('co-sum-ico').textContent = (BOOK_TYPES[type] || {}).emoji || '\uD83D\uDCD6';
+  $('co-sum-type').textContent = type ? t(`type.${type}`) : t('start.title');
+  $('co-sum-size').textContent =
+    `${t('start.sheetsShort', { n: pagesToSheets(pages) })} · `
+    + `${t('start.pagesEq', { n: pages })}`;
+  $('co-sum-price').textContent = minor ? fmtAmount(minor) : '';
+}
+
 async function submitCheckout(e) {
   e.preventDefault();
   const form = $('co-form');
@@ -3105,7 +3143,10 @@ function bind() {
   $('pv-confirm').addEventListener('change', (e) => {
     $('pv-checkout').disabled = !e.target.checked;
   });
-  $('pv-checkout').addEventListener('click', () => showScreen('checkout'));
+  $('pv-checkout').addEventListener('click', () => {
+    renderCheckoutSummary();
+    showScreen('checkout');
+  });
 
   $('co-back').addEventListener('click', () => openPreview());
   $('co-form').addEventListener('submit', submitCheckout);

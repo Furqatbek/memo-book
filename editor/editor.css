@@ -10,6 +10,30 @@
   --warn-ink: #7a5b00;
   --danger: #c0392b;
   --radius: 10px;
+
+  /* --- the tokens the customer-facing screens are built from ---
+     Deliberately additive: the editor keeps every value above exactly as it
+     was, because its job is to disappear behind the photos. These are for
+     the screens on the way IN and the way OUT, which have nothing on them
+     but us and should feel like the product is worth the money. */
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+  /* A keepsake, not a dashboard: warm gold against the brand blue. */
+  --accent: #b8862b;
+  --accent-soft: #fdf6e8;
+  --paper: #fbfaf8;
+  --ink-soft: #3d4350;
+  /* Two-layer shadows — a tight contact shadow plus a wide soft one — which
+     is what makes a card look placed on the page rather than drawn on it. */
+  --sh-sm: 0 1px 2px rgba(16, 24, 40, .05), 0 2px 6px -1px rgba(16, 24, 40, .07);
+  --sh-md: 0 2px 4px rgba(16, 24, 40, .05), 0 12px 24px -8px rgba(16, 24, 40, .14);
+  --sh-lg: 0 4px 8px rgba(16, 24, 40, .05), 0 28px 56px -16px rgba(16, 24, 40, .22);
+  --ring: 0 0 0 3px rgba(36, 86, 214, .16);
+  /* System serif: a book product should have book typography, and this is
+     the one way to get it without shipping a font file or a third-party
+     request from Tashkent. */
+  --display: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --ease: cubic-bezier(.2, .7, .3, 1);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -87,66 +111,217 @@ select {
 .toast.warn { background: #8a6d00; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } }
 
-/* ---------- start ---------- */
-.start-body {
-  max-width: 560px; margin: 0 auto; padding: 40px 20px; width: 100%;
-  display: flex; flex-direction: column; gap: 20px; overflow-y: auto;
+/* ---------- start ---------- *
+ * The three screens before the editor. They carry no photos of the
+ * customer's own yet, so everything they convey about whether this is worth
+ * paying for has to come from the page itself. */
+#screen-start, #screen-preview, #screen-checkout, #screen-order {
+  background:
+    radial-gradient(1100px 520px at 12% -8%, rgba(36, 86, 214, .07), transparent 60%),
+    radial-gradient(900px 460px at 92% 4%, rgba(184, 134, 43, .08), transparent 62%),
+    var(--paper);
 }
-.start-body h1 { font-size: 1.7rem; margin-bottom: 6px; }
-.resume { display: flex; justify-content: space-between; align-items: center;
-  gap: 12px; flex-wrap: wrap; }
+.start-body {
+  max-width: 780px; margin: 0 auto; padding: clamp(28px, 6vw, 64px) 20px 56px;
+  width: 100%; display: flex; flex-direction: column; gap: 18px; overflow-y: auto;
+}
+.start-body h1 {
+  font-family: var(--display); font-weight: 600;
+  font-size: clamp(2rem, 5.2vw, 2.9rem); line-height: 1.1;
+  letter-spacing: -.015em; margin-bottom: 2px;
+}
+.lede {
+  color: var(--ink-soft); font-size: clamp(1rem, 2.4vw, 1.12rem);
+  line-height: 1.5; max-width: 46ch; margin-bottom: 4px;
+}
+
+/* What the book actually is, at the foot of the first screen. Not a sales
+   pitch — the three things somebody deciding whether to spend an evening on
+   this would want to know, worded as the marketing site words them. */
+.perks {
+  list-style: none; display: grid; gap: 14px; margin-top: 30px;
+  padding-top: 26px; border-top: 1px solid var(--line);
+  grid-template-columns: repeat(3, 1fr);
+}
+.perks li {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;
+  align-items: start; font-size: .88rem; line-height: 1.45;
+}
+.perks .perk-ico {
+  grid-row: span 2; width: 38px; height: 38px; border-radius: 11px;
+  display: grid; place-items: center; color: var(--accent);
+  background: var(--accent-soft); box-shadow: var(--sh-sm);
+}
+.perks b { align-self: end; font-size: .94rem; }
+.perks span { color: var(--muted); }
+@media (max-width: 720px) {
+  .perks { grid-template-columns: 1fr; gap: 16px; margin-top: 24px; padding-top: 20px; }
+  .perks li { align-items: center; }
+  .perks .perk-ico { grid-row: span 2; }
+}
+
+/* the three-step rail */
+.steps {
+  list-style: none; display: flex; align-items: center; gap: 6px;
+  margin: 2px 0 8px; flex-wrap: wrap;
+}
+.steps li {
+  display: flex; align-items: center; gap: 7px; color: var(--muted);
+  font-size: .84rem; font-weight: 500; white-space: nowrap;
+}
+.steps li + li::before {
+  content: ""; width: clamp(14px, 4vw, 30px); height: 2px; border-radius: 2px;
+  background: var(--line); margin-right: 7px;
+}
+.steps-dot {
+  width: 22px; height: 22px; border-radius: 50%; flex: none;
+  border: 2px solid var(--line); background: #fff;
+  display: grid; place-items: center;
+  transition: background .25s var(--ease), border-color .25s var(--ease);
+}
+.steps li.on { color: var(--ink); }
+.steps li.on .steps-dot {
+  border-color: var(--primary); box-shadow: var(--ring);
+}
+.steps li.on .steps-dot::after {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary);
+}
+.steps li.done { color: var(--ink-soft); }
+.steps li.done .steps-dot { background: var(--primary); border-color: var(--primary); }
+/* A tick, drawn rather than typed, so it needs no font and no translation. */
+.steps li.done .steps-dot::after {
+  content: ""; width: 5px; height: 9px; margin-top: -2px;
+  border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+
+.resume {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 14px; flex-wrap: wrap; box-shadow: var(--sh-md); border-color: transparent;
+  border-radius: var(--radius-lg); padding: 18px 20px;
+}
 .resume .row { display: flex; gap: 8px; }
 .resume #resume-info { display: block; color: var(--muted); font-size: .92rem; }
-.tier-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px;
-}
-.tier {
-  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 18px 8px; display: flex; flex-direction: column; gap: 4px; align-items: center;
-}
-.tier b { font-size: 1.6rem; color: var(--primary); }
-.tier span { color: var(--muted); font-size: .88rem; }
-.tier:hover:not(:disabled) { border-color: var(--primary); }
-.tier:disabled { opacity: .45; }
-.tier .tier-pages { color: var(--muted); font-size: .74rem; min-height: 1em; }
-.tier .tier-price { color: var(--ink); font-size: .82rem; font-weight: 600;
-  min-height: 1.1em; }
-.pv-price { white-space: nowrap; }
-.step-label { margin-top: 18px; color: var(--muted); }
-.step-label a { color: var(--primary); }
+
+.step-label { margin-top: 22px; color: var(--ink); font-weight: 600; }
+.step-label a { color: var(--primary); font-weight: 500; }
+#tier-step .muted, #design-step .muted { margin-top: 2px; }
+
+/* step 1: what kind of book. Each type gets its own colour so the choice
+   feels like picking an occasion rather than filling a field. */
 .type-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 14px;
 }
 .btype {
-  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 16px 8px; display: flex; flex-direction: column; gap: 6px;
-  align-items: center; font-size: .92rem;
+  position: relative; overflow: hidden; isolation: isolate;
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 22px 10px 18px; display: flex; flex-direction: column; gap: 10px;
+  align-items: center; font-size: .95rem; font-weight: 600; color: var(--ink);
+  box-shadow: var(--sh-sm);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease),
+              border-color .2s var(--ease);
 }
-.btype .bt-ico { font-size: 1.7rem; }
-.btype:hover:not(:disabled) { border-color: var(--primary); }
+.btype::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; opacity: .5;
+  background: linear-gradient(160deg, var(--wash, #eef2fd), transparent 68%);
+  transition: opacity .2s var(--ease);
+}
+.btype[data-btype="love"]     { --wash: #ffe3ea; }
+.btype[data-btype="travel"]   { --wash: #dff1f7; }
+.btype[data-btype="birthday"] { --wash: #fdeccd; }
+.btype[data-btype="memory"]   { --wash: #e8e6fb; }
+.btype .bt-ico {
+  font-size: 2.1rem; line-height: 1;
+  filter: drop-shadow(0 3px 6px rgba(16, 24, 40, .16));
+}
+.btype:hover:not(:disabled) {
+  transform: translateY(-3px); box-shadow: var(--sh-md); border-color: transparent;
+}
+.btype:hover:not(:disabled)::before { opacity: 1; }
+.btype:focus-visible { outline: none; box-shadow: var(--sh-md), var(--ring); }
 .btype:disabled { opacity: .45; }
+
+/* step 2: how many sheets. The little book on each card is drawn to the
+   thickness that tier actually is, so the difference between 16 and 96 is
+   something you can see rather than arithmetic. */
+.tier-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 16px;
+}
+.tier {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 18px 10px 16px; display: flex; flex-direction: column; gap: 3px;
+  align-items: center; box-shadow: var(--sh-sm);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease),
+              border-color .2s var(--ease);
+}
+.tier-book {
+  --thick: 4px;
+  width: 40px; height: 52px; margin-bottom: 8px; position: relative;
+  /* The page stack is absolutely positioned, so it adds nothing to the
+     layout box and the whole book drifts left of centre as it thickens.
+     Reserving the overhang puts it back. */
+  margin-right: var(--thick);
+  border-radius: 3px 6px 6px 3px; background: linear-gradient(135deg, #3f6ee0, #24439c);
+  box-shadow: var(--sh-sm);
+}
+/* the fore-edge: page stack thickness, per tier */
+.tier-book::after {
+  content: ""; position: absolute; top: 3px; bottom: 3px; right: calc(var(--thick) * -1);
+  width: var(--thick); border-radius: 0 3px 3px 0;
+  background: repeating-linear-gradient(to right, #fff 0 1.5px, #dfe3ea 1.5px 3px);
+}
+.tier[data-tier="16"] .tier-book { --thick: 3px; }
+.tier[data-tier="32"] .tier-book { --thick: 6px; }
+.tier[data-tier="48"] .tier-book { --thick: 9px; }
+.tier[data-tier="96"] .tier-book { --thick: 14px; }
+.tier b {
+  font-family: var(--display); font-size: 1.9rem; line-height: 1.05;
+  color: var(--ink); font-weight: 600;
+}
+.tier span { color: var(--muted); font-size: .86rem; }
+.tier:hover:not(:disabled) {
+  transform: translateY(-3px); box-shadow: var(--sh-md); border-color: transparent;
+}
+.tier:focus-visible { outline: none; box-shadow: var(--sh-md), var(--ring); }
+.tier:disabled { opacity: .45; }
+.tier .tier-pages { color: var(--muted); font-size: .74rem; min-height: 1em; }
+.tier .tier-price {
+  margin-top: 6px; color: var(--primary); font-size: .95rem; font-weight: 700;
+  min-height: 1.2em; font-variant-numeric: tabular-nums;
+}
+.pv-price { white-space: nowrap; }
+
 /* step 3: the ready-made cover gallery */
 .design-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-  gap: 12px; margin: 12px 0 16px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 16px; margin: 14px 0 18px;
 }
 .design-card {
-  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 8px; display: flex; flex-direction: column; gap: 6px; align-items: center;
+  background: transparent; border: 0; border-radius: var(--radius-lg);
+  padding: 0; display: flex; flex-direction: column; gap: 8px; align-items: stretch;
+  transition: transform .2s var(--ease);
 }
 .design-card img {
-  width: 100%; aspect-ratio: 148 / 210; object-fit: cover; border-radius: 6px;
-  background: var(--bg); display: block;
+  width: 100%; aspect-ratio: 148 / 210; object-fit: cover;
+  border-radius: var(--radius); background: var(--bg); display: block;
+  box-shadow: var(--sh-md);
+  transition: box-shadow .2s var(--ease), outline-color .2s var(--ease);
+  outline: 2px solid transparent; outline-offset: 2px;
 }
 .design-card span {
-  font-size: .8rem; color: var(--muted); text-align: center;
+  font-size: .84rem; color: var(--ink-soft); text-align: center; font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
-.design-card:hover:not(:disabled) { border-color: var(--primary); }
-.design-card:hover span { color: var(--primary); }
+.design-card:hover:not(:disabled) { transform: translateY(-4px); }
+.design-card:hover:not(:disabled) img {
+  box-shadow: var(--sh-lg); outline-color: var(--primary);
+}
+.design-card:focus-visible { outline: none; }
+.design-card:focus-visible img { outline-color: var(--primary); box-shadow: var(--sh-lg); }
+#design-skip { border-radius: 999px; padding: 10px 20px; box-shadow: var(--sh-sm); }
 
-.start-track { text-align: center; }
-.start-track a { color: var(--primary); }
+.start-track { text-align: center; margin-top: 8px; }
+.start-track a { color: var(--muted); text-decoration-color: var(--line); }
+.start-track a:hover { color: var(--primary); }
 
 /* ---------- editor frame ---------- */
 .ed-bar { flex-wrap: nowrap; overflow-x: auto; }
@@ -537,47 +712,135 @@ img.lay-thumb { object-fit: cover; display: block; }
 .pv-page figcaption { text-align: center; font-size: .78rem; color: var(--muted);
   margin-top: 3px; }
 .pv-footer {
-  display: flex; gap: 14px; align-items: center; justify-content: flex-end;
-  padding: 12px 16px; background: #fff; border-top: 1px solid var(--line);
-  flex-wrap: wrap;
+  display: flex; gap: 16px; align-items: center; justify-content: flex-end;
+  padding: 14px 20px; background: rgba(255, 255, 255, .92);
+  backdrop-filter: blur(10px); border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 24px -16px rgba(16, 24, 40, .5); flex-wrap: wrap;
 }
-.check { display: flex; gap: 8px; align-items: center; cursor: pointer;
-  font-size: .92rem; max-width: 480px; }
-.check input { width: 18px; height: 18px; flex: none; }
+.pv-footer .pv-price {
+  font-family: var(--display); font-size: 1.45rem; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pv-footer .btn.primary { padding: 11px 24px; border-radius: 999px; }
+.check { display: flex; gap: 10px; align-items: center; cursor: pointer;
+  font-size: .92rem; max-width: 480px; margin-right: auto; }
+.check input { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
 
 /* ---------- checkout & order ---------- */
+/* Two columns on a desktop: the form, and what you are buying. On a phone
+   the summary comes FIRST — seeing the price before typing an address is
+   the whole point of having one. */
+.co-wrap {
+  flex: 1; overflow-y: auto; width: 100%;
+  padding: clamp(20px, 4vw, 44px) 20px 40px;
+  display: grid; gap: clamp(16px, 3vw, 28px); align-content: start;
+  grid-template-columns: minmax(0, 460px); justify-content: center;
+}
+@media (min-width: 860px) {
+  .co-wrap {
+    grid-template-columns: minmax(0, 460px) minmax(0, 300px);
+    align-items: start;
+  }
+  .co-summary { order: 2; position: sticky; top: 24px; }
+  .co-form { order: 1; }
+}
+.co-summary {
+  border-radius: var(--radius-lg); border-color: transparent;
+  box-shadow: var(--sh-md); display: flex; flex-direction: column; gap: 14px;
+  padding: 20px;
+}
+.co-summary > b { font-size: .82rem; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700; }
+.co-sum-book { display: flex; gap: 14px; align-items: center; }
+.co-sum-ico {
+  width: 46px; height: 46px; flex: none; border-radius: 12px;
+  display: grid; place-items: center; font-size: 1.5rem;
+  background: var(--accent-soft); box-shadow: var(--sh-sm);
+}
+.co-sum-book > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#co-sum-type { font-weight: 600; }
+#co-sum-size { font-size: .88rem; }
+.co-sum-total {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding-top: 14px; border-top: 1px dashed var(--line);
+}
+.co-sum-total b {
+  font-family: var(--display); font-size: 1.5rem; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.small { font-size: .84rem; }
+
 .co-form {
-  max-width: 460px; margin: 0 auto; padding: 26px 20px; width: 100%;
-  display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+  max-width: 460px; width: 100%; padding: 0;
+  display: flex; flex-direction: column; gap: 16px;
 }
-.co-form label { display: flex; flex-direction: column; gap: 5px; font-size: .92rem; }
+.co-form label { display: flex; flex-direction: column; gap: 6px; font-size: .88rem;
+  font-weight: 600; color: var(--ink-soft); }
 .co-form input, .co-form textarea {
-  border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px;
-  background: #fff;
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px;
+  background: #fff; font-weight: 400; color: var(--ink);
+  transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
 }
+.co-form input:hover, .co-form textarea:hover { border-color: #cdd3dd; }
 .co-form input:focus, .co-form textarea:focus {
-  outline: 2px solid rgba(36,86,214,.35); border-color: var(--primary);
+  outline: none; border-color: var(--primary); box-shadow: var(--ring);
 }
-.or-body { flex: 1; overflow-y: auto; padding: 26px 20px; }
-.or-body h1 { font-size: 1.5rem; margin-bottom: 14px; }
-.or-body > div, .or-body > form { max-width: 460px; margin: 0 auto; }
-.or-ref-card { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-.or-ref-card b { font-size: 1.1rem; }
-.timeline { list-style: none; margin-bottom: 18px; }
+.co-form button[type=submit] {
+  margin-top: 4px; padding: 13px 20px; border-radius: 999px;
+  font-weight: 600; box-shadow: var(--sh-md);
+}
+/* The lookup form on the order screen reuses .co-form but stands alone. */
+#or-lookup { max-width: 460px; margin: 0 auto; gap: 14px; }
+#or-lookup > b { font-family: var(--display); font-size: 1.3rem; font-weight: 600; }
+
+.or-body { flex: 1; overflow-y: auto; padding: clamp(24px, 5vw, 48px) 20px 48px; }
+.or-body h1 {
+  font-family: var(--display); font-weight: 600;
+  font-size: clamp(1.6rem, 4vw, 2.2rem); margin-bottom: 18px; letter-spacing: -.01em;
+}
+.or-body > div, .or-body > form { max-width: 480px; margin: 0 auto; }
+.or-ref-card {
+  display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap;
+  margin-bottom: 22px; border-radius: var(--radius-lg); border-color: transparent;
+  box-shadow: var(--sh-md); padding: 18px 20px;
+}
+.or-ref-card > div { display: flex; flex-direction: column; gap: 3px; }
+.or-ref-card .muted { font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
+.or-ref-card b {
+  font-family: var(--display); font-size: 1.35rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; letter-spacing: .01em;
+}
+/* A continuous rail behind the dots, so the steps read as one journey
+   rather than a bulleted list. */
+.timeline { list-style: none; margin: 0 0 22px; position: relative; padding-left: 4px; }
 .timeline li {
-  position: relative; padding: 7px 0 7px 30px; color: var(--muted); font-size: .95rem;
+  position: relative; padding: 10px 0 10px 34px; color: var(--muted); font-size: .95rem;
 }
+.timeline li::after {
+  content: ""; position: absolute; left: 12px; top: 24px; bottom: -10px; width: 2px;
+  background: var(--line);
+}
+.timeline li:last-child::after { display: none; }
 .timeline li::before {
-  content: ""; position: absolute; left: 8px; top: 13px; width: 10px; height: 10px;
-  border-radius: 50%; background: var(--line);
+  content: ""; position: absolute; left: 7px; top: 15px; width: 12px; height: 12px;
+  border-radius: 50%; background: #fff; border: 2px solid var(--line);
+  box-sizing: border-box;
 }
-.timeline li.done { color: var(--ink); }
-.timeline li.done::before { background: var(--primary); }
+.timeline li.done { color: var(--ink-soft); }
+.timeline li.done::before { background: var(--primary); border-color: var(--primary); }
+.timeline li.done::after { background: var(--primary); opacity: .35; }
 .timeline li.now { color: var(--ink); font-weight: 700; }
 .timeline li.now::before {
-  background: #fff; border: 3px solid var(--primary); left: 6px; top: 11px;
+  background: #fff; border: 3px solid var(--primary);
+  box-shadow: var(--ring); animation: pulse-now 2.4s ease-in-out infinite;
 }
-.timeline li.warn::before { background: var(--danger); }
+.timeline li.warn::before { background: var(--danger); border-color: var(--danger); }
+@keyframes pulse-now {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(36, 86, 214, .16); }
+  50%      { box-shadow: 0 0 0 7px rgba(36, 86, 214, .05); }
+}
+.or-files { border-radius: var(--radius-lg); border-color: transparent;
+  box-shadow: var(--sh-md); }
 .card.dev {
   display: flex; flex-direction: column; gap: 10px; margin-top: 16px;
   border-style: dashed; font-size: .9rem;
@@ -744,4 +1007,83 @@ a.brand:hover { color: var(--primary); }
   content: '✓'; position: absolute; inset: auto 4px 4px auto; width: 20px;
   height: 20px; border-radius: 50%; background: var(--primary); color: #fff;
   display: flex; align-items: center; justify-content: center; font-size: .75rem;
+}
+
+/* ---------- polish for the customer-facing screens (A84) ---------- *
+ * Everything below is scoped to the four screens outside the editor. The
+ * editor's own chrome is deliberately untouched: its job is to disappear
+ * behind the customer's photos, and these screens' job is the opposite. */
+
+/* A screen arriving should feel like a page turning, not a repaint. */
+#screen-start.active .start-body,
+#screen-checkout.active .co-wrap,
+#screen-order.active .or-body {
+  animation: screen-in .34s var(--ease) both;
+}
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(10px); }
+}
+/* The type and size cards land in sequence rather than all at once. Five
+   children is the most either grid has. */
+#screen-start .type-grid > *, #screen-start .tier-grid > * {
+  animation: card-in .3s var(--ease) both;
+}
+#screen-start .type-grid > :nth-child(1), #screen-start .tier-grid > :nth-child(1) { animation-delay: .02s; }
+#screen-start .type-grid > :nth-child(2), #screen-start .tier-grid > :nth-child(2) { animation-delay: .06s; }
+#screen-start .type-grid > :nth-child(3), #screen-start .tier-grid > :nth-child(3) { animation-delay: .10s; }
+#screen-start .type-grid > :nth-child(4), #screen-start .tier-grid > :nth-child(4) { animation-delay: .14s; }
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+}
+
+#screen-checkout .pay-hint, #screen-order .pay-wrap {
+  border-radius: var(--radius-lg); border-color: #d7e2fa;
+  background: linear-gradient(160deg, #f2f6ff, #eaf1ff);
+}
+#screen-order .pay-wrap { box-shadow: var(--sh-sm); }
+
+/* The bar above these screens is chrome, not furniture. */
+#screen-preview .bar, #screen-checkout .bar, #screen-order .bar,
+#screen-start .bar {
+  background: rgba(255, 255, 255, .82); backdrop-filter: blur(10px);
+  border-bottom-color: rgba(16, 24, 40, .07);
+}
+#screen-preview .bar b, #screen-checkout .bar b {
+  font-family: var(--display); font-size: 1.15rem; font-weight: 600;
+}
+#screen-start .brand, #screen-order .brand {
+  font-family: var(--display); font-size: 1.15rem; letter-spacing: 0;
+}
+
+/* Preview thumbnails: paper, with a page edge. */
+#screen-preview .pv-page img {
+  border-radius: 6px; border-color: transparent; box-shadow: var(--sh-md);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+#screen-preview .pv-page:hover img { transform: translateY(-2px); box-shadow: var(--sh-lg); }
+
+@media (max-width: 560px) {
+  .start-body { padding-top: 22px; gap: 14px; }
+  .steps li span:last-child { font-size: .78rem; }
+  .type-grid, .tier-grid { gap: 10px; }
+  .btype { padding: 16px 6px 14px; font-size: .88rem; gap: 8px; }
+  .btype .bt-ico { font-size: 1.8rem; }
+  .tier { padding: 14px 6px 12px; }
+  .tier-book { width: 32px; height: 42px; margin-bottom: 6px; }
+  .design-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 12px; }
+  .co-wrap { padding: 18px 16px 32px; }
+  .or-ref-card { padding: 16px; }
+}
+
+/* Motion is decoration here; nothing depends on it. */
+@media (prefers-reduced-motion: reduce) {
+  #screen-start.active .start-body,
+  #screen-checkout.active .co-wrap,
+  #screen-order.active .or-body,
+  #screen-start .type-grid > *, #screen-start .tier-grid > * {
+    animation: none;
+  }
+  .btype, .tier, .design-card, .co-form input, .co-form textarea,
+  #screen-preview .pv-page img, .steps-dot { transition: none; }
+  .timeline li.now::before { animation: none; }
 }

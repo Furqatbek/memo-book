@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex">
   <title>RS Pixel — Book editor</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='22' height='24' rx='3' fill='%232456d6'/%3E%3Crect x='9' y='9' width='14' height='9' rx='1.5' fill='white' opacity='.92'/%3E%3Crect x='9' y='21' width='10' height='2.5' rx='1.25' fill='white' opacity='.7'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="editor.css?v=20260821">
-  <script src="config.js?v=20260821"></script>
+  <link rel="stylesheet" href="editor.css?v=20260826">
+  <script src="config.js?v=20260826"></script>
 </head>
 <body>
   <div id="toasts" aria-live="polite"></div>
@@ -47,6 +47,15 @@
 
       <div id="start-new">
         <h1 data-i18n="start.title"></h1>
+        <p class="lede" data-i18n="start.lede"></p>
+        <!-- Three steps, so the customer can see how far this goes. Marked
+             up as a list because that is what it is; the active step is set
+             from JS with .on / .done. -->
+        <ol id="start-steps" class="steps" aria-label="Steps">
+          <li data-step="type"><span class="steps-dot"></span><span data-i18n="step.type"></span></li>
+          <li data-step="tier"><span class="steps-dot"></span><span data-i18n="step.size"></span></li>
+          <li data-step="design"><span class="steps-dot"></span><span data-i18n="step.cover"></span></li>
+        </ol>
         <div id="type-step">
           <p class="step-label" data-i18n="start.typeTitle"></p>
           <div class="type-grid" id="type-grid">
@@ -60,10 +69,10 @@
         <p class="step-label"><b id="type-chosen"></b> · <a href="#" id="type-change" data-i18n="start.changeType"></a></p>
         <p class="muted" data-i18n="start.subtitle"></p>
         <div class="tier-grid" id="tier-grid">
-          <button class="tier" data-tier="16"><b>16</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="16"></span></button>
-          <button class="tier" data-tier="32"><b>32</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="32"></span></button>
-          <button class="tier" data-tier="48"><b>48</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="48"></span></button>
-          <button class="tier" data-tier="96"><b>96</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="96"></span></button>
+          <button class="tier" data-tier="16"><span class="tier-book" aria-hidden="true"></span><b>16</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="16"></span></button>
+          <button class="tier" data-tier="32"><span class="tier-book" aria-hidden="true"></span><b>32</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="32"></span></button>
+          <button class="tier" data-tier="48"><span class="tier-book" aria-hidden="true"></span><b>48</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="48"></span></button>
+          <button class="tier" data-tier="96"><span class="tier-book" aria-hidden="true"></span><b>96</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="96"></span></button>
         </div>
         </div>
         <div id="design-step" class="hidden">
@@ -77,6 +86,30 @@
           <button id="design-skip" class="btn" data-i18n="start.designSkip"></button>
         </div>
       </div>
+      <!-- What the book itself is, before anyone spends an evening making
+           one. Three claims, worded exactly as the marketing site words
+           them, because two pages of the same product disagreeing about
+           what it is would be worse than saying nothing. -->
+      <ul class="perks">
+        <li>
+          <span class="perk-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h18"/><path d="M12 17V7"/><path d="M12 7 5.5 9.5V17"/><path d="M12 7l6.5 2.5V17"/></svg>
+          </span>
+          <b data-i18n="perk.flat"></b><span data-i18n="perk.flatNote"></span>
+        </li>
+        <li>
+          <span class="perk-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18"/></svg>
+          </span>
+          <b data-i18n="perk.cover"></b><span data-i18n="perk.coverNote"></span>
+        </li>
+        <li>
+          <span class="perk-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.4 3.2 8.2 8 9 4.8-.8 8-4.6 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+          </span>
+          <b data-i18n="perk.check"></b><span data-i18n="perk.checkNote"></span>
+        </li>
+      </ul>
       <p class="start-track"><a href="#" id="track-link" data-i18n="order.lookupTitle"></a></p>
     </div>
   </section>
@@ -181,6 +214,25 @@
       <button id="co-back" class="icon-btn" aria-label="Back">←</button>
       <b data-i18n="co.title"></b>
     </header>
+    <div class="co-wrap">
+    <!-- What you are buying and what it costs, next to the form rather than
+         two screens back. A checkout that shows neither is asking for
+         trust it has not earned. -->
+    <aside class="co-summary card">
+      <b data-i18n="co.summary"></b>
+      <div class="co-sum-book">
+        <span class="co-sum-ico" id="co-sum-ico" aria-hidden="true"></span>
+        <div>
+          <span id="co-sum-type"></span>
+          <span id="co-sum-size" class="muted"></span>
+        </div>
+      </div>
+      <div class="co-sum-total">
+        <span class="muted" data-i18n="order.amount"></span>
+        <b id="co-sum-price"></b>
+      </div>
+      <p class="muted small" data-i18n="co.note"></p>
+    </aside>
     <form id="co-form" class="co-form">
       <label><span data-i18n="co.name"></span>
         <input name="name" required maxlength="200" autocomplete="name"></label>
@@ -193,9 +245,9 @@
       <label><span data-i18n="co.email"></span>
         <input name="email" type="email" maxlength="200" autocomplete="email"></label>
       <p class="pay-hint" data-i18n="co.payHint"></p>
-      <p class="muted" data-i18n="co.note"></p>
       <button type="submit" class="btn primary" data-i18n="co.submit"></button>
     </form>
+    </div>
   </section>
 
   <!-- ============ ORDER ============ -->
@@ -251,6 +303,6 @@
     </div>
   </section>
 
-  <script type="module" src="js/app.js?v=20260821"></script>
+  <script type="module" src="js/app.js?v=20260826"></script>
 </body>
 </html>
