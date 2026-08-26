@@ -1166,3 +1166,30 @@ requires a `?v=` stamp on module-to-module imports, not just the ones in the
 markup. `app.js` importing an unstamped `orders.js` is the same stale-code
 trap one level down (A61).
 
+**A86 — `/admin` and `/editor` without the trailing slash.** Typing
+`rspixel.uz/admin` into a browser answered `{"detail":"Not Found"}` in
+production. `/admin/` was fine; the slash was the whole difference.
+
+Starlette matches a mounted app on `^/admin(?P<path>/.*)$`, so a bare
+`/admin` does not match it. Starlette has a redirect-slashes fallback for
+exactly this, but it only fires when **nothing** matched — and the site mount
+at `/` matches everything. So `/admin` fell through to the site, which went
+looking for a file of that name and 404'd. `/ru` worked (307) only because it
+is a directory *inside* that mount, where StaticFiles does its own redirect.
+
+The two paths this hit are the two most likely to be typed by hand rather
+than followed from a link, which is why it survived: nothing in the product
+ever links to `/admin` without the slash, and no check typed it.
+
+Fixed with an explicit `GET /admin` -> `/admin/` (and the same for
+`/editor`), registered only when the corresponding mount exists — a redirect
+to a mount that was never registered would answer 307 and then 404, which is
+worse than the honest 404. Query strings are carried across: the address
+someone pastes may well have one. 307 rather than a permanent redirect,
+matching what the site already does for `/ru`, so nothing is cached forever
+by a browser if these paths ever move.
+
+The admin console is at **`/admin/` on the main domain** — there is no
+`admin.` subdomain, and the Caddyfile serves four names only: `DOMAIN`,
+`api.DOMAIN`, `www.DOMAIN` (redirect) and `storage.DOMAIN`.
+

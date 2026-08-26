@@ -1,8 +1,9 @@
 """FastAPI application factory."""
 from pathlib import Path, PurePosixPath
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.admin import router as admin_router
@@ -95,12 +96,33 @@ def create_app() -> FastAPI:
     app.include_router(pricing_router)
     app.include_router(cover_designs_router)
     app.include_router(admin_router)
+    # A mounted app answers `/editor/...` but NOT a bare `/editor`: Starlette
+    # matches a Mount on `^/editor(?P<path>/.*)$`, and its redirect-slashes
+    # fallback only fires when nothing matched at all. The site mount below
+    # claims `/` and therefore claims `/editor` too, goes looking for a file
+    # of that name, and answers `{"detail":"Not Found"}` — which is what a
+    # person typing the address by hand gets, on the two paths most likely to
+    # be typed by hand rather than followed from a link.
+    #
+    # 307 rather than a permanent redirect: it is what Starlette itself
+    # answers for a directory inside the site mount (`/ru` -> `/ru/`), so the
+    # whole site behaves the same way, and nothing is cached forever by a
+    # browser if these paths ever move.
+    def redirect_to_slashed(prefix: str):
+        async def _redirect(request: Request) -> RedirectResponse:
+            query = request.url.query
+            return RedirectResponse(f"{prefix}/?{query}" if query else f"{prefix}/",
+                                    status_code=307)
+        return _redirect
+
     if settings.editor_dir and Path(settings.editor_dir).is_dir():
+        app.get("/editor", include_in_schema=False)(redirect_to_slashed("/editor"))
         app.mount("/editor", WebAssets(directory=settings.editor_dir, html=True),
                   name="editor")
     if settings.admin_dir and Path(settings.admin_dir).is_dir():
         # Static markup only. Every action it offers goes through the admin
         # API, which is dead unless ADMIN_TOKEN is set (A72).
+        app.get("/admin", include_in_schema=False)(redirect_to_slashed("/admin"))
         app.mount("/admin", WebAssets(directory=settings.admin_dir, html=True),
                   name="admin")
     if settings.site_dir and Path(settings.site_dir).is_dir():

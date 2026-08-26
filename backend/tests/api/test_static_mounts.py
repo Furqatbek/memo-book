@@ -99,3 +99,73 @@ async def test_the_crawler_files_are_reachable(tmp_path, monkeypatch):
             assert "xml" in sitemap.headers["content-type"]
     finally:
         get_settings.cache_clear()
+
+
+async def test_a_typed_address_reaches_the_app(tmp_path, monkeypatch):
+    """A86: `/admin` and `/editor` without the trailing slash.
+
+    A mounted app answers `/admin/...` but not a bare `/admin` — Starlette
+    matches a Mount on `^/admin(?P<path>/.*)$`, and its redirect-slashes
+    fallback only fires when nothing matched at all. The site mount claims
+    `/`, so it claims `/admin` too, looks for a file of that name and answers
+    `{"detail":"Not Found"}`. Observed in production on rspixel.uz, on the
+    two paths most likely to be typed by hand rather than followed.
+
+    The behaviour to match is the site's own: `/ru` -> `/ru/` is a 307, so
+    these are too.
+    """
+    site = tmp_path / "site"
+    (site / "ru").mkdir(parents=True)
+    (site / "index.html").write_text("<h1>home</h1>")
+    (site / "ru" / "index.html").write_text("<h1>ru</h1>")
+    editor = tmp_path / "editor"
+    editor.mkdir()
+    (editor / "index.html").write_text("<h1>the-editor</h1>")
+    admin = tmp_path / "admin"
+    admin.mkdir()
+    (admin / "index.html").write_text("<h1>the-console</h1>")
+
+    monkeypatch.setenv("SITE_DIR", str(site))
+    monkeypatch.setenv("EDITOR_DIR", str(editor))
+    monkeypatch.setenv("ADMIN_DIR", str(admin))
+    get_settings.cache_clear()
+    app = create_app()
+    transport = httpx.ASGITransport(app=app)
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+            for path, body in (("/editor", "the-editor"), ("/admin", "the-console")):
+                hop = await c.get(path)
+                assert hop.status_code == 307, f"{path} -> {hop.status_code}"
+                assert hop.headers["location"] == f"{path}/"
+                landed = await c.get(path, follow_redirects=True)
+                assert body in landed.text, path
+
+            # A query string is part of the address someone pasted.
+            hop = await c.get("/admin?ref=UB-12345")
+            assert hop.headers["location"] == "/admin/?ref=UB-12345"
+
+            # The same shape the site already had, unchanged.
+            assert (await c.get("/ru")).status_code == 307
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_the_redirect_exists_only_for_mounts_that_do(tmp_path, monkeypatch):
+    """No admin directory, no `/admin` — the redirect must not invent a route
+    to a mount that was never registered, or a deployment without the console
+    would answer 307 and then 404."""
+    site = tmp_path / "site"
+    site.mkdir(parents=True)
+    (site / "index.html").write_text("<h1>home</h1>")
+    monkeypatch.setenv("SITE_DIR", str(site))
+    monkeypatch.delenv("EDITOR_DIR", raising=False)
+    monkeypatch.delenv("ADMIN_DIR", raising=False)
+    get_settings.cache_clear()
+    app = create_app()
+    transport = httpx.ASGITransport(app=app)
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+            assert (await c.get("/admin")).status_code == 404
+            assert (await c.get("/editor")).status_code == 404
+    finally:
+        get_settings.cache_clear()
