@@ -221,10 +221,16 @@
 
               <fieldset class="field">
                 <span>Title</span>
-                <div class="numbers">
+                <label class="check">
+                  <input id="f-has-title" type="checkbox">
+                  <span>The customer can put a title on this design</span>
+                </label>
+                <div id="f-title" class="numbers">
                   <label>x<input id="f-title-x" type="number" step="1"></label>
                   <label>y<input id="f-title-y" type="number" step="1"></label>
                   <label>pt<input id="f-title-size" type="number" step="1"></label>
+                  <small class="muted">Untick for artwork that already carries
+                    its own lettering.</small>
                 </div>
               </fieldset>
 
@@ -273,6 +279,6 @@
     </main>
   </section>
 
-  <script type="module" src="js/app.js?v=20260828"></script>
+  <script type="module" src="js/app.js?v=20260829"></script>
 </body>
 </html>

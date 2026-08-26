@@ -76,6 +76,11 @@ guessing `19,24,110,110` and finding out at print time. Everything you see
 in that preview — the framing, the safe margin, the automatic title ink — is
 computed the same way the print renderer computes it.
 
+**Artwork with its own lettering:** untick *"The customer can put a title on
+this design"* and the design ships with no title box. The customer gets the
+cover exactly as you drew it, and nothing is printed over your type. Tick it
+back on and the title returns — it is a setting, not a one-way door.
+
 Two things the console does that the command line cannot:
 
 - It warns you *before upload* if the file is too small or the wrong shape.
@@ -107,7 +112,7 @@ python scripts/cover_design.py add romance-gold ~/art/romance-gold.png \
 | `--name` | Shown under the thumbnail in the gallery. |
 | `--types` | Occasions this design suits: `love`, `travel`, `birthday`, `memory`. **Leave it out and the design appears for every occasion.** |
 | `--photo-rect x,y,w,h` | Where the customer's photo goes, in mm from the top-left of the 148 × 210 front panel. **Leave it out for a complete artwork cover.** |
-| `--title x,y[,size]` | Where the title sits, in mm; size in points. |
+| `--title x,y[,size]` | Where the title sits, in mm; size in points. **Leave it out for artwork that already carries its own lettering** — the customer then gets no title box at all. |
 | `--title-color` | `#rrggbb`. Leave it out and it is chosen automatically. |
 | `--bg` | Back panel and spine colour. |
 | `--order` | Sort position in the gallery — lower comes first. |

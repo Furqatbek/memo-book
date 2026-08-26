@@ -1296,3 +1296,32 @@ fixed: **every layer being correct is not the same as the product being
 correct.** Nothing here was broken except what the customer could see, and
 that was the only part that mattered.
 
+**A90 — a cover design could not say "this artwork already has its own
+lettering".** The admin console's design form offered the title as three
+numbers — x, y, size — and nothing else. Every design it saved carried a
+title block, whether the art wanted one or not. Upload a cover with the words
+already drawn into it and the renderer put a second title on top; there was
+no way to say no.
+
+Nothing underneath was missing. `upsert_design` has always stored
+`title_x_mm = title["x_mm"] if title else None`, the serializer omits the
+`title` key entirely when there is none, and `cover_design.py --title` is
+optional. **The console was the single place that could not express a
+capability the rest of the system already had** — and the console is what a
+person actually uses, so in practice the capability did not exist.
+
+The photo window next to it had the control all along: a checkbox, "This
+design has a window for the customer's photo", with `readRect()` returning
+null when it is off. The title now mirrors it exactly — same markup shape,
+same `.numbers.off` styling, same null return — which is why the fix is four
+small edits rather than a new mechanism.
+
+`checks/admincheck.js` covers the round trip: unticking hides the title from
+the live preview, saving produces a design the API returns with no `title`
+key at all, and ticking it back puts one there again — a setting, not a
+one-way door. Verified it fails when `readTitle()` loses its null return.
+
+Worth noticing as a pattern: this is the second defect this session where
+every layer was correct and only the surface was wrong (A89 was the first).
+Both were found by a person using the product, neither by a test, because
+every test asserted the layer it owned and all of those layers were fine.

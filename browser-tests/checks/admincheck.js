@@ -121,6 +121,44 @@ const TOKEN = 'dev-admin';
   }, BASE);
   console.log('   a travel customer does not:', !travel.includes('console-hearts'));
 
+  // 5b. A90: artwork that carries its own lettering must be able to say so.
+  //     The backend has always accepted a design with no title; until now the
+  //     console could not express it, so every design it produced got a title
+  //     block whether the art wanted one or not.
+  const titleOf = (slug) => page.evaluate(async ([base, s]) => {
+    const r = await fetch(`${base}/api/v1/cover-designs?book_type=love`);
+    const d = (await r.json()).designs.find((x) => x.slug === s);
+    return d ? ('title' in d ? d.title : null) : 'MISSING';
+  }, [BASE, 'console-hearts']);
+
+  if ((await titleOf()) === null) throw new Error('expected a title to start with');
+  await page.uncheck('#f-has-title');
+  await page.waitForFunction(
+    () => document.getElementById('cover-title').classList.contains('hidden'),
+    undefined, { timeout: 10000 });
+  console.log('5b. unticking the title hides it from the preview: true');
+  await page.click('#btn-save');
+  await page.waitForFunction(async (base) => {
+    const r = await fetch(`${base}/api/v1/cover-designs?book_type=love`);
+    const d = (await r.json()).designs.find((x) => x.slug === 'console-hearts');
+    return d && !('title' in d);
+  }, BASE, { timeout: 20000 });
+  console.log('    and the saved design carries no title at all: true');
+
+  // ...and ticking it back restores one, so this is a setting and not a
+  // one-way door.
+  await page.check('#f-has-title');
+  await page.waitForFunction(
+    () => !document.getElementById('cover-title').classList.contains('hidden'),
+    undefined, { timeout: 10000 });
+  await page.click('#btn-save');
+  await page.waitForFunction(async (base) => {
+    const r = await fetch(`${base}/api/v1/cover-designs?book_type=love`);
+    const d = (await r.json()).designs.find((x) => x.slug === 'console-hearts');
+    return d && 'title' in d;
+  }, BASE, { timeout: 20000 });
+  console.log('    ticking it back puts one there again: true');
+
   // 6. edit without re-uploading artwork
   await page.fill('#f-name', 'Console hearts v2');
   await page.click('#btn-save');

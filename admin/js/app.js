@@ -211,6 +211,8 @@ function edit(design) {
   $('f-rect-y').value = rect.y_mm;
   $('f-rect-w').value = rect.w_mm;
   $('f-rect-h').value = rect.h_mm;
+  $('f-has-title').checked = !!d.title;
+  $('f-title').classList.toggle('off', !d.title);
   const title = d.title || BLANK.title;
   $('f-title-x').value = title.x_mm;
   $('f-title-y').value = title.y_mm;
@@ -255,7 +257,12 @@ function readRect() {
   };
 }
 
+/* Null when the design carries no title at all — artwork that already has
+   its own lettering, where a second title drawn on top is exactly wrong.
+   The backend and `cover_design.py --title` have always allowed this; the
+   console was the one place that could not express it (A90). */
 function readTitle() {
+  if (!$('f-has-title').checked) return null;
   return {
     x_mm: Number($('f-title-x').value) || 0,
     y_mm: Number($('f-title-y').value) || 0,
@@ -292,7 +299,8 @@ function renderPreview() {
 
   const title = readTitle();
   const el = $('cover-title');
-  el.classList.remove('hidden');
+  el.classList.toggle('hidden', !title);
+  if (!title) return;
   el.style.left = pct(title.x_mm, TRIM_W);
   el.style.top = pct(title.y_mm, TRIM_H);
   // In real px, not a percentage: a percentage font-size resolves against the
@@ -516,6 +524,11 @@ function bind() {
   }
   $('f-has-photo').addEventListener('change', () => {
     $('f-rect').classList.toggle('off', !$('f-has-photo').checked);
+    markDirty();
+    renderPreview();
+  });
+  $('f-has-title').addEventListener('change', () => {
+    $('f-title').classList.toggle('off', !$('f-has-title').checked);
     markDirty();
     renderPreview();
   });
