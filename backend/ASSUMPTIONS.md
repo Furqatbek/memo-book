@@ -1265,3 +1265,34 @@ paste box is computed in whole pixels; the test rounds that away but asserts
 first that the error really is sub-pixel, so a genuine half-millimetre drift
 could not hide inside the rounding.
 
+**A89 — an empty cover title looked exactly like a title that would not
+clear.** A new book arrives with the title filled in ("Our travels" for a
+travel book) — a starting point, not a decision. Clearing it worked
+perfectly: the editor emptied, the server stored `""`, a full reload kept it
+empty, and the renderer draws nothing (`if title:`). Every layer was right.
+
+The screen said otherwise. The placeholder sat in the title's own position,
+at the title's own weight and size, at 75% opacity, reading "Title". Nothing
+distinguished it from printed text. It was reported as a bug by the person
+who built the product, which is about as clear a signal as a UI ever gives.
+
+Two changes, and neither hides the affordance — the placeholder is the only
+thing telling a customer they may put a title there at all, and hover does
+not exist on a phone:
+
+* **It asks instead of naming.** "Title" → "Add a title", in all five
+  languages. A bare noun in the title's own style *is* a title; an
+  instruction cannot be read as one.
+* **The empty field is outlined as a field** — a dashed rule, italic,
+  quieter. No printed cover has a dashed box on it.
+
+`browser-tests/checks/covertitle.js` holds the whole chain: prefilled,
+cleared, stored empty, still empty after a reload, still rendering — plus
+that the placeholder is a phrase rather than a noun and that the empty field
+carries a dashed outline. Verified it fails when the wording is reverted.
+
+The general point, and the reason this is written down rather than just
+fixed: **every layer being correct is not the same as the product being
+correct.** Nothing here was broken except what the customer could see, and
+that was the only part that mattered.
+

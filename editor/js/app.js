@@ -3,7 +3,7 @@
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
 import * as api from './api.js?v=20260826';
-import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js?v=20260826';
+import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js?v=20260829';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }

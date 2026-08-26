@@ -747,12 +747,32 @@ img.lay-thumb { object-fit: cover; display: block; }
   text-shadow: 0 1px 10px rgba(0,0,0,.45); cursor: inherit;
 }
 .cover-titles input:focus { cursor: text; }
-.cover-titles input::placeholder { color: rgba(255,255,255,.75); }
+/* An empty title still shows a placeholder, and that placeholder sits exactly
+   where the printed title sits, in the same weight and the same size. It
+   reads as text on the cover that will not go away — it fooled the person who
+   built the product, and a customer is likelier to abandon the order than to
+   ask (A89).
+
+   So: mark it as a field rather than as content. Italic, lighter, quieter,
+   inside a dashed outline that no printed cover would ever have. Still
+   visible, because it is the only thing telling a customer they may put a
+   title here at all, and hover is not available on a phone. */
+.cover-titles input::placeholder {
+  color: rgba(255, 255, 255, .55); font-style: italic; font-weight: 400;
+}
+.cover-titles input:placeholder-shown {
+  outline: 1.5px dashed rgba(255, 255, 255, .45); outline-offset: 5px;
+  border-radius: 4px;
+}
 .page-canvas.cover-mode:not(:has(.cover-frame)) .cover-titles input {
   color: var(--ink); text-shadow: none;
 }
 .page-canvas.cover-mode:not(:has(.cover-frame)) .cover-titles input::placeholder {
   color: var(--muted);
+}
+.page-canvas.cover-mode:not(:has(.cover-frame))
+  .cover-titles input:placeholder-shown {
+  outline-color: rgba(107, 114, 128, .5);
 }
 .cover-subtitle { font-weight: 400 !important; }
 
