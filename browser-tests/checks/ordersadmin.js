@@ -24,7 +24,7 @@ async function placeOrder(page) {
   await page.goto(`${BASE}/editor/`);
   await page.click('.btype[data-btype="travel"]');
   await page.waitForFunction(() => document.querySelector('[data-tier-pages]').textContent,
-    undefined, { timeout: 10000 });
+    undefined, { timeout: 30000 });
   await page.click('.tier[data-tier="16"]');
   await page.waitForSelector('#screen-editor.active, #design-step:not(.hidden)');
   if (await page.isVisible('#design-step')) await page.click('#design-skip');
@@ -50,7 +50,10 @@ async function placeOrder(page) {
   await page.fill('[name=phone]', '+998 90 123-45-67');
   await page.fill('[name=address]', 'Tashkent, Amir Temur 12, kv 4');
   await page.click('#co-form button[type=submit]');
-  await page.waitForSelector('#screen-order.active', { timeout: 60000 });
+  // Placing the order renders all 32 pages inline before the order screen
+  // appears. A minute is enough on an idle machine and not enough on a busy
+  // one — same budget as checks/shots.js, which walks the same path.
+  await page.waitForSelector('#screen-order.active', { timeout: 240000 });
   return (await page.textContent('#or-ref')).trim();
 }
 
@@ -69,12 +72,12 @@ async function placeOrder(page) {
   await page.goto(`${BASE}/admin/`);
   await page.fill('#login-token', TOKEN);
   await page.click('#login-form button[type=submit]');
-  await page.waitForSelector('#screen-main.active', { timeout: 15000 });
+  await page.waitForSelector('#screen-main.active', { timeout: 30000 });
   console.log('1. orders is the tab you land on:',
     await page.isVisible('#tab-orders') && !await page.isVisible('#tab-designs'));
 
   // 2. the order is in the open list
-  await page.waitForSelector(`.order-row[data-ref="${ref}"]`, { timeout: 20000 });
+  await page.waitForSelector(`.order-row[data-ref="${ref}"]`, { timeout: 30000 });
   const row = await page.$eval(`.order-row[data-ref="${ref}"]`,
     (el) => el.innerText.replace(/\n/g, ' | '));
   console.log('2. in the open list:', JSON.stringify(row));
@@ -83,13 +86,13 @@ async function placeOrder(page) {
   //    left orders with the same phone, so what matters is that this one is
   //    found and that a search which should match nothing matches nothing.
   await page.fill('#o-search', '901234567');
-  await page.waitForSelector(`.order-row[data-ref="${ref}"]`, { timeout: 20000 });
+  await page.waitForSelector(`.order-row[data-ref="${ref}"]`, { timeout: 30000 });
   console.log('3. found by phone digits alone: true');
 
   await page.fill('#o-search', 'ZZ-NOTHING');
   await page.waitForFunction(
     () => document.querySelectorAll('.order-row').length === 0,
-    undefined, { timeout: 20000 });
+    undefined, { timeout: 30000 });
   console.log('   a search that should match nothing matches nothing: true');
 
   await page.fill('#o-search', '');
@@ -112,11 +115,19 @@ async function placeOrder(page) {
   if (noFiles !== 0) throw new Error('print files existed before payment');
   await page.screenshot({ path: SHOTS + '/99-orders-pending.png' });
 
-  // 5. confirm the transfer — the daily action
+  // 5. confirm the transfer — the daily action.
+  //
+  //    The console is mid-action from the moment a button is pressed until
+  //    the order list and the attention panel have both come back, and it
+  //    ignores clicks for all of it. The action buttons are disabled for
+  //    exactly that window, so "a button you could actually press" is the
+  //    signal that the cycle is over — every wait that is followed by
+  //    another click uses it, here and in step 7.
   await page.fill('#od-note', 'transfer seen 12:04');
   await page.click('#od-actions button.primary');
   await page.waitForFunction(
-    () => document.querySelectorAll('#od-files a').length === 2,
+    () => document.querySelectorAll('#od-files a').length === 2
+      && ![...document.querySelectorAll('#od-actions button')].some((b) => b.disabled),
     undefined, { timeout: 180000 });
   console.log('5. after confirming ->',
     JSON.stringify(await page.textContent('#od-status')));
@@ -150,18 +161,60 @@ async function placeOrder(page) {
   const after = await page.$$eval('#od-events li', (els) => els.length);
   if (after !== before) throw new Error('reopening changed the history');
 
-  // 7. the fulfilment path, driven by what the server says is possible
+  // 7. the fulfilment path, driven by what the server says is possible.
+  //
+  //    Each step waits for the console to be READY, not merely for the
+  //    status text to change. The two are not the same moment: the console
+  //    repaints the detail as soon as the transition returns, then spends
+  //    two more round trips refreshing the order list and the attention
+  //    panel, and it ignores clicks for all of it. Waiting on the status
+  //    alone returns inside that window and the next click here is
+  //    swallowed — a hang no timeout can rescue, because nothing was ever
+  //    sent. "A button you could actually press" is the end of the cycle.
+  //
+  //    That window is milliseconds on an idle machine, which is exactly why
+  //    it has to be forced open rather than waited for: the list refresh is
+  //    held back deliberately below, so the invariant is checked at a
+  //    moment that reliably exists instead of one that shows up under load.
+  const HOLD_MS = 1500;
+  await page.route('**/api/v1/admin/orders?*', async (route) => {
+    await new Promise((r) => setTimeout(r, HOLD_MS));
+    await route.continue();
+  });
+
   for (const [label, expect] of [
     ['Sent to the printer', 'At the printer'],
     ['Shipped', 'Shipped'],
     ['Delivered', 'Delivered'],
   ]) {
     await page.click(`#od-actions button:text-is("${label}")`);
+
+    // the transition itself has landed — the console has repainted the detail
     await page.waitForFunction(
       (want) => document.getElementById('od-status').textContent.trim() === want,
-      expect, { timeout: 20000 });
-    console.log(`7. ${label.padEnd(22)} -> ${expect}`);
+      expect, { timeout: 60000 });
+
+    // ...and while it finishes the rest of the cycle it must not offer a
+    // button it is going to ignore. The held-back list refresh guarantees
+    // there is still cycle left to run at this point.
+    const live = await page.$$eval('#od-actions button',
+      (els) => els.filter((b) => !b.disabled).map((b) => b.textContent));
+    if (live.length) {
+      throw new Error(`the console offered ${JSON.stringify(live)} while still `
+        + 'busy — those clicks are swallowed by the S.busy guard');
+    }
+
+    // `renderActions` empties the box and refills it in one synchronous run,
+    // so a poll can never catch it half built — "nothing disabled" is a
+    // sound readiness signal, and stays sound for a finished order that
+    // offers no buttons at all.
+    await page.waitForFunction(
+      () => ![...document.querySelectorAll('#od-actions button')]
+        .some((b) => b.disabled),
+      undefined, { timeout: 60000 });
+    console.log(`7. ${label.padEnd(22)} -> ${expect}  (busy until ready: enforced)`);
   }
+  await page.unroute('**/api/v1/admin/orders?*');
   await page.screenshot({ path: SHOTS + '/99-orders-delivered.png' });
 
   // 8. a finished order offers nothing, and leaves the open list
@@ -170,10 +223,10 @@ async function placeOrder(page) {
   await page.click('#btn-orders-refresh');
   await page.waitForFunction(
     (r) => !document.querySelector(`.order-row[data-ref="${r}"]`), ref,
-    { timeout: 20000 });
+    { timeout: 30000 });
   console.log('   gone from the open list: true');
   await page.selectOption('#o-status', '');
-  await page.waitForSelector(`.order-row[data-ref="${ref}"]`, { timeout: 20000 });
+  await page.waitForSelector(`.order-row[data-ref="${ref}"]`, { timeout: 30000 });
   console.log('   still findable under All: true');
 
   // 9. the designs tab still works

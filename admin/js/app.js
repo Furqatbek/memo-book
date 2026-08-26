@@ -8,7 +8,7 @@
    English only, deliberately: the audience is the founder, not customers.
    The five-language rule is about the people buying books. */
 import * as api from './api.js?v=20260825';
-import { bindOrders, refreshOrders, resetOrders } from './orders.js?v=20260825';
+import { bindOrders, refreshOrders, resetOrders } from './orders.js?v=20260828';
 
 const TRIM_W = 148, TRIM_H = 210, SAFE = 5;   // the front panel, in mm
 

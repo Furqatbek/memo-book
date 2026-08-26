@@ -310,6 +310,20 @@ function renderActions(deps) {
     box.append(h('span', { class: 'muted small' },
       'Nothing to do — this order is finished.'));
   }
+
+  // An action in flight keeps the whole set disabled, because `act` rebuilds
+  // these buttons half way through its own run: it calls `renderDetail` as
+  // soon as the transition returns, but is still busy for two more round
+  // trips (the order list, then the attention panel). Without this the
+  // buttons come back ENABLED during that window, and the operator's next
+  // click is swallowed by the `S.busy` guard below — no move, no error, no
+  // toast, nothing. Disabled is the truth; a button you can press and that
+  // does nothing is worse than one you cannot.
+  if (S.busy) setActionsDisabled(true);
+}
+
+function setActionsDisabled(disabled) {
+  for (const b of $('od-actions').querySelectorAll('button')) b.disabled = disabled;
 }
 
 async function act(deps, what, spec) {
@@ -318,7 +332,7 @@ async function act(deps, what, spec) {
   const note = $('od-note').value.trim();
   const ref = S.current.human_ref;
   S.busy = true;
-  for (const b of $('od-actions').querySelectorAll('button')) b.disabled = true;
+  setActionsDisabled(true);
   try {
     if (what === 'confirm') {
       const body = await api.confirmPayment(ref, note);
@@ -335,9 +349,11 @@ async function act(deps, what, spec) {
     await refreshOrders(deps);
   } catch (e) {
     await deps.adminError(e, 'That did not work.');
-    renderActions(deps);
   } finally {
     S.busy = false;
+    // Last write of the cycle, and the one the operator is waiting for: the
+    // buttons are live again exactly when the console is ready to act.
+    renderActions(deps);
   }
 }
 

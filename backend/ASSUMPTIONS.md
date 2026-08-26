@@ -1125,3 +1125,44 @@ mistyped `?v=` stamp is a runtime 404 that nothing fails on — the page still
 renders, just without its background, its font, or the module that wires up
 a button. The test reads the markup, the stylesheet and the modules and
 requires every same-origin URL they name to exist.
+
+**A85 — A button you can press and that does nothing is worse than one you
+cannot.** The admin console's order actions ran through `act()`, which sets
+`S.busy = true`, disables the buttons, and then — as soon as the transition
+returns — calls `renderDetail()`. `renderDetail` rebuilds the action buttons,
+**enabled**, while `act()` is still busy for two more round trips: the order
+list, then the attention panel. Every click in that window hit the
+`if (S.busy) return` guard at the top of `act()` and did nothing at all. No
+move, no error, no toast. The operator presses "Shipped" and the order does
+not ship.
+
+`renderActions` now disables the set whenever `S.busy`, and `act()` renders
+them once more in its `finally`, so the buttons are live again exactly when
+the console is ready to act on them.
+
+This surfaced as a flaky browser check — `ordersadmin` timing out waiting for
+a status that was never going to change, then passing on a re-run. The
+tempting fix was to raise the timeout. It would not have worked: the click
+had been swallowed, so nothing was in flight and no amount of waiting would
+have produced the transition. **A retry that passes is evidence about
+timing, not evidence that nothing is wrong.**
+
+The check now waits for the end of the action cycle rather than the first
+repaint, and asserts the invariant directly. Making it a real regression test
+needed one more step: on an idle machine the busy window is a few
+milliseconds, so the check passed even with the bug reinstated. It now holds
+the order-list request back deliberately (`page.route`) to force the window
+open, and fails with the button it was offered. Verified in both directions —
+the check fails with the fix reverted and passes with it in place.
+
+Timeouts in that check were raised too, where they were genuinely tight
+rather than racy: placing an order renders 32 pages inline and gets the same
+240s budget as `checks/shots.js`, which walks the same path; the list and
+search waits went from 20s to 30s.
+
+`tests/test_editor_assets.py` now covers the admin console as well as the
+editor — same no-build structure, same silent-404 risk — and additionally
+requires a `?v=` stamp on module-to-module imports, not just the ones in the
+markup. `app.js` importing an unstamped `orders.js` is the same stale-code
+trap one level down (A61).
+
