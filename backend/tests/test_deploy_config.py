@@ -159,3 +159,93 @@ class TestBackupsAreRealOrAbsent:
     def test_there_is_a_way_to_rehearse_a_restore(self):
         assert "--drill" in (REPO / "deploy" / "restore.sh").read_text(
             encoding="utf-8")
+
+
+# ---------------------------------------------------------------- Caddyfile
+
+CADDYFILE = REPO / "deploy" / "Caddyfile"
+
+
+def caddy_site_blocks() -> dict[str, str]:
+    """{address line: block body} for every site block in the Caddyfile.
+
+    Read rather than assumed: the hostnames Caddy will actually try to get
+    certificates for are the ones written here, and a name in the README that
+    is not in this file is a name that never resolves.
+
+    Scanned brace by brace rather than by regex, because a site address is
+    itself `{$DOMAIN}, api.{$DOMAIN}`. For the same reason placeholders are
+    masked first: `{$DOMAIN}` and `{uri}` are braces that open nothing, and
+    counting them as depth walks straight off the end of the file.
+    """
+    text = re.sub(r"(?m)^\s*#.*$", "", CADDYFILE.read_text(encoding="utf-8"))
+    masked = re.sub(r"\{\$?[A-Za-z_][\w.]*\}",
+                    lambda m: "\x00" * len(m.group()), text)
+
+    blocks: dict[str, str] = {}
+    depth, address, body_start = 0, None, 0
+    for i, ch in enumerate(masked):
+        if ch == "{":
+            if depth == 0:
+                # Everything back to the previous line break is the address;
+                # a global options block has none.
+                head = text[:i].rstrip()
+                address = head[head.rfind("\n") + 1:].strip()
+                body_start = i + 1
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and address:
+                blocks[address] = text[body_start:i]
+    return blocks
+
+
+def test_every_hostname_the_readme_promises_is_actually_served():
+    """The README tells the deployer which DNS A records to create before the
+    first boot. Let's Encrypt validates over HTTP, so a name that is served
+    but undocumented never gets a record — and never gets a certificate."""
+    served = set()
+    for address in caddy_site_blocks():
+        for host in (a.strip() for a in address.split(",")):
+            served.add(host.replace("{$DOMAIN}", "YOUR_DOMAIN"))
+
+    readme = (REPO / "deploy" / "README.md").read_text(encoding="utf-8")
+    documented = set(re.findall(r"`((?:[a-z]+\.)?YOUR_DOMAIN)`", readme))
+    missing = served - documented
+    assert not missing, (
+        f"the Caddyfile serves {sorted(missing)} but deploy/README.md never "
+        f"tells the deployer to create those DNS records")
+
+
+def test_the_admin_console_has_its_own_hostname_and_keeps_the_api_intact():
+    """A87: admin.DOMAIN serves the console the backend keeps at /admin.
+
+    The rewrite that makes that work must not touch `/api/*`: the console
+    talks to the API with absolute paths, and rewriting those into
+    `/admin/api/...` would leave a page that loads and then does nothing.
+    """
+    blocks = caddy_site_blocks()
+    address = next((a for a in blocks if a.startswith("admin.{$DOMAIN}")), None)
+    assert address, f"no admin.{{$DOMAIN}} block; found {sorted(blocks)}"
+
+    body = blocks[address]
+    assert re.search(r"handle\s+/api/\*\s*\{", body), (
+        "admin.DOMAIN must route /api/* straight to the backend, before the "
+        "rewrite — otherwise every call the console makes 404s")
+    assert "rewrite * /admin{uri}" in body, (
+        "the console lives at /admin on the backend and must be rewritten "
+        "there, carrying {uri} so the ?v= cache stamps survive (A61)")
+    # The /api/* handler has to come first: `handle` blocks are evaluated in
+    # source order and the catch-all would otherwise swallow everything.
+    assert body.index("/api/*") < body.index("rewrite * /admin{uri}")
+
+
+def test_the_main_domain_still_serves_the_console_too():
+    """The subdomain is a second door, not a move. Docs, ASSUMPTIONS and any
+    bookmark still point at DOMAIN/admin/, which is a path on the main host
+    and must not be redirected away."""
+    blocks = caddy_site_blocks()
+    main = next(a for a in blocks if a.startswith("{$DOMAIN}"))
+    assert "reverse_proxy api:8000" in blocks[main]
+    assert "/admin" not in blocks[main], (
+        "the main host must pass /admin/ through to the backend untouched")

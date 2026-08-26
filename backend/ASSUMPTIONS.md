@@ -1193,3 +1193,44 @@ The admin console is at **`/admin/` on the main domain** — there is no
 `admin.` subdomain, and the Caddyfile serves four names only: `DOMAIN`,
 `api.DOMAIN`, `www.DOMAIN` (redirect) and `storage.DOMAIN`.
 
+**A87 — `admin.DOMAIN`, on request.** The operator console now has a
+hostname of its own. The backend still serves it at `/admin`, so the
+subdomain is a second door, not a move: `https://DOMAIN/admin/` keeps
+working, and every bookmark, doc and note that points there stays correct.
+
+`handle` blocks rather than a bare rewrite, because the ordering is the
+whole trick. The console talks to the API with **absolute** paths
+(`/api/v1/admin/...`), so those must reach the backend untouched; rewriting
+them into `/admin/api/...` would leave a page that loads perfectly and then
+does nothing at all. `/api/*` is handled first, everything else is rewritten
+to `/admin{uri}` — `{uri}` and not `{path}`, because every module the page
+imports is stamped `?v=...` (A61) and dropping the query would serve stale
+code from a browser cache.
+
+**What it costs, which is worth stating plainly.** Every certificate Caddy
+obtains is published in the public Certificate Transparency logs, which
+anyone can search. A72 goes to some length to make the admin API
+*unfindable* — every refusal is a 404, so a wrong token, a missing token and
+a switched-off admin are indistinguishable — and a hostname called `admin.`
+announces that a console exists. That is a real reduction in obscurity. It
+is not a reduction in security: the token was always the thing protecting
+this, and it still is. Deleting the block restores the quiet address.
+
+No robots.txt on that host, deliberately. `X-Robots-Tag: noindex, nofollow`
+goes on every response instead: robots.txt asks a crawler not to *fetch*,
+which does not stop a URL being indexed from someone else's link, and the
+file is itself a public list of what you would rather nobody looked at.
+
+Verified by running it, not by reading it — Caddy 2.8.4 against the real
+backend, checking that the console loads at the root, that its stylesheet
+and modules resolve with their cache stamps intact (`Cache-Control:
+no-cache`), that `/api/v1/prices` comes back byte-identical to a direct
+request, and that `/admin/` on the main host still answers 200.
+
+The test that came out of this found a live gap on its first run: the
+Caddyfile served a hostname `deploy/README.md` never told the deployer to
+create a DNS record for. A missing record fails *quietly* — Caddy simply
+never gets a certificate for that name and it stays unreachable while
+everything else works — so the README list and the Caddyfile are now
+compared to each other rather than maintained side by side.
+

@@ -73,10 +73,17 @@ precisely because storage needs a stable public hostname.
   `curl -fsSL https://get.docker.com | sh`
 - A domain with DNS **A records → your VPS IP**, created *before* first
   start (Caddy gets certificates on boot):
-  - `YOUR_DOMAIN` (site + editor + API, one origin)
+  - `YOUR_DOMAIN` (site + editor + API + admin console, one origin)
   - `api.YOUR_DOMAIN`
+  - `admin.YOUR_DOMAIN` (the operator console on a name of its own)
   - `storage.YOUR_DOMAIN`
   - `www.YOUR_DOMAIN` (optional; redirects to the root)
+
+A name in that list with no A record does not fail loudly — Caddy simply
+never gets a certificate for it and that one hostname stays unreachable
+while everything else works. If you do not want the admin subdomain, delete
+its block from the `Caddyfile` rather than leaving the record unmade; the
+console is always reachable at `https://YOUR_DOMAIN/admin/` regardless.
 
 Why the storage hostname must be public: photo bytes never pass through the
 API — the browser uploads straight to storage with presigned URLs, so the

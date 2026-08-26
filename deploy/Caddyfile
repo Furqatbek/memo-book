@@ -1,7 +1,12 @@
-# Three hostnames, automatic HTTPS (Let's Encrypt):
+# Four hostnames, automatic HTTPS (Let's Encrypt):
 #   DOMAIN         -> the whole product: site at /, editor at /editor, API
 #   api.DOMAIN     -> same backend (stable name for an externally-hosted editor)
+#   admin.DOMAIN   -> the operator console, which the backend serves at /admin
 #   storage.DOMAIN -> MinIO (presigned upload/download URLs point here)
+#
+# Every one of these needs its own DNS A record pointing here BEFORE the
+# stack comes up: Let's Encrypt validates over HTTP, so a name without a
+# record simply never gets a certificate.
 
 {$DOMAIN}, api.{$DOMAIN} {
 	encode gzip
@@ -16,6 +21,54 @@
 
 www.{$DOMAIN} {
 	redir https://{$DOMAIN}{uri} permanent
+}
+
+# The operator console on a name of its own. The backend serves it at
+# /admin, so this host puts it at the root and leaves `https://DOMAIN/admin/`
+# working exactly as before — nothing is moved, a second door is added.
+#
+# Worth knowing what this costs: every certificate Caddy gets is published in
+# the public Certificate Transparency logs, which are searchable by anyone.
+# A72 makes the admin API unfindable — every refusal is a 404, so a wrong
+# token, a missing token and a switched-off admin look identical — and this
+# hostname announces that a console exists. The token is what protects it,
+# not the address, and that has not changed. But if you want the address back
+# to being quiet, delete this block and use `https://DOMAIN/admin/`.
+#
+# `handle` blocks are mutually exclusive and run in order, which is what
+# keeps the rewrite below off the API calls.
+admin.{$DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Nothing on this host is a page. The console already carries
+		# <meta name="robots" content="noindex, nofollow">, and this says it
+		# again on every response, including the ones that are not markup.
+		#
+		# This rather than a robots.txt on purpose: robots.txt asks a crawler
+		# not to FETCH, which does not stop a URL being indexed from someone
+		# else's link, and it is itself a public list of what you would rather
+		# nobody looked at. A header that says "do not index" is the narrower
+		# and stronger of the two.
+		X-Robots-Tag "noindex, nofollow"
+	}
+
+	# The console talks to the API with absolute paths (`/api/v1/admin/...`),
+	# so those must reach the backend untouched rather than being rewritten
+	# into `/admin/api/...`.
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# Everything else is the console itself. `{uri}` carries the query string
+	# with it, which matters: every module the page imports is stamped
+	# `?v=...` (A61), and losing that would serve stale code.
+	handle {
+		rewrite * /admin{uri}
+		reverse_proxy api:8000
+	}
 }
 
 storage.{$DOMAIN} {
