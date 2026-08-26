@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RS Pixel — Design your own travel photo book online</title>
+<meta name="description" content="Turn your trip photos into a real printed book. Design it yourself in a simple online editor — upload photos, lay out pages, create the cover. We print a lay-flat hardcover and deliver it to your door.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232456d6'/%3E%3Cpath d='M8 9h7v14H8z' fill='%23ffffff'/%3E%3Cpath d='M17 9h7v14h-7z' fill='%23dbe4ff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/lang.js" data-page-lang="en" data-root="" data-entry="root"></script>
+<link rel="canonical" href="https://rspixel.uz/">
+<link rel="alternate" hreflang="en" href="https://rspixel.uz/">
+<link rel="alternate" hreflang="ru" href="https://rspixel.uz/ru/">
+<link rel="alternate" hreflang="uz" href="https://rspixel.uz/uz/">
+<link rel="alternate" hreflang="uz-Cyrl" href="https://rspixel.uz/uz-cyrl/">
+<link rel="alternate" hreflang="kaa" href="https://rspixel.uz/kaa/">
+<link rel="alternate" hreflang="x-default" href="https://rspixel.uz/">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="brand" href="#top">
+      <svg class="brand-mark" width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#2456d6"/>
+        <path d="M8 9h7v14H8z" fill="#ffffff"/>
+        <path d="M17 9h7v14h-7z" fill="#dbe4ff"/>
+      </svg>
+      RS Pixel
+    </a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="#how">How it works</a>
+      <a href="#editor">The editor</a>
+      <a href="#book">The book</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    
+    <a class="btn btn-primary btn-small header-cta" href="editor/">Create your book</a>
+    <details class="lang-menu">
+      <summary aria-label="Language: English">EN</summary>
+      <div class="lang-list">
+        <a href="ru/" lang="ru" hreflang="ru">Русский</a>
+        <a href="uz/" lang="uz" hreflang="uz">Oʻzbekcha</a>
+        <a href="uz-cyrl/" lang="uz-Cyrl" hreflang="uz-Cyrl">Ўзбекча</a>
+        <a href="kaa/" lang="kaa" hreflang="kaa">Qaraqalpaqsha</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ================= HERO ================= -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="hero-kicker">Online editor · Printed &amp; shipped</span>
+      <h1>Your trip. Your photos. Your&nbsp;book.</h1>
+      <p class="lede">Design your own travel photo book in a simple online editor. <strong>Start with a blank book</strong>, upload your photos, arrange the pages your way, write your captions, design the cover. We print exactly what you created — a lay-flat hardcover — and deliver it to your door.</p>
+      <div class="hero-cta">
+        
+        <a class="btn btn-primary" href="editor/">Create your book</a>
+        <a class="btn btn-ghost" href="#how">See how it works</a>
+      </div>
+      <p class="hero-meta">Free to design — you pay only when you order the printed book.</p>
+    </div>
+    <div class="hero-art">
+      <!-- Editor mockup: browser window with a book spread being designed -->
+      <svg viewBox="0 0 720 500" role="img" aria-label="The online editor: a browser window showing an open book spread with photos and text being arranged, a photo tray on the left and editing tools above">
+        <!-- browser window -->
+        <rect x="10" y="10" width="700" height="480" rx="16" fill="#ffffff" stroke="#e4e8f0"/>
+        <rect x="10" y="10" width="700" height="48" rx="16" fill="#f4f6fa"/>
+        <rect x="10" y="42" width="700" height="16" fill="#f4f6fa"/>
+        <circle cx="40" cy="34" r="6" fill="#ef6a4d"/>
+        <circle cx="60" cy="34" r="6" fill="#f5c04e"/>
+        <circle cx="80" cy="34" r="6" fill="#57bb8a"/>
+        <rect x="110" y="24" width="360" height="20" rx="10" fill="#e8eefc"/>
+        <!-- toolbar -->
+        <g>
+          <rect x="34" y="76" width="96" height="30" rx="8" fill="#2456d6"/>
+          <rect x="46" y="88" width="72" height="6" rx="3" fill="#ffffff"/>
+          <rect x="140" y="76" width="86" height="30" rx="8" fill="#eef1f7"/>
+          <rect x="152" y="88" width="62" height="6" rx="3" fill="#9aa6bd"/>
+          <rect x="236" y="76" width="70" height="30" rx="8" fill="#eef1f7"/>
+          <rect x="248" y="88" width="46" height="6" rx="3" fill="#9aa6bd"/>
+          <rect x="316" y="76" width="76" height="30" rx="8" fill="#eef1f7"/>
+          <rect x="328" y="88" width="52" height="6" rx="3" fill="#9aa6bd"/>
+        </g>
+        <!-- photo tray -->
+        <g>
+          <rect x="34" y="122" width="118" height="344" rx="12" fill="#f4f6fa"/>
+          <g>
+            <rect x="48" y="138" width="90" height="62" rx="6" fill="#bcd3f7"/>
+            <path d="M48 186 l26 -20 22 14 20 -16 22 16 v20 h-90 z" fill="#2456d6" opacity="0.55"/>
+            <circle cx="70" cy="154" r="7" fill="#f5c04e"/>
+          </g>
+          <g>
+            <rect x="48" y="212" width="90" height="62" rx="6" fill="#f8cfc2"/>
+            <path d="M48 260 l30 -22 24 16 18 -12 18 12 v20 h-90 z" fill="#ef6a4d" opacity="0.6"/>
+          </g>
+          <g>
+            <rect x="48" y="286" width="90" height="62" rx="6" fill="#c9e7d9"/>
+            <path d="M48 334 l24 -18 26 14 20 -14 20 14 v18 h-90 z" fill="#57bb8a" opacity="0.6"/>
+          </g>
+          <rect x="48" y="360" width="90" height="62" rx="6" fill="#e8eefc" stroke="#bcd3f7" stroke-dasharray="6 5"/>
+          <rect x="82" y="384" width="22" height="6" rx="3" fill="#9aa6bd"/>
+          <rect x="90" y="376" width="6" height="22" rx="3" fill="#9aa6bd"/>
+          <rect x="48" y="434" width="90" height="12" rx="6" fill="#dfe5f0"/>
+        </g>
+        <!-- open book spread on canvas -->
+        <g>
+          <rect x="180" y="140" width="500" height="310" rx="10" fill="#eef1f7"/>
+          <rect x="200" y="160" width="228" height="270" rx="4" fill="#ffffff" stroke="#e4e8f0"/>
+          <rect x="432" y="160" width="228" height="270" rx="4" fill="#fdfdfd" stroke="#e4e8f0"/>
+          <rect x="428" y="160" width="4" height="270" fill="#e4e8f0"/>
+          <!-- left page: big photo + caption -->
+          <g>
+            <rect x="216" y="176" width="196" height="150" rx="4" fill="#bcd3f7"/>
+            <path d="M216 292 l50 -44 40 30 36 -28 70 52 v16 h-196 z" fill="#2456d6" opacity="0.6"/>
+            <circle cx="256" cy="210" r="14" fill="#f5c04e"/>
+            <rect x="216" y="340" width="130" height="9" rx="4.5" fill="#dfe5f0"/>
+            <rect x="216" y="358" width="86" height="9" rx="4.5" fill="#eef1f7"/>
+          </g>
+          <!-- right page: two photos, one selected with handles -->
+          <g>
+            <rect x="448" y="176" width="94" height="110" rx="4" fill="#f8cfc2"/>
+            <path d="M448 262 l30 -26 22 16 18 -12 24 18 v28 h-94 z" fill="#ef6a4d" opacity="0.6"/>
+            <g>
+              <rect x="552" y="176" width="94" height="110" rx="4" fill="#c9e7d9"/>
+              <path d="M552 258 l26 -20 24 14 18 -12 26 20 v26 h-94 z" fill="#57bb8a" opacity="0.65"/>
+              <rect x="548" y="172" width="102" height="118" rx="4" fill="none" stroke="#2456d6" stroke-width="2" stroke-dasharray="7 5"/>
+              <rect x="544" y="168" width="9" height="9" rx="2" fill="#2456d6"/>
+              <rect x="645" y="168" width="9" height="9" rx="2" fill="#2456d6"/>
+              <rect x="544" y="285" width="9" height="9" rx="2" fill="#2456d6"/>
+              <rect x="645" y="285" width="9" height="9" rx="2" fill="#2456d6"/>
+            </g>
+            <rect x="448" y="306" width="198" height="9" rx="4.5" fill="#dfe5f0"/>
+            <rect x="448" y="324" width="150" height="9" rx="4.5" fill="#eef1f7"/>
+            <rect x="448" y="342" width="170" height="9" rx="4.5" fill="#eef1f7"/>
+            <!-- text cursor -->
+            <rect x="622" y="340" width="2.5" height="13" fill="#2456d6"/>
+          </g>
+          <!-- page indicator -->
+          <rect x="395" y="410" width="70" height="10" rx="5" fill="#dfe5f0"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HOW IT WORKS ================= -->
+<section id="how" class="section alt">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">How it works</span>
+      <h2>From camera roll to hardcover, in four steps</h2>
+      <p>No design skills needed. The editor runs in your browser — nothing to install.</p>
+    </div>
+    <ol class="steps">
+      <li>
+        <h3>Start with a blank book</h3>
+        <p>Open the editor and get an empty book — your pages, your rules. No forced templates.</p>
+      </li>
+      <li>
+        <h3>Upload your photos</h3>
+        <p>One at a time or all at once — bring in your whole trip in a single bulk upload.</p>
+      </li>
+      <li>
+        <h3>Design pages &amp; cover</h3>
+        <p>Place photos exactly where you want them, or let auto-layout fill the pages for you and rearrange from there. Add text anywhere. Design the cover to match.</p>
+      </li>
+      <li>
+        <h3>Pay, we print &amp; ship</h3>
+        <p>When you're happy, pay online. Your finished design goes to print exactly as you made it, and the hardcover book is delivered to your door.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ================= THE EDITOR ================= -->
+<section id="editor" class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">The editor</span>
+      <h2>Your design, your fantasy</h2>
+      <p>Simple enough to finish in an evening, flexible enough to make it truly yours.</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V5m0 0l-4 4m4-4l4 4" stroke="#2456d6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="#2456d6" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Bulk upload</h3>
+        <p>Drop in hundreds of photos at once, straight from your phone or computer.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" stroke="#2456d6" stroke-width="2" fill="none"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" stroke="#2456d6" stroke-width="2" fill="none"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" stroke="#2456d6" stroke-width="2" fill="none"/><path d="M17 13.5v7M13.5 17h7" stroke="#2456d6" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Auto-placement</h3>
+        <p>One click fills your pages automatically — then move, resize and swap anything you like.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M12 6v13" stroke="#2456d6" stroke-width="2.2" stroke-linecap="round"/><path d="M8 19h8" stroke="#2456d6" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Text anywhere</h3>
+        <p>Captions, dates, stories, inside jokes — add and style text on any page.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2" stroke="#2456d6" stroke-width="2" fill="none"/><path d="M4 8h16" stroke="#2456d6" stroke-width="2"/><circle cx="12" cy="14.5" r="3" stroke="#2456d6" stroke-width="2" fill="none"/></svg>
+        </div>
+        <h3>Cover designer</h3>
+        <p>Your title, your photo, your style — the cover is part of the canvas too.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= THE BOOK ================= -->
+<section id="book" class="section alt">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">The printed book</span>
+      <h2>What arrives at your door</h2>
+      <p>We print your design exactly as you made it, check it page by page, and ship it. Made in Uzbekistan.</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-2.5 6-2.5 9 0 3-2.5 6-2.5 9 0" stroke="#2456d6" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M4 7h7v7H4zM13 7h7v7h-7z" stroke="#2456d6" stroke-width="2" fill="none"/></svg>
+        </div>
+        <h3>Lay-flat binding</h3>
+        <p>Every spread opens completely flat — panoramas run across both pages without vanishing into the spine, and pages don't crack loose over time.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2" stroke="#2456d6" stroke-width="2" fill="none"/><path d="M8 3.5v17" stroke="#2456d6" stroke-width="2"/></svg>
+        </div>
+        <h3>Hard cover, matte finish</h3>
+        <p>A rigid, matte-laminated cover that feels like a real book from a real bookshop.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l5 5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 6 20V4z" stroke="#2456d6" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M15 4v5h5" stroke="#2456d6" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Thick silk paper</h3>
+        <p>Heavy, silk-coated stock with deep, accurate colour — pages that feel like a gallery catalogue.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z" stroke="#2456d6" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M9 12l2.2 2.2L15.5 10" stroke="#2456d6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Checked before shipping</h3>
+        <p>Every book is quality-checked page by page before it leaves the print shop. Printing defect? We reprint it free.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= REAL BOOKS & REVIEWS ================= -->
+<section id="stories" class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Real books</span>
+      <h2>Real books, real stories</h2>
+      <p>Sample books designed in the editor — every page is yours to change.</p>
+    </div>
+    <div class="story-grid">
+      <figure class="story-card">
+        <div class="story-art"><svg viewBox="0 0 360 230" aria-hidden="true">
+          <defs>
+            <linearGradient id="s1a" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#1c8a5a"/><stop offset="1" stop-color="#e8b93c"/>
+            </linearGradient>
+            <linearGradient id="s1b" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0" stop-color="#2456d6"/><stop offset="1" stop-color="#8fb8ff"/>
+            </linearGradient>
+          </defs>
+          <rect x="8" y="10" width="344" height="210" rx="8" fill="#ffffff" stroke="#e5e7eb"/>
+          <rect x="16" y="18" width="164" height="194" fill="url(#s1a)"/>
+          <rect x="180" y="18" width="164" height="194" fill="#fbfbfc"/>
+          <rect x="196" y="34" width="132" height="118" fill="url(#s1b)"/>
+          <rect x="196" y="164" width="104" height="8" rx="4" fill="#d7dbe2"/>
+          <rect x="196" y="180" width="72" height="8" rx="4" fill="#e5e7eb"/>
+          <rect x="178" y="18" width="4" height="194" fill="rgba(0,0,0,.08)"/>
+        </svg></div>
+        <figcaption><span class="badge-sample">Sample</span> 16 pages · Weekend in Samarkand</figcaption>
+      </figure>
+      <figure class="story-card">
+        <div class="story-art"><svg viewBox="0 0 360 230" aria-hidden="true">
+          <defs>
+            <linearGradient id="s2a" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#2456d6"/><stop offset="1" stop-color="#e86a5e"/>
+            </linearGradient>
+            <linearGradient id="s2b" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0" stop-color="#e8b93c"/><stop offset="1" stop-color="#f5e2b0"/>
+            </linearGradient>
+          </defs>
+          <rect x="8" y="10" width="344" height="210" rx="8" fill="#ffffff" stroke="#e5e7eb"/>
+          <rect x="16" y="18" width="164" height="194" fill="url(#s2a)"/>
+          <rect x="180" y="18" width="164" height="194" fill="#fbfbfc"/>
+          <rect x="196" y="34" width="132" height="118" fill="url(#s2b)"/>
+          <rect x="196" y="164" width="104" height="8" rx="4" fill="#d7dbe2"/>
+          <rect x="196" y="180" width="72" height="8" rx="4" fill="#e5e7eb"/>
+          <rect x="178" y="18" width="4" height="194" fill="rgba(0,0,0,.08)"/>
+        </svg></div>
+        <figcaption><span class="badge-sample">Sample</span> 32 pages · Honeymoon in Italy</figcaption>
+      </figure>
+      <figure class="story-card">
+        <div class="story-art"><svg viewBox="0 0 360 230" aria-hidden="true">
+          <defs>
+            <linearGradient id="s3a" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#7048b6"/><stop offset="1" stop-color="#e8873c"/>
+            </linearGradient>
+            <linearGradient id="s3b" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0" stop-color="#1c8a5a"/><stop offset="1" stop-color="#a5dcc2"/>
+            </linearGradient>
+          </defs>
+          <rect x="8" y="10" width="344" height="210" rx="8" fill="#ffffff" stroke="#e5e7eb"/>
+          <rect x="16" y="18" width="164" height="194" fill="url(#s3a)"/>
+          <rect x="180" y="18" width="164" height="194" fill="#fbfbfc"/>
+          <rect x="196" y="34" width="132" height="118" fill="url(#s3b)"/>
+          <rect x="196" y="164" width="104" height="8" rx="4" fill="#d7dbe2"/>
+          <rect x="196" y="180" width="72" height="8" rx="4" fill="#e5e7eb"/>
+          <rect x="178" y="18" width="4" height="194" fill="rgba(0,0,0,.08)"/>
+        </svg></div>
+        <figcaption><span class="badge-sample">Sample</span> 96 pages · A year of family</figcaption>
+      </figure>
+    </div>
+    <div class="reviews-note">
+      <h3>What customers say</h3>
+      <p>Verified reviews from our first customers will appear here — the pilot books are being printed right now. We never publish invented quotes.</p>
+    </div>
+    <!-- Real reviews go here when real orders exist (name + city, with
+         permission). NEVER publish invented quotes.
+    <div class="review-grid">
+      <div class="review-card"><blockquote>…</blockquote><cite>Name, City</cite></div>
+    </div>
+    -->
+  </div>
+</section>
+
+<!-- ================= CTA BAND ================= -->
+<section class="section">
+  <div class="wrap">
+    <div class="cta-band">
+      <div>
+        <h2>Your trip deserves more than a camera roll</h2>
+        <p>Start your book now — designing is free, and you only pay when you order the print.</p>
+      </div>
+      
+      <a class="btn btn-primary" href="editor/">Create your book</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section id="faq" class="section alt">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">FAQ</span>
+      <h2>Questions, answered</h2>
+    </div>
+    <div class="faq-list">
+      <details>
+        <summary>Do I need design skills?</summary>
+        <p>No. Auto-layout fills your pages in one click, and everything stays editable — move, resize and swap until it looks right. Most people finish a book in an evening.</p>
+      </details>
+      <details>
+        <summary>Some of my photos are blurry. Can you fix them?</summary>
+        <p>Yes — we use AI enhancement to improve blurry or muddy photos before printing, so your pages come out looking their best.</p>
+      </details>
+      <details>
+        <summary>How do I pay?</summary>
+        <p>Online, in Uzbek so'm, through local payment systems. You pay only when you order the printed book — designing is free.</p>
+      </details>
+      <details>
+        <summary>How long until my book arrives?</summary>
+        <p>Around 30 days from payment to delivery. We print your design, check it page by page, and ship it to your address.</p>
+      </details>
+      <details>
+        <summary>Will the printed book match what I designed?</summary>
+        <p>Yes — what you see in the editor is what we print. You design every page yourself, so there are no surprises.</p>
+      </details>
+      <details>
+        <summary>What if my book arrives damaged or misprinted?</summary>
+        <p>We reprint it free of charge — no argument. Every book also ships in protective packaging.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div class="f-col f-brand">
+      <strong>RS Pixel</strong>
+      <p>Design your travel book online. Printed in Uzbekistan.</p>
+    </div>
+    <nav class="f-col" aria-label="Product">
+      <h3>Product</h3>
+      <a href="#how">How it works</a>
+      <a href="#editor">The editor</a>
+      <a href="#book">The book</a>
+      <a href="#stories">Real books</a>
+      <a href="editor/" class="f-cta">Create your book</a>
+    </nav>
+    <nav class="f-col" aria-label="Support">
+      <h3>Support</h3>
+      <a href="#faq">FAQ</a>
+      <a href="editor/">Track an order</a>
+    </nav>
+    <nav class="f-col" aria-label="Contacts">
+      <h3>Contacts</h3>
+      <a href="tel:+998XXXXXXXXX">+998 XX XXX-XX-XX</a>
+      <a href="mailto:hello@example.com">hello@example.com</a>
+      <a href="https://t.me/XXXXXXXXX" target="_blank" rel="noopener">Telegram</a>
+      <a href="https://instagram.com/XXXXXXXXX" target="_blank" rel="noopener">Instagram</a>
+    </nav>
+    <nav class="f-col" aria-label="Language">
+      <h3>Language</h3>
+      <span class="f-current">English</span>
+      <a href="ru/" lang="ru" hreflang="ru">Русский</a>
+      <a href="uz/" lang="uz" hreflang="uz">Oʻzbekcha</a>
+      <a href="uz-cyrl/" lang="uz-Cyrl" hreflang="uz-Cyrl">Ўзбекча</a>
+      <a href="kaa/" lang="kaa" hreflang="kaa">Qaraqalpaqsha</a>
+    </nav>
+  </div>
+  <div class="wrap f-bottom">© RS Pixel · Made in Uzbekistan</div>
+</footer>
+
+</body>
+</html>

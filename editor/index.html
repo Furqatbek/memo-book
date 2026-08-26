@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>RS Pixel — Book editor</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='22' height='24' rx='3' fill='%232456d6'/%3E%3Crect x='9' y='9' width='14' height='9' rx='1.5' fill='white' opacity='.92'/%3E%3Crect x='9' y='21' width='10' height='2.5' rx='1.25' fill='white' opacity='.7'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="editor.css?v=20260830">
+  <script src="config.js?v=20260826"></script>
+</head>
+<body>
+  <div id="toasts" aria-live="polite"></div>
+
+  <!-- ============ START ============ -->
+  <section id="screen-start" class="screen">
+    <header class="bar">
+      <a class="brand" href="../" title="RS Pixel — home">RS Pixel</a>
+      <a class="btn small home-link" href="../"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M5.5 10.5V20h13v-9.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span data-i18n="nav.home"></span></a>
+      <select id="lang-select" class="lang-select" aria-label="Language"></select>
+    </header>
+    <div class="start-body">
+      <div id="api-offline" class="notice warn hidden">
+        <b data-i18n="start.offline"></b>
+        <span data-i18n="start.offlineHint"></span>
+      </div>
+
+      <!-- Shown while PRICES_CONFIRMED is off: the prices below are real
+           numbers on screen but nobody has confirmed them, so checkout will
+           refuse. Saying so here beats letting someone build a whole book
+           first (A74). -->
+      <div id="prices-draft" class="notice warn hidden">
+        <b data-i18n="start.pricesDraft"></b>
+        <span data-i18n="start.pricesDraftHint"></span>
+      </div>
+
+      <div id="resume-card" class="card resume hidden">
+        <div>
+          <b data-i18n="start.resumeTitle"></b>
+          <span id="resume-info"></span>
+        </div>
+        <div class="row">
+          <button id="btn-resume" class="btn primary" data-i18n="start.resumeBtn"></button>
+          <button id="btn-new" class="btn" data-i18n="start.newBtn"></button>
+        </div>
+      </div>
+
+      <div id="start-new" class="sheet">
+        <h1 data-i18n="start.title"></h1>
+        <p class="lede" data-i18n="start.lede"></p>
+        <!-- Three steps, so the customer can see how far this goes. Marked
+             up as a list because that is what it is; the active step is set
+             from JS with .on / .done. -->
+        <ol id="start-steps" class="steps" aria-label="Steps">
+          <li data-step="type"><span class="steps-dot"></span><span data-i18n="step.type"></span></li>
+          <li data-step="tier"><span class="steps-dot"></span><span data-i18n="step.size"></span></li>
+          <li data-step="design"><span class="steps-dot"></span><span data-i18n="step.cover"></span></li>
+        </ol>
+        <div id="type-step">
+          <p class="step-label" data-i18n="start.typeTitle"></p>
+          <div class="type-grid" id="type-grid">
+            <button class="btype" data-btype="love"><span class="bt-ico">❤️</span><span data-i18n="type.love"></span></button>
+            <button class="btype" data-btype="travel"><span class="bt-ico">✈️</span><span data-i18n="type.travel"></span></button>
+            <button class="btype" data-btype="birthday"><span class="bt-ico">🎂</span><span data-i18n="type.birthday"></span></button>
+            <button class="btype" data-btype="memory"><span class="bt-ico">📸</span><span data-i18n="type.memory"></span></button>
+          </div>
+        </div>
+        <div id="tier-step" class="hidden">
+        <p class="step-label"><b id="type-chosen"></b> · <a href="#" id="type-change" data-i18n="start.changeType"></a></p>
+        <p class="muted" data-i18n="start.subtitle"></p>
+        <div class="tier-grid" id="tier-grid">
+          <button class="tier" data-tier="16"><span class="tier-book" aria-hidden="true"></span><b>16</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="16"></span></button>
+          <button class="tier" data-tier="32"><span class="tier-book" aria-hidden="true"></span><b>32</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="32"></span></button>
+          <button class="tier" data-tier="48"><span class="tier-book" aria-hidden="true"></span><b>48</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="48"></span></button>
+          <button class="tier" data-tier="96"><span class="tier-book" aria-hidden="true"></span><b>96</b><span data-i18n="start.sheets"></span><span class="tier-pages" data-tier-pages></span><span class="tier-price" data-tier-price="96"></span></button>
+        </div>
+        </div>
+        <div id="design-step" class="hidden">
+          <p class="step-label">
+            <b id="design-chosen"></b> ·
+            <a href="#" id="design-back" data-i18n="start.changeSize"></a>
+          </p>
+          <p class="muted" data-i18n="start.designTitle"></p>
+          <div class="design-grid" id="design-grid"></div>
+          <p id="design-empty" class="muted hidden" data-i18n="start.designNone"></p>
+          <button id="design-skip" class="btn" data-i18n="start.designSkip"></button>
+        </div>
+      </div>
+      <!-- What the book itself is, before anyone spends an evening making
+           one. Three claims, worded exactly as the marketing site words
+           them, because two pages of the same product disagreeing about
+           what it is would be worse than saying nothing. -->
+      <ul class="perks">
+        <li>
+          <span class="perk-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h18"/><path d="M12 17V7"/><path d="M12 7 5.5 9.5V17"/><path d="M12 7l6.5 2.5V17"/></svg>
+          </span>
+          <b data-i18n="perk.flat"></b><span data-i18n="perk.flatNote"></span>
+        </li>
+        <li>
+          <span class="perk-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18"/></svg>
+          </span>
+          <b data-i18n="perk.cover"></b><span data-i18n="perk.coverNote"></span>
+        </li>
+        <li>
+          <span class="perk-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.4 3.2 8.2 8 9 4.8-.8 8-4.6 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+          </span>
+          <b data-i18n="perk.check"></b><span data-i18n="perk.checkNote"></span>
+        </li>
+      </ul>
+      <p class="start-track"><a href="#" id="track-link" data-i18n="order.lookupTitle"></a></p>
+    </div>
+  </section>
+
+  <!-- ============ EDITOR ============ -->
+  <section id="screen-editor" class="screen">
+    <header class="bar ed-bar">
+      <button id="ed-back" class="icon-btn" aria-label="Back">←</button>
+      <a class="brand ed-brand" href="../" title="RS Pixel — home">RS Pixel</a>
+      <a class="icon-btn home-link" href="../" data-i18n-title="nav.home"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M5.5 10.5V20h13v-9.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></a>
+      <span id="save-state" class="save-state"></span>
+      <span class="spacer"></span>
+      <select id="tier-select" aria-label="Pages">
+        <option value="16">16</option><option value="32">32</option>
+        <option value="48">48</option><option value="96">96</option>
+      </select>
+      <button id="btn-autofill" class="btn" data-i18n="tool.autofill"></button>
+      <button id="btn-preview" class="btn primary" data-i18n="tool.preview"></button>
+    </header>
+    <div id="elig-banner" class="notice warn slim hidden"></div>
+    <div id="locked-banner" class="notice warn slim hidden">
+      <span data-i18n="lock.banner"></span>
+      <button id="btn-view-order" class="btn small" data-i18n="lock.viewOrder"></button>
+    </div>
+    <main class="ed-main">
+      <aside class="tray" id="tray">
+        <div class="tray-tabs">
+          <button id="tab-photos" class="tray-tab active" data-i18n="tray.tabPhotos"></button>
+          <button id="tab-stickers" class="tray-tab" data-i18n="tray.tabStickers"></button>
+        </div>
+        <div id="tray-photos" class="tray-pane">
+          <label class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" multiple
+                   accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif">
+            <b data-i18n="tray.add"></b>
+            <span class="muted" data-i18n="tray.drop"></span>
+          </label>
+          <div class="tray-row">
+            <div id="tray-count" class="tray-count"></div>
+            <div class="tray-actions">
+              <button id="btn-select-mode" class="btn small hidden"
+                      data-i18n="tray.select"></button>
+              <button id="btn-delete-sel" class="btn small danger hidden"></button>
+              <button id="btn-delete-all" class="btn small danger hidden"
+                      data-i18n="tray.deleteAll"></button>
+            </div>
+          </div>
+          <div id="tray-grid" class="tray-grid"></div>
+          <p class="muted tray-hint" data-i18n="tray.hint"></p>
+        </div>
+        <div id="tray-stickers" class="tray-pane hidden">
+          <div class="sp-tabs" id="sp-tabs"></div>
+          <div class="sp-grid" id="sp-grid"></div>
+        </div>
+      </aside>
+      <section class="stage">
+        <div class="stage-toolbar">
+          <span id="page-label" class="page-label"></span>
+          <button id="btn-add-text" class="btn small" data-i18n="tool.addText"></button>
+          <button id="btn-cover-design" class="btn small" data-i18n="cover.design"></button>
+          <button id="btn-layout" class="btn small" data-i18n="tool.layout"></button>
+          <button id="btn-add-sticker" class="btn small" data-i18n="tool.addSticker"></button>
+          <div id="page-tools" class="page-tools"></div>
+          <div id="sel-toolbar" class="sel-toolbar hidden"></div>
+        </div>
+        <div class="canvas-wrap" id="canvas-wrap">
+          <div id="page-canvas" class="page-canvas"></div>
+        </div>
+        <nav id="filmstrip" class="filmstrip" aria-label="Pages"></nav>
+      </section>
+    </main>
+  </section>
+
+  <!-- ============ PREVIEW ============ -->
+  <section id="screen-preview" class="screen">
+    <header class="bar">
+      <button id="pv-back" class="icon-btn" aria-label="Back">←</button>
+      <b data-i18n="preview.title"></b>
+    </header>
+    <div class="pv-body">
+      <div id="pv-status" class="pv-status"></div>
+      <div id="pv-stale" class="notice warn hidden">
+        <span data-i18n="preview.stale"></span>
+        <button id="pv-rerender" class="btn small" data-i18n="preview.rerender"></button>
+      </div>
+      <div id="pv-soft" class="notice warn hidden"></div>
+      <div id="pv-grid" class="pv-grid"></div>
+    </div>
+    <footer class="pv-footer">
+      <label class="check">
+        <input type="checkbox" id="pv-confirm">
+        <span data-i18n="preview.confirm"></span>
+      </label>
+      <b id="pv-price" class="pv-price"></b>
+      <button id="pv-checkout" class="btn primary" disabled data-i18n="preview.checkout"></button>
+    </footer>
+  </section>
+
+  <!-- ============ CHECKOUT ============ -->
+  <section id="screen-checkout" class="screen">
+    <header class="bar">
+      <button id="co-back" class="icon-btn" aria-label="Back">←</button>
+      <b data-i18n="co.title"></b>
+    </header>
+    <div class="co-wrap">
+    <!-- What you are buying and what it costs, next to the form rather than
+         two screens back. A checkout that shows neither is asking for
+         trust it has not earned. -->
+    <aside class="co-summary card">
+      <b data-i18n="co.summary"></b>
+      <div class="co-sum-book">
+        <span class="co-sum-ico" id="co-sum-ico" aria-hidden="true"></span>
+        <div>
+          <span id="co-sum-type"></span>
+          <span id="co-sum-size" class="muted"></span>
+        </div>
+      </div>
+      <div class="co-sum-total">
+        <span class="muted" data-i18n="order.amount"></span>
+        <b id="co-sum-price"></b>
+      </div>
+      <p class="muted small" data-i18n="co.note"></p>
+    </aside>
+    <form id="co-form" class="co-form sheet">
+      <label><span data-i18n="co.name"></span>
+        <input name="name" required maxlength="200" autocomplete="name"></label>
+      <label><span data-i18n="co.phone"></span>
+        <input name="phone" required inputmode="tel" placeholder="+998 90 123 45 67"
+               autocomplete="tel"></label>
+      <label><span data-i18n="co.address"></span>
+        <textarea name="address" required maxlength="500" rows="3"
+                  autocomplete="street-address"></textarea></label>
+      <label><span data-i18n="co.email"></span>
+        <input name="email" type="email" maxlength="200" autocomplete="email"></label>
+      <p class="pay-hint" data-i18n="co.payHint"></p>
+      <button type="submit" class="btn primary" data-i18n="co.submit"></button>
+    </form>
+    </div>
+  </section>
+
+  <!-- ============ ORDER ============ -->
+  <section id="screen-order" class="screen">
+    <header class="bar">
+      <a class="brand" href="../" title="RS Pixel — home">RS Pixel</a>
+      <a class="btn small home-link" href="../"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M5.5 10.5V20h13v-9.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span data-i18n="nav.home"></span></a>
+      <span class="spacer"></span>
+      <button id="or-new-book" class="btn small" data-i18n="order.newBook"></button>
+    </header>
+    <div class="or-body">
+      <form id="or-lookup" class="co-form sheet hidden">
+        <b data-i18n="order.lookupTitle"></b>
+        <label><span data-i18n="order.ref"></span>
+          <input name="ref" required placeholder="UB-XXXXX" autocapitalize="characters"></label>
+        <label><span data-i18n="co.phone"></span>
+          <input name="phone" required inputmode="tel" placeholder="+998 90 123 45 67"></label>
+        <button type="submit" class="btn primary" data-i18n="order.lookupBtn"></button>
+      </form>
+      <div id="or-details" class="hidden">
+        <h1 data-i18n="order.title"></h1>
+        <div class="or-ref-card card">
+          <div><span class="muted" data-i18n="order.ref"></span> <b id="or-ref"></b></div>
+          <div><span class="muted" data-i18n="order.amount"></span> <b id="or-amount"></b></div>
+        </div>
+        <ol id="or-timeline" class="timeline"></ol>
+        <div id="or-files" class="card or-files hidden">
+          <b data-i18n="order.files"></b>
+          <div class="or-file-links">
+            <a id="or-file-interior" class="btn" target="_blank" rel="noopener"
+               data-i18n="order.fileInterior"></a>
+            <a id="or-file-cover" class="btn" target="_blank" rel="noopener"
+               data-i18n="order.fileCover"></a>
+          </div>
+        </div>
+        <div id="or-paycard" class="pay-wrap hidden">
+          <b data-i18n="order.payTitle"></b>
+          <div class="bank-card">
+            <div class="bank-top"><span class="bank-chip"></span><span class="bank-brand">RS Pixel</span></div>
+            <div id="pay-number" class="bank-number"></div>
+            <div class="bank-holder" id="pay-holder"></div>
+          </div>
+          <button id="pay-copy" class="btn small" type="button" data-i18n="order.copyCard"></button>
+          <p class="pay-note" data-i18n="order.payCardNote"></p>
+          <p class="pay-note"><b data-i18n="order.callNote"></b></p>
+        </div>
+        <p class="muted" id="or-pay-note" data-i18n="order.payNote"></p>
+        <div id="or-dev" class="card dev hidden">
+          <span class="muted" data-i18n="order.devHint"></span>
+          <button id="or-dev-pay" class="btn" data-i18n="order.devPay"></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="js/app.js?v=20260831"></script>
+</body>
+</html>

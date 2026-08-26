@@ -1,0 +1,13 @@
+# rspixel.uz
+
+User-agent: *
+Allow: /
+
+# The editor and the admin console are applications, not pages. Both already
+# carry <meta name="robots" content="noindex">, so this changes nothing about
+# what gets indexed — it saves crawlers the trip, and the API the requests.
+Disallow: /editor/
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://rspixel.uz/sitemap.xml
