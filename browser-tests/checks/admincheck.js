@@ -125,6 +125,16 @@ const TOKEN = 'dev-admin';
   //     The backend has always accepted a design with no title; until now the
   //     console could not express it, so every design it produced got a title
   //     block whether the art wanted one or not.
+  /* The console disables Save from the click until AFTER it has refreshed the
+     list and repopulated the form from what came back. Waiting on the SERVER
+     instead returns inside that window, and the next thing typed into a field
+     is wiped by the repopulate — which is how step 6 came to be renaming a
+     design that had already reset its own name box. Same lesson as A85: wait
+     for the console to be ready, not for the data to have landed. */
+  const settled = () => page.waitForFunction(
+    () => !document.getElementById('btn-save').disabled,
+    undefined, { timeout: 30000 });
+
   const titleOf = (slug) => page.evaluate(async ([base, s]) => {
     const r = await fetch(`${base}/api/v1/cover-designs?book_type=love`);
     const d = (await r.json()).designs.find((x) => x.slug === s);
@@ -138,6 +148,7 @@ const TOKEN = 'dev-admin';
     undefined, { timeout: 10000 });
   console.log('5b. unticking the title hides it from the preview: true');
   await page.click('#btn-save');
+  await settled();
   await page.waitForFunction(async (base) => {
     const r = await fetch(`${base}/api/v1/cover-designs?book_type=love`);
     const d = (await r.json()).designs.find((x) => x.slug === 'console-hearts');
@@ -152,6 +163,7 @@ const TOKEN = 'dev-admin';
     () => !document.getElementById('cover-title').classList.contains('hidden'),
     undefined, { timeout: 10000 });
   await page.click('#btn-save');
+  await settled();
   await page.waitForFunction(async (base) => {
     const r = await fetch(`${base}/api/v1/cover-designs?book_type=love`);
     const d = (await r.json()).designs.find((x) => x.slug === 'console-hearts');
