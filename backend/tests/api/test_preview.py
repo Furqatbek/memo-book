@@ -111,8 +111,13 @@ class TestPreview:
         book = await make_book(client, 16)
         state = (await client.get(f"/api/v1/books/{book['book_id']}/preview",
                                   headers=auth(book))).json()
-        assert state == {"status": "none", "cover_url": None, "page_urls": [],
-                         "stale": False, "page_count": 16, "layout_version": 1}
+        # Whole-dict equality on purpose: this is the shape the editor codes
+        # against, and a field appearing or vanishing should be a decision
+        # somebody made, not a diff nobody noticed. `back_url` is null until
+        # the customer puts something on the back panel (A91).
+        assert state == {"status": "none", "cover_url": None, "back_url": None,
+                         "page_urls": [], "stale": False, "page_count": 16,
+                         "layout_version": 1}
 
     async def test_wrong_token_404(self, client):
         book = await make_book(client, 16)
