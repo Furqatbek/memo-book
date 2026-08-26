@@ -1325,3 +1325,57 @@ Worth noticing as a pattern: this is the second defect this session where
 every layer was correct and only the surface was wrong (A89 was the first).
 Both were found by a person using the product, neither by a test, because
 every test asserted the layer it owned and all of those layers were fine.
+
+**A91 — the back cover holds photos.** It was a flat colour and nothing
+else. It now takes the same slot grid an interior page uses: `cover.back`
+carries a `layout` id and a list of `PlacementDoc`, the type interior pages
+already use, so crop, zoom, focus and rotation arrive without new code and a
+customer learns nothing new to use it.
+
+Blank stays the default, and blank is a *finished* state — not a to-do.
+
+**The one genuinely new thing is geometry, and it is a mirror.** The front
+bleeds RIGHT into the turn-in and stops LEFT at the spine fold, so the back
+must bleed LEFT and stop RIGHT. Reflecting that wrong pushes art across the
+spine onto the other face of the closed book: visible on every printed copy,
+invisible on screen until somebody folds one. `back_box_px` is the mirror,
+and the tests assert the mirror *property* against `photo_box_px` rather
+than the arithmetic I happened to write.
+
+Photos only. Interior pages carry texts and stickers too, but the back is
+the one surface nobody turns to while reading, and the two buttons that
+would do nothing there are hidden rather than left dead (A85, A90 — the
+third time this session). Adding them later is a field, not a migration.
+
+The editor reaches it through one accessor. `pageDoc(index)` returns the
+back as a page-shaped **live view** — `placements` is the real array, the
+colour reads and writes the cover's own because the back and the front are
+one printed sheet in one colour, and `texts`/`stickers` are frozen empties
+so a stray push throws here instead of being dropped on the way to the
+server. Eight call sites indexed `layout.pages[S.page]` directly; the three
+reachable from the back now go through the accessor and the rest are
+guarded by `facingPage()` already returning -1.
+
+**Two mistakes the checks caught, both mine, both design rather than code:**
+
+* The gutter guide drew on the left. The back hinges on its RIGHT — the
+  spine is between it and the front — so it was telling the customer to
+  keep clear of the wrong edge.
+* `e2e` hung waiting for no `.empty` filmstrip item after auto-fill. The
+  back was marked empty, auto-fill correctly does not touch it, so the
+  condition could never be met. The fix was the product's, not the check's:
+  a blank back is finished, and nothing should nag about it.
+
+The preview shows the back whenever it carries anything, and no tile when it
+does not — `back_url: null`. That is not decoration: **the preview is the
+contract**, so anything a customer can put on the book has to be there to be
+confirmed. It renders through `render_preview_page`, because the panel is
+148x210 with a slot grid and placements — an interior page in every respect
+the preview cares about — rather than a near-copy that could drift.
+
+The front cover's own trade-off is inherited unchanged (A70): print bleeds
+into the 16mm turn-in while the editor and preview show a 3mm bleed, so the
+crop within the visible panel differs very slightly between screen and
+paper. Consistent with the front rather than a new inconsistency, and the
+same magnitude.
+

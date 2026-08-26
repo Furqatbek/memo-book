@@ -3,7 +3,7 @@
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
 import * as api from './api.js?v=20260826';
-import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js?v=20260829';
+import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js?v=20260830';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
@@ -481,9 +481,17 @@ function applyLocked() {
 
 function updatePageLabel() {
   $('page-label').textContent =
-    S.page === -1 ? t('page.cover') : t('page.n', { n: S.page + 1 });
+    S.page === -1 ? t('page.cover')
+      : S.page === BACK ? t('page.back')
+        : t('page.n', { n: S.page + 1 });
   // The cover is a single fixed frame — layouts belong to inside pages.
   $('btn-layout').classList.toggle('hidden', S.locked);
+  // The back holds photos and nothing else (A91), so it does not offer the
+  // two buttons that would do nothing there. A button you can press that
+  // does nothing is worse than one you cannot (A85).
+  for (const id of ['btn-add-text', 'btn-add-sticker']) {
+    $(id).classList.toggle('hidden', S.page === BACK || S.locked);
+  }
   // Changing your mind about a ready-made cover: only on the cover,
   // and only when there is a catalogue to change it to.
   $('btn-cover-design').classList.toggle(
@@ -752,7 +760,7 @@ function placePhoto(p) {
 }
 
 function placeOnPage(photoId, index, advance, slotIdx = null) {
-  const page = S.book.layout.pages[index];
+  const page = pageDoc(index);
   const slots = pageSlots(page);
   const wasEmpty = page.placements.length === 0;
   const shot = (slot) => ({ photo_id: photoId, ...slot, rotation: 0, fit: 'cover' });
@@ -767,7 +775,9 @@ function placeOnPage(photoId, index, advance, slotIdx = null) {
   }
   markDirty();
   // Only move on once this page has nothing left to fill.
-  if (advance && wasEmpty && page.placements.length >= slots.length) {
+  // Never advance off the back cover: it is the end of the book, and the
+  // search below would wrap round to page 1.
+  if (advance && index >= 0 && wasEmpty && page.placements.length >= slots.length) {
     const next = S.book.layout.pages.findIndex(
       (pg, i) => i > index && pg.placements.length === 0);
     if (next !== -1) S.page = next;
@@ -785,6 +795,42 @@ function placeOnPage(photoId, index, advance, slotIdx = null) {
 /* Bound, page 1 stands alone on the right; after that pages pair up
    (2,3), (4,5)... In zero-based indices page 0 is alone, then (1,2),
    (3,4)... A photo may run across the fold of any real pair (A65). */
+/* The back cover sits after the last page in the filmstrip (A91). Negative
+   like the cover, so "is this a real page?" stays `index >= 0` everywhere. */
+const BACK = -2;
+const NOTHING = Object.freeze([]);
+
+/* The back panel, shaped like a page so every page-level function works on
+   it unchanged. A live VIEW, not a copy: `placements` is the real array, and
+   the colour reads and writes the cover's own, because the back and the
+   front are one printed sheet in one colour.
+
+   `texts` and `stickers` are frozen empties — the back holds photos only,
+   and freezing means a stray push throws here rather than being silently
+   dropped on the way to the server. */
+function backAsPage() {
+  const cover = S.book.layout.cover;
+  if (!cover.back) cover.back = { layout: 'full', placements: [] };
+  if (!cover.back.placements) cover.back.placements = [];
+  const back = cover.back;
+  return {
+    index: BACK,
+    get bg_color() { return cover.bg_color || '#ffffff'; },
+    set bg_color(v) { cover.bg_color = v; },
+    get layout() { return back.layout || 'full'; },
+    set layout(v) { back.layout = v; },
+    get placements() { return back.placements; },
+    set placements(v) { back.placements = v; },
+    get texts() { return NOTHING; },
+    get stickers() { return NOTHING; },
+  };
+}
+
+/* The page-like document at a filmstrip index. */
+function pageDoc(index = S.page) {
+  return index === BACK ? backAsPage() : S.book.layout.pages[index];
+}
+
 function facingPage(index) {
   if (index < 1) return -1;                     // page 1 has no partner
   const partner = index % 2 === 1 ? index + 1 : index - 1;
@@ -796,8 +842,11 @@ const isLeftPage = (index) => index % 2 === 1;
 /* Page 1 is a right-hand page bound on its left; left-hand pages are bound
    on the right. The strip covers the bleed plus the gutter allowance. */
 function gutterGuide(index) {
+  // The back cover hinges on its RIGHT edge — the spine sits between it and
+  // the front panel. Inside pages alternate; the back never does.
+  const boundRight = index === BACK ? true : isLeftPage(index);
   return h('div', {
-    class: 'guide gutter ' + (isLeftPage(index) ? 'bound-right' : 'bound-left'),
+    class: 'guide gutter ' + (boundRight ? 'bound-right' : 'bound-left'),
     style: `width:${pct(BLEED + GUTTER, CANVAS_W)}`,
   });
 }
@@ -915,7 +964,7 @@ function renderCanvas(force) {
   canvas.innerHTML = '';
   updatePageLabel();
   if (S.page === -1) renderCover(canvas);
-  else renderPage(canvas);
+  else renderPage(canvas);        // the back panel included: it is page-shaped
   renderFacingPage();
   renderPageTools();
   renderSelToolbar();
@@ -926,7 +975,7 @@ function renderCanvas(force) {
    moves editing there. */
 function renderFacingPage() {
   const wrap = $('canvas-wrap');
-  const partnerIdx = S.page === -1 ? -1 : facingPage(S.page);
+  const partnerIdx = S.page < 0 ? -1 : facingPage(S.page);
   wrap.classList.toggle('spread', partnerIdx !== -1);
   if (partnerIdx !== -1) wrap.classList.toggle('flip', !isLeftPage(S.page));
   const old = $('facing-canvas');
@@ -1006,8 +1055,10 @@ function renderPageTools() {
       markDirty();
     }));
   } else {
-    const page = S.book.layout.pages[S.page];
-    box.append(colorInput(page.bg_color || '#ffffff', t('tool.pageColor'), (v) => {
+    const page = pageDoc();
+    // On the back this writes the cover's colour, which is the same sheet.
+    const label = S.page === BACK ? t('tool.coverColor') : t('tool.pageColor');
+    box.append(colorInput(page.bg_color || '#ffffff', label, (v) => {
       page.bg_color = v;
       $('page-canvas').style.background = v;
       markDirty();
@@ -1368,8 +1419,9 @@ function renderCover(canvas) {
 }
 
 function renderPage(canvas) {
-  canvas.className = 'page-canvas page-mode';
-  const page = S.book.layout.pages[S.page];
+  canvas.className = 'page-canvas page-mode'
+    + (S.page === BACK ? ' back-mode' : '');
+  const page = pageDoc();
   canvas.style.background = page.bg_color || '#ffffff';
 
   canvas.append(
@@ -1432,7 +1484,7 @@ function slotIndexAt(clientX, clientY, page) {
 
 function applyLayout(id) {
   if (S.page === -1 || S.locked || !LAYOUTS[id]) return;
-  const page = S.book.layout.pages[S.page];
+  const page = pageDoc();
   // Slots belong to one page, so picking a grid ends a photo's span.
   const spanning = page.placements.find((pl) => pl.spread_id);
   if (spanning) unspanFold(spanning);
@@ -1490,7 +1542,7 @@ function openLayoutPop(btn) {
     positionLayoutPop(pop, btn);
     return;
   }
-  const page = S.book.layout.pages[S.page];
+  const page = pageDoc();
   const current = pageLayoutId(page);
   for (const id of Object.keys(LAYOUTS)) {
     pop.append(h('button', {
@@ -1700,6 +1752,7 @@ function makeSticker(st, owner) {
 }
 
 function currentStickerList() {
+  if (S.page === BACK) return NOTHING;   // photos only on the back (A91)
   if (S.page === -1) {
     const cover = S.book.layout.cover;
     if (!cover.stickers) cover.stickers = [];
@@ -1897,7 +1950,7 @@ function makeEmptySlot(slot) {
 
 function makePlacement(pl, idx) {
   const photo = photoById(pl.photo_id);
-  const page = S.book.layout.pages[S.page];
+  const page = pageDoc();
   const multi = pageSlots(page).length > 1;
   const box = h('div', {
     class: 'placement' + (isSel('placement', idx) ? ' sel' : ''),
@@ -2429,7 +2482,7 @@ function renderSelToolbar() {
   bar.classList.remove('hidden');
 
   if (S.sel.kind === 'placement') {
-    const page = S.book.layout.pages[S.page];
+    const page = pageDoc();
     const idx = S.sel.idx || 0;
     const pl = page.placements[idx];
     if (!pl) { bar.classList.add('hidden'); return; }
@@ -2601,7 +2654,7 @@ function addTextBox() {
 
 /* "Type anywhere": create a text box centred on a point (trim mm), focused. */
 function addTextBoxAt(cx, cy) {
-  if (S.page === -1 || S.locked) return;
+  if (S.page < 0 || S.locked) return;
   const page = S.book.layout.pages[S.page];
   if (page.texts.length >= 20) return;
   const w = 70, hgt = 14;
@@ -2632,22 +2685,32 @@ function renderFilm() {
     const photo = pl ? photoById(pl.photo_id) : null;
     nav.append(filmItem(i, photo, String(i + 1), !pl));
   });
+  // Last, because that is where it is in the book. Never marked `empty`:
+  // that class means "this page still needs a photo", and a blank back is a
+  // finished back — auto-fill does not touch it and nothing should nag
+  // about it.
+  const back = backAsPage();
+  const backPl = back.placements[0];
+  nav.append(filmItem(BACK, backPl ? photoById(backPl.photo_id) : null,
+                      t('page.back'), false));
   const active = nav.querySelector('.film-item.active');
   if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
 function filmItem(index, photo, label, empty) {
-  const bg = index === -1
+  // The cover and the back are the same printed sheet, so they share a
+  // colour; only real pages carry one of their own.
+  const bg = index < 0
     ? (S.book.layout.cover.bg_color || '#ffffff')
     : (S.book.layout.pages[index].bg_color || '#ffffff');
   const item = h('button', {
     class: 'film-item' + (S.page === index ? ' active' : '') + (empty ? ' empty' : ''),
     onclick: () => { S.page = index; S.sel = null; renderCanvas(true); renderFilm(); },
-    ondragover: (e) => { if (index >= 0) e.preventDefault(); },
+    ondragover: (e) => { if (index !== -1) e.preventDefault(); },
     ondrop: (e) => {
       e.preventDefault();
       const id = e.dataTransfer.getData('text/mb-photo');
-      if (id && index >= 0 && !S.locked) {
+      if (id && index !== -1 && !S.locked) {
         S.page = index;
         placeOnPage(id, index, false);
       }
@@ -2790,6 +2853,14 @@ async function pollPreview() {
       grid.append(i + 1 < urls.length
         ? spread(figure(urls[i], i), figure(urls[i + 1], i + 1))
         : spread(figure(urls[i], i), blank()));
+    }
+    // The back cover, last, and only when there is something on it — the
+    // preview is the contract, so anything a customer can put on the book
+    // has to be here to be confirmed (A91).
+    if (r.back_url) {
+      grid.append(h('figure', { class: 'pv-page pv-cover' },
+        h('img', { src: r.back_url, alt: t('page.back'), loading: 'lazy' }),
+        h('figcaption', {}, t('page.back'))));
     }
   } else if (r.status === 'failed') {
     $('pv-status').classList.remove('busy');
@@ -3109,7 +3180,7 @@ function bind() {
   // two clicks, which breaks native dblclick, and mobile double-tap needs it.
   const lastTap = { t: 0, x: 0, y: 0 };
   $('page-canvas').addEventListener('pointerup', (e) => {
-    if (S.locked || S.page === -1) return;
+    if (S.locked || S.page < 0) return;
     if (e.target.closest('.textbox, .rs, .tb-handle, .tb-resize')) { lastTap.t = 0; return; }
     const now = performance.now();
     const isDouble = now - lastTap.t < 400
@@ -3133,7 +3204,7 @@ function bind() {
         markDirty();
         renderCanvas(true);
       } else {
-        placeOnPage(id, S.page, false);
+        placeOnPage(id, S.page, false);   // the back cover too
       }
     }
   });
