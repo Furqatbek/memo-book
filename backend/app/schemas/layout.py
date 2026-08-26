@@ -125,6 +125,40 @@ class CoverRectDoc(BaseModel):
     h_mm: float = Field(gt=0, le=2 * TRIM_H_MM)
 
 
+class BackCoverDoc(BaseModel):
+    """The back panel — the same slot grid an interior page uses (A91).
+
+    Blank is the default and stays the default: empty `placements` leaves the
+    back the flat `cover.bg_color` it has always been, so every layout stored
+    before this field existed means exactly what it meant before.
+
+    Photos only, deliberately. Interior pages carry `texts` and `stickers`
+    too, but the back is the one surface nobody turns to while reading.
+    Adding them later is a field, not a migration — the same seam that made
+    `placements` a list from day one.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    layout: str = Field(default=DEFAULT_LAYOUT, max_length=32)
+    placements: list[PlacementDoc] = Field(default_factory=list)
+
+    @field_validator("layout")
+    @classmethod
+    def _known_layout(cls, v):
+        if v not in LAYOUT_IDS:
+            raise ValueError(f"unknown back cover layout {v!r}")
+        return v
+
+    @field_validator("placements")
+    @classmethod
+    def _placement_cap(cls, v):
+        if len(v) > MAX_PLACEMENTS_PER_PAGE:
+            raise ValueError(
+                f"the back cover holds at most {MAX_PLACEMENTS_PER_PAGE} photos")
+        return v
+
+
 class CoverDoc(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -159,6 +193,8 @@ class CoverDoc(BaseModel):
     # Clockwise degrees about the block centre, like text boxes.
     title_rotation: float = Field(default=0, ge=-360, le=360)
     stickers: list[StickerDoc] = Field(default_factory=list, max_length=20)
+    # Blank unless the customer puts photos there (A91).
+    back: BackCoverDoc = Field(default_factory=BackCoverDoc)
 
     @field_validator("template")
     @classmethod

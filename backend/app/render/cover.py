@@ -102,6 +102,26 @@ def photo_box_px(rect: dict, geo: CoverGeometry,
     return left, top, max(left + 1, right), max(top + 1, bottom)
 
 
+def back_box_px(rect: dict, geo: CoverGeometry,
+                w_px: int, h_px: int) -> tuple[int, int, int, int]:
+    """A back-panel trim rectangle -> a pixel box on the wrap sheet (A91).
+
+    The exact mirror of `photo_box_px`. On the back panel the turn-in is on
+    the LEFT — that edge is the fore-edge of the closed book — and the RIGHT
+    edge is the spine fold, which is never extended for the same reason the
+    front's left edge is not: art crossing it appears on the other face.
+
+    Vertically nothing changes; the head and foot turn in on both panels.
+    """
+    x0 = geo.wrap_mm                      # left edge of the back panel
+    left = 0 if rect["x_mm"] <= 0 else mm_to_px(x0 + rect["x_mm"])
+    right = mm_to_px(x0 + min(TRIM_W_MM, rect["x_mm"] + rect["w_mm"]))
+    top = 0 if rect["y_mm"] <= 0 else mm_to_px(geo.wrap_mm + rect["y_mm"])
+    bottom = (h_px if rect["y_mm"] + rect["h_mm"] >= TRIM_H_MM
+              else mm_to_px(geo.wrap_mm + rect["y_mm"] + rect["h_mm"]))
+    return left, top, max(left + 1, right), max(top + 1, bottom)
+
+
 def _open_rgb(data: bytes, what: str) -> Image.Image:
     try:
         img = Image.open(io.BytesIO(data))
@@ -114,10 +134,31 @@ def _open_rgb(data: bytes, what: str) -> Image.Image:
 
 def _compose_cover_raster(cover: dict, geo: CoverGeometry,
                           photo_bytes: bytes | None,
-                          artwork_bytes: bytes | None = None) -> bytes:
+                          artwork_bytes: bytes | None = None,
+                          back_photo_bytes: dict[str, bytes] | None = None) -> bytes:
     w_px = mm_to_px(geo.total_w_mm)
     h_px = mm_to_px(geo.total_h_mm)
     canvas = Image.new("RGB", (w_px, h_px), hex_to_rgb(cover.get("bg_color")))
+
+    # The back panel (A91). Same slot grid as an interior page, drawn first
+    # so nothing else on the sheet has to know it is there — and skipped
+    # entirely when empty, which is every book made before this existed.
+    for placement in (cover.get("back") or {}).get("placements", []):
+        data = (back_photo_bytes or {}).get(placement["photo_id"])
+        if data is None:
+            raise RenderError(f"missing back cover photo {placement['photo_id']}")
+        left, top, right, bottom = back_box_px(placement, geo, w_px, h_px)
+        img = _open_rgb(data, "back cover photo")
+        rotation = float(placement.get("rotation", 0) or 0) % 360
+        if rotation:
+            img = img.rotate(-rotation, expand=True,
+                             fillcolor=hex_to_rgb(cover.get("bg_color")))
+        canvas.paste(_fit_cover(img, right - left, bottom - top,
+                                zoom=_num(placement, "zoom", 1.0),
+                                focus_x=_num(placement, "focus_x", 0.5),
+                                focus_y=_num(placement, "focus_y", 0.5)),
+                     (left, top))
+        del img
 
     # A ready-made design's artwork covers the front panel and its turn-in —
     # the same region a full-bleed photo covers — while the back panel and
@@ -243,10 +284,12 @@ def _draw_cover_text(c: pdfcanvas.Canvas, cover: dict, geo: CoverGeometry,
 def build_cover_pdf(cover: dict, page_count: int,
                     photo_bytes: bytes | None,
                     cache_tag: str = "cover",
-                    artwork_bytes: bytes | None = None) -> bytes:
+                    artwork_bytes: bytes | None = None,
+                    back_photo_bytes: dict[str, bytes] | None = None) -> bytes:
     _register_fonts()
     geo = cover_geometry(page_count)
-    raster = _compose_cover_raster(cover, geo, photo_bytes, artwork_bytes)
+    raster = _compose_cover_raster(cover, geo, photo_bytes, artwork_bytes,
+                                   back_photo_bytes)
 
     page_w_pt = geo.total_w_mm * MM_TO_PT
     page_h_pt = geo.total_h_mm * MM_TO_PT

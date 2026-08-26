@@ -131,6 +131,19 @@ async def render_cover(session: AsyncSession, book_id: uuid.UUID) -> dict:
             storage.get_bytes, photo.original_key
         )
 
+    # Photos the customer put on the back panel (A91). Fetched here rather
+    # than in the renderer for the same reason the front photo is: the
+    # renderer runs in a worker thread and must not touch the session.
+    back_photo_bytes: dict[str, bytes] = {}
+    for placement in (cover.get("back") or {}).get("placements", []):
+        pid = placement.get("photo_id")
+        photo = photos.get(pid)
+        if photo is None:
+            raise RenderError(f"back cover references unavailable photo {pid}")
+        back_photo_bytes[pid] = await anyio.to_thread.run_sync(
+            storage.get_bytes, photo.original_key
+        )
+
     # The chosen design's artwork prints behind everything else (A71).
     from app.services.cover_designs import design_artwork_bytes
 
@@ -141,7 +154,8 @@ async def render_cover(session: AsyncSession, book_id: uuid.UUID) -> dict:
     def build() -> bytes:
         return build_cover_pdf(cover, book.page_count, photo_bytes,
                                cache_tag=f"{book_id}-cover",
-                               artwork_bytes=artwork)
+                               artwork_bytes=artwork,
+                               back_photo_bytes=back_photo_bytes)
 
     pdf_bytes = await anyio.to_thread.run_sync(build)
 
