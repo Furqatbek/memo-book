@@ -117,10 +117,14 @@ function check(what, ok, detail) {
   check('the preview renders a back tile', !!state.back_url);
   const captions = await page.$$eval('#pv-grid figcaption',
     (els) => els.map((e) => e.textContent.trim()));
+  // Compared against the page's own translation, so this holds in every
+  // language rather than only where the label happens to be "Back".
+  const wantBack = await page.evaluate(
+    () => document.querySelector('#filmstrip .film-item:last-child .film-label')
+      .textContent.trim());
   check('and it is shown, last, in the grid',
-    captions.length > 2 && captions[captions.length - 1] === captions[0].replace(
-      captions[0], captions[captions.length - 1]),
-    JSON.stringify([captions[0], captions[captions.length - 1]]));
+    captions.length > 2 && captions[captions.length - 1] === wantBack,
+    JSON.stringify({ last: captions[captions.length - 1], want: wantBack }));
   await page.screenshot({ path: `${SHOTS}/91-back-preview.png` });
 
   console.log('errors:', errs.length ? errs : 'none');
