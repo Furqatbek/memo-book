@@ -14,6 +14,15 @@ command on the server, never a deploy.
 | Minimum accepted | 1600 × 2360 px (below this it prints soft and is refused) |
 | Format | PNG or JPEG, sRGB |
 
+> **The minimum counts pixels, not detail.** Enlarging a small image until it
+> clears 1600 × 2360 gets it past the check and still prints soft — the check
+> cannot tell an upscale from real resolution. This matters most with
+> AI-generated art: most tools cap around 1024 × 1536, which is well under the
+> floor. Generate at the largest size the tool offers, and if you must enlarge,
+> use an upscaler that *synthesises* detail (Real-ESRGAN / Upscayl, Topaz)
+> rather than a plain resize. A 2× upscale of flat illustration holds up in
+> print; a 2× upscale of a photograph does not.
+
 The file is the **front of the book plus the turn-in** that folds around the
 board. It is *not* the whole wrap — the back panel and the spine are printed
 in a flat colour you choose, which is what lets one file work for all four
