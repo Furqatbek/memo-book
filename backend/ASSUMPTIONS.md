@@ -1068,3 +1068,60 @@ stale on the site.
 are small text files whose entire purpose is being re-read; the media branch
 would have given them a week of caching on the one thing you might need to
 change in a hurry.
+
+**A84 — The screens on the way in and out are a shop window, not a form.**
+The four customer-facing screens outside the editor — start, preview,
+checkout, order — carry none of the customer's own photos yet, so everything
+they convey about whether this is worth an evening and 299 000 UZS has to
+come from the page itself. They were plain, and the feedback was that they
+looked it.
+
+Three decisions, in the order they matter:
+
+**A sheet.** Everything to read or decide sits on one piece of paper, lifted
+off the background with a two-layer shadow and a hairline of gold along its
+head. Without a surface, a form on an illustrated background reads as an
+accident rather than a design; with one, the background is free to be
+scenery. The perk row and the "track an order" link carry quieter surfaces
+of their own for the same reason — they are the parts that land squarely on
+the drawing, and no amount of translucency stops a 2px ink line reading
+through a sentence.
+
+**Two real families, both self-hosted.** `EB Garamond` for display and
+`Montserrat` for the interface, so there is no third-party request — which
+matters more than usual when the customers are in Tashkent and the CDN is
+not. A Garamond revival is a book face for a book product, and it gives the
+interface a voice of its own instead of borrowing the operating system's.
+
+The constraint that decided it was **glyph coverage, not taste**: of the
+display serifs considered, Playfair Display has no Uzbek Cyrillic `Ҳ/ҳ`, and
+Cormorant, Spectral, Bitter, Alegreya and Source Serif 4 have no Karakalpak
+`ǵ`. A missing glyph falls back *per character*, so one word renders in two
+different typefaces — visible, and invisible to anyone testing in English.
+
+The shipped files are subset to a few hundred characters (23 KB a weight
+rather than ~380 KB), and a subset is a promise about coverage that quietly
+stops being true the first time someone adds a string. So the character set
+is **derived once**, in `scripts/subset_web_font.py`, from `editor/js/i18n.js`
+and `editor/index.html`, including both cases of every letter because
+`text-transform: uppercase` is invisible to a scan of the strings; and
+`tests/test_web_fonts.py` imports the same function rather than keeping its
+own list. Its first run found two characters already missing on screen: the
+non-breaking space `toLocaleString('ru-RU')` puts inside every price, and
+the `·` between the book type and the "change" link.
+
+**A drawing, not a photograph.** `editor/img/dream.svg` — an open book lit
+from inside on a hillside, its pages lifting away as photographs into a
+night sky — costs 6 KB, scales to any width and needs no third-party
+request. The book sits in the **left third on purpose**: centred, it landed
+behind the middle of the perk row at every viewport width.
+
+The editor itself is deliberately untouched. Its job is to disappear behind
+the photos, and every token above is additive for that reason.
+
+**`tests/test_editor_assets.py`** covers the class of bug this work could
+introduce: the editor is a no-build frontend, so a renamed illustration or a
+mistyped `?v=` stamp is a runtime 404 that nothing fails on — the page still
+renders, just without its background, its font, or the module that wires up
+a button. The test reads the markup, the stylesheet and the modules and
+requires every same-origin URL they name to exist.

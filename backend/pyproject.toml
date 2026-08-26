@@ -38,7 +38,9 @@ dev = [
     "moto[s3,server]>=5.0",  # server extra: scripts/devserver.py runs S3 in-process
     "pypdf>=4.2",
     "pymupdf~=1.28.0",  # pinned: the golden-raster test depends on its output
-    "fonttools>=4.50",  # glyph-coverage regression test for shipped fonts
+    # [woff] pulls brotli: without it fontTools can list a .ttf but not
+    # read the .woff2 files the editor actually ships.
+    "fonttools[woff]>=4.50",  # glyph-coverage regression test for shipped fonts
     "pyyaml>=6.0",  # reads deploy/docker-compose.prod.yml in the deploy tests
 ]
 

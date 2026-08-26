@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex">
   <title>RS Pixel — Book editor</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='22' height='24' rx='3' fill='%232456d6'/%3E%3Crect x='9' y='9' width='14' height='9' rx='1.5' fill='white' opacity='.92'/%3E%3Crect x='9' y='21' width='10' height='2.5' rx='1.25' fill='white' opacity='.7'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="editor.css?v=20260826">
+  <link rel="stylesheet" href="editor.css?v=20260828">
   <script src="config.js?v=20260826"></script>
 </head>
 <body>
@@ -45,7 +45,7 @@
         </div>
       </div>
 
-      <div id="start-new">
+      <div id="start-new" class="sheet">
         <h1 data-i18n="start.title"></h1>
         <p class="lede" data-i18n="start.lede"></p>
         <!-- Three steps, so the customer can see how far this goes. Marked
@@ -233,7 +233,7 @@
       </div>
       <p class="muted small" data-i18n="co.note"></p>
     </aside>
-    <form id="co-form" class="co-form">
+    <form id="co-form" class="co-form sheet">
       <label><span data-i18n="co.name"></span>
         <input name="name" required maxlength="200" autocomplete="name"></label>
       <label><span data-i18n="co.phone"></span>
@@ -259,7 +259,7 @@
       <button id="or-new-book" class="btn small" data-i18n="order.newBook"></button>
     </header>
     <div class="or-body">
-      <form id="or-lookup" class="co-form hidden">
+      <form id="or-lookup" class="co-form sheet hidden">
         <b data-i18n="order.lookupTitle"></b>
         <label><span data-i18n="order.ref"></span>
           <input name="ref" required placeholder="UB-XXXXX" autocapitalize="characters"></label>

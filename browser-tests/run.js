@@ -30,6 +30,8 @@ const SOLO = {
     + 'reaches checkout',
   shots: 'nothing — but it is a camera, not a check: it walks the whole '
     + 'flow twice and asserts nothing. `node checks/shots.js <tag>`',
+  langshots: 'nothing — also a camera: the first screen in all five '
+    + 'languages, for looking at the display face. `node checks/langshots.js`',
 };
 // Checks that need a specific server configuration to mean anything.
 const NEEDS = {
