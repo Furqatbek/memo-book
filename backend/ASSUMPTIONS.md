@@ -1379,3 +1379,26 @@ crop within the visible panel differs very slightly between screen and
 paper. Consistent with the front rather than a new inconsistency, and the
 same magnitude.
 
+**A92 — `+ Text` was dead on the front cover, and always had been.**
+`addTextBoxAt` returned early for the cover from the day it was written, so
+pressing the button did nothing at all. Not a regression: the cover has
+never had anywhere to put a text box. `CoverDoc` has no `texts` field, the
+cover PDF draws none, and the cover preview draws none.
+
+Hidden rather than implemented, and the reason matters. The cover already
+has words: a title and a subtitle, a block that moves, rotates, restyles and
+recolours. A third text mechanism on the same panel would mean a schema
+field, a renderer, a preview and an editor surface, to give a customer a
+second way to do something they can already do — and two ways to put text on
+a cover is a question the customer then has to answer. Inside pages are
+freeform; the cover is a designed object. That distinction was deliberate,
+and the dead button was the only thing contradicting it.
+
+`+ Sticker` stays on the cover: stickers genuinely print there
+(`cover.py` draws them). The back offers neither (A91).
+
+Third dead-button fix of the same session (A85, A90), so the check now
+asserts the *rule* rather than this instance: on the cover, an inside page
+and the back, every button on offer is one that does something, and pressing
+`+ Text` on an inside page really does add a box. Verified it fails when the
+guard is loosened back.

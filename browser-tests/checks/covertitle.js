@@ -93,6 +93,32 @@ function check(what, ok, detail) {
 
   await page.screenshot({ path: `${SHOTS}/89-cover-no-title.png` });
 
+  console.log('NO BUTTON THAT DOES NOTHING (A92)');
+  // `+ Text` writes into `page.texts`, which the cover has no room for:
+  // not in CoverDoc, not in the cover PDF, not in the cover preview. It
+  // was offered on the cover for as long as the cover existed and never
+  // once did anything.
+  const vis = (id) => page.evaluate(
+    (i) => !document.getElementById(i).classList.contains('hidden'), id);
+  check('the cover does not offer "+ Text"', !(await vis('btn-add-text')));
+  // Stickers really do print on the cover, so that button stays.
+  check('but it does offer "+ Sticker"', await vis('btn-add-sticker'));
+
+  // ...and an inside page offers both, because both work there.
+  await page.click('#filmstrip .film-item:nth-child(2)');
+  await page.waitForFunction(
+    () => document.getElementById('page-canvas').classList.contains('page-mode'),
+    undefined, { timeout: 10000 });
+  check('an inside page offers "+ Text"', await vis('btn-add-text'));
+  check('and "+ Sticker"', await vis('btn-add-sticker'));
+  const before = await page.$$eval('.textbox', (els) => els.length);
+  await page.click('#btn-add-text');
+  await page.waitForTimeout(500);
+  check('and pressing it actually adds one',
+    (await page.$$eval('.textbox', (els) => els.length)) === before + 1);
+  await page.click('#filmstrip .film-item:first-child');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
+
   console.log('AND NOTHING PRINTS');
   await page.click('#btn-preview');
   await page.waitForFunction(

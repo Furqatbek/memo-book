@@ -486,12 +486,18 @@ function updatePageLabel() {
         : t('page.n', { n: S.page + 1 });
   // The cover is a single fixed frame — layouts belong to inside pages.
   $('btn-layout').classList.toggle('hidden', S.locked);
-  // The back holds photos and nothing else (A91), so it does not offer the
-  // two buttons that would do nothing there. A button you can press that
-  // does nothing is worse than one you cannot (A85).
-  for (const id of ['btn-add-text', 'btn-add-sticker']) {
-    $(id).classList.toggle('hidden', S.page === BACK || S.locked);
-  }
+  // Neither of these is offered where it would do nothing — a button you
+  // can press that does nothing is worse than one you cannot (A85).
+  //
+  // `+ Text` belongs to inside pages alone (A92). The cover's words are its
+  // title and subtitle, a block that already moves, rotates and restyles;
+  // the cover itself carries no `texts` at all — not in the schema, not in
+  // the print PDF, not in the preview — so the button has never done
+  // anything there, on the front cover or on the back.
+  $('btn-add-text').classList.toggle('hidden', S.page < 0 || S.locked);
+  // Stickers DO print on the cover, so that one stays there; the back is
+  // photos only (A91).
+  $('btn-add-sticker').classList.toggle('hidden', S.page === BACK || S.locked);
   // Changing your mind about a ready-made cover: only on the cover,
   // and only when there is a catalogue to change it to.
   $('btn-cover-design').classList.toggle(
