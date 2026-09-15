@@ -1402,3 +1402,60 @@ asserts the *rule* rather than this instance: on the cover, an inside page
 and the back, every button on offer is one that does something, and pressing
 `+ Text` on an inside page really does add a box. Verified it fails when the
 guard is loosened back.
+
+**A93 — every customer with an iPhone got a failed preview.** Reported from
+production: HEIC photos upload, the tray looks perfect, and the preview
+fails.
+
+The chain, and every link of it was individually reasonable:
+
+* the browser uploads the ORIGINAL file straight to storage, so an iPhone
+  gives us HEIC;
+* ingest writes JPEG `display` and `thumb` copies — which is why the tray
+  looked right and nobody suspected the photos;
+* `original_key` is never rewritten, and both the preview and the print
+  render read the ORIGINAL, correctly, because the display copy is too small
+  to print from;
+* `pillow_heif.register_heif_opener()` lived in
+  `app.services.image_processing`, the module that makes thumbnails, which
+  the render path does not import;
+* registering a codec is process-wide, so it only helps a process that has
+  imported that module.
+
+**Why no test caught it.** In development `TASK_EAGER` runs ingest, preview
+and render inside the one API process, which imports the photos service, so
+the opener was always registered. Production runs an RQ worker that forks
+per job: the preview child imported the render path alone and `Image.open`
+raised `UnidentifiedImageError`. The bug existed only where the processes
+were separate — and every fixture was a JPEG besides.
+
+Registration moved to `app/__init__.py`. Python imports parent packages
+first, so any `import app.anything` has already run it: there is no longer a
+way to reach our imaging code without it. One home, not two.
+
+**The test is a subprocess, deliberately.** Inside pytest the registry is
+already populated by other tests' imports, so an in-process assertion passes
+no matter where the registration lives — which is exactly the blindness that
+let this ship. `tests/render/test_heic_pipeline.py` runs the compositor and
+the cover renderer in fresh interpreters that import nothing else, asserts
+`app.services.image_processing not in sys.modules` before it starts, and
+includes a test that bare Pillow CANNOT open HEIC — so if that ever begins
+to pass, the others have quietly stopped proving anything.
+
+**`checks/heicflow.js` does not guard this**, and says so in its own header.
+Measured, not assumed: with the original fault restored, the browser check
+passes end to end, because the dev server is eager. It covers the other half
+— that a real HEIC survives upload, layout changes, preview and the road to
+checkout.
+
+**A94 — a failed preview said "the layout changed".** The stale banner was
+toggled inside the `ready` branch of the poll alone, so when a re-render
+FAILED the previous poll's banner stayed on screen. The customer was told
+their layout had changed and sent to fix the wrong thing; the truth was that
+the preview could not be built at all. This is how A93 was reported, and the
+misdirection cost more than the failure did.
+
+Now cleared on every poll, before any branch decides what to say. The
+general shape is worth keeping in mind: **a banner that is only ever turned
+ON inside a conditional will eventually be shown next to a state that
+contradicts it.**

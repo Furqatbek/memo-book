@@ -23,7 +23,7 @@ from app.render.cover import (
     photo_box_px,
     _compose_cover_raster,
 )
-from app.domain.geometry import TRIM_H_MM, TRIM_W_MM, mm_to_px
+from app.domain.geometry import TRIM_W_MM, mm_to_px
 from app.domain.layouts import LAYOUTS
 from app.schemas.layout import CoverDoc, LayoutDoc
 

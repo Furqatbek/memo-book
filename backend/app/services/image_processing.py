@@ -14,11 +14,13 @@ import io
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-import pillow_heif
 from PIL import Image, ImageOps, UnidentifiedImageError
 from PIL.ExifTags import IFD
 
-pillow_heif.register_heif_opener()
+# HEIF/HEIC is registered once for the whole package, in app/__init__.py.
+# It used to be registered here, which meant only processes that imported
+# THIS module could read an iPhone photo — and the render worker does not
+# import it (A93).
 
 MAX_BYTES = 60 * 1024 * 1024
 MAX_SIDE_PX = 15_000

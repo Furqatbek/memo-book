@@ -2834,10 +2834,18 @@ async function pollPreview() {
     $('pv-status').textContent = t('preview.failed');
     return;
   }
+  // "The layout changed" is only ever true of a preview that is READY and
+  // out of date. It used to be toggled inside the ready branch alone, so a
+  // re-render that FAILED left the previous poll's banner on screen and the
+  // customer was told their layout had changed when the truth was that the
+  // preview could not be built at all — sending them to fix the wrong thing
+  // (A94). Cleared here, before any branch decides what to say.
+  $('pv-stale').classList.toggle('hidden',
+    !(r.status === 'ready' && r.stale));
+
   if (r.status === 'ready') {
     $('pv-status').textContent = '';
     $('pv-status').classList.remove('busy');
-    $('pv-stale').classList.toggle('hidden', !r.stale);
     const grid = $('pv-grid');
     grid.innerHTML = '';
     if (r.cover_url) {
