@@ -199,8 +199,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   border-radius: 4px; border: 1px solid var(--line);
   box-shadow: 0 2px 10px rgba(0,0,0,.12); touch-action: none; user-select: none;
 }
-#cover-art { position: absolute; inset: 0; width: 100%; height: 100%;
+#cover-art, #back-art { position: absolute; inset: 0; width: 100%; height: 100%;
              object-fit: cover; pointer-events: none; }
+/* The back panel preview sits under the front one, with room to breathe. */
+#back-col { margin-top: 18px; }
 .cover-safe {
   position: absolute; inset: 0; margin: 3.38% 2.37%;   /* 5mm of 148 / 210 */
   border: 1px dashed rgba(255,255,255,.75);

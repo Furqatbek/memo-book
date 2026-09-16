@@ -17,6 +17,9 @@ const S = {
   editing: null,      // the design being edited, or null for a new one
   artworkFile: null,  // a File chosen but not yet uploaded
   artworkUrl: null,   // object URL for that file, so the preview is instant
+  backArtworkFile: null,  // the same, for the optional back panel (A95)
+  backArtworkUrl: null,
+  clearBack: false,   // the operator asked to take the back artwork off
   bookTypes: [],
   artSpec: null,
   dirty: false,
@@ -67,6 +70,11 @@ async function signIn(candidate) {
       + `(${S.artSpec.w_mm} × ${S.artSpec.h_mm} mm at 300 dpi). `
       + `Minimum ${S.artSpec.min_w_px} × ${S.artSpec.min_h_px}. `
       + `The outer 16 mm folds around the board.`;
+    $('back-spec').textContent =
+      `Optional, and the mirror of the front: same ${S.artSpec.w_px} × `
+      + `${S.artSpec.h_px} px, but the spine fold is the RIGHT edge, so let `
+      + `the art bleed off the LEFT, top and bottom. Leave this empty and the `
+      + `back prints in the flat colour below.`;
   }
   showScreen('main');
   showTab(S.tab);
@@ -176,18 +184,26 @@ const BLANK = {
   design_id: null, slug: '', name: '', book_types: [], photo_rect: null,
   title: { x_mm: 74, y_mm: 168, size_pt: 26 }, title_color: null,
   bg_color: '#ffffff', sort_order: 100, active: true,
-  display_url: null,
+  display_url: null, back_display_url: null,
 };
 
 function edit(design) {
   S.editing = design ? { ...design } : { ...BLANK };
   S.artworkFile = null;
   if (S.artworkUrl) { URL.revokeObjectURL(S.artworkUrl); S.artworkUrl = null; }
+  S.backArtworkFile = null;
+  if (S.backArtworkUrl) {
+    URL.revokeObjectURL(S.backArtworkUrl);
+    S.backArtworkUrl = null;
+  }
+  S.clearBack = false;
   S.dirty = false;
   $('edit-empty').classList.add('hidden');
   $('edit-form').classList.remove('hidden');
   $('f-artwork').value = '';
   $('art-note').classList.add('hidden');
+  $('f-back-artwork').value = '';
+  $('back-note').classList.add('hidden');
 
   const d = S.editing;
   $('f-slug').value = d.slug || '';
@@ -233,6 +249,12 @@ function closeEditor() {
   S.editing = null;
   S.artworkFile = null;
   if (S.artworkUrl) { URL.revokeObjectURL(S.artworkUrl); S.artworkUrl = null; }
+  S.backArtworkFile = null;
+  if (S.backArtworkUrl) {
+    URL.revokeObjectURL(S.backArtworkUrl);
+    S.backArtworkUrl = null;
+  }
+  S.clearBack = false;
   $('edit-form').classList.add('hidden');
   $('edit-empty').classList.remove('hidden');
   renderList();
@@ -286,6 +308,17 @@ function renderPreview() {
   art.classList.toggle('hidden', !src);
   if (src && art.getAttribute('src') !== src) art.setAttribute('src', src);
   else if (!src) art.removeAttribute('src');
+
+  // The back panel, shown only when this design has one — a newly picked
+  // file, or one already saved and not being removed (A95).
+  const backSrc = S.clearBack ? '' : (S.backArtworkUrl || d.back_display_url || '');
+  const backArt = $('back-art');
+  $('back-col').classList.toggle('hidden', !backSrc);
+  $('back-cover').style.background = $('f-bg').value || '#ffffff';
+  $('f-back-clear').classList.toggle('hidden', !backSrc);
+  if (backSrc && backArt.getAttribute('src') !== backSrc) {
+    backArt.setAttribute('src', backSrc);
+  } else if (!backSrc) backArt.removeAttribute('src');
 
   const rect = readRect();
   const box = $('cover-photo');
@@ -414,7 +447,10 @@ async function save(e) {
   try {
     let saved;
     if (S.artworkFile) {
-      saved = await api.saveDesign(fields, S.artworkFile);
+      saved = await api.saveDesign(fields, S.artworkFile, S.backArtworkFile);
+      if (S.clearBack && !S.backArtworkFile) {
+        saved = await api.patchDesign(saved.design_id, { clear_back: true });
+      }
       // The upload endpoint always makes a design visible; honour the switch.
       if (!$('f-active').checked) {
         saved = await api.retireDesign(saved.design_id);
@@ -429,7 +465,13 @@ async function save(e) {
         bg_color: fields.bg_color,
         sort_order: Number(fields.sort_order),
         active: $('f-active').checked,
+        clear_back: S.clearBack && !S.backArtworkFile,
       });
+      // A back added to a design whose front is unchanged goes on its own,
+      // so the front file is never re-uploaded just to carry it (A95).
+      if (S.backArtworkFile) {
+        saved = await api.saveBackArtwork(d.design_id, S.backArtworkFile);
+      }
     } else {
       return toast('Choose an artwork file for this new design.', 'warn');
     }
@@ -485,19 +527,14 @@ function bind() {
   $('btn-retire').addEventListener('click', retire);
   $('edit-form').addEventListener('submit', save);
 
-  $('f-artwork').addEventListener('change', (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    S.artworkFile = file;
-    if (S.artworkUrl) URL.revokeObjectURL(S.artworkUrl);
-    S.artworkUrl = URL.createObjectURL(file);
-    markDirty();
-    // Warn about the aspect before upload, not after print.
+  /* Warn about the size and aspect before upload, not after print. Shared
+     by both pickers: the back panel is held to exactly the same spec as the
+     front, so the two must say the same things about the same file (A95). */
+  function noteArtworkProblems(url, note) {
     const probe = new Image();
     probe.onload = () => {
       const want = (S.artSpec ? S.artSpec.w_px / S.artSpec.h_px : 164 / 242);
       const got = probe.width / probe.height;
-      const note = $('art-note');
       const tooSmall = S.artSpec
         && (probe.width < S.artSpec.min_w_px || probe.height < S.artSpec.min_h_px);
       if (tooSmall) {
@@ -514,7 +551,42 @@ function bind() {
       }
       renderPreview();
     };
-    probe.src = S.artworkUrl;
+    probe.src = url;
+  }
+
+  $('f-artwork').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    S.artworkFile = file;
+    if (S.artworkUrl) URL.revokeObjectURL(S.artworkUrl);
+    S.artworkUrl = URL.createObjectURL(file);
+    markDirty();
+    noteArtworkProblems(S.artworkUrl, $('art-note'));
+    renderPreview();
+  });
+
+  $('f-back-artwork').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    S.backArtworkFile = file;
+    S.clearBack = false;      // choosing a file is the opposite of removing one
+    if (S.backArtworkUrl) URL.revokeObjectURL(S.backArtworkUrl);
+    S.backArtworkUrl = URL.createObjectURL(file);
+    markDirty();
+    noteArtworkProblems(S.backArtworkUrl, $('back-note'));
+    renderPreview();
+  });
+
+  $('f-back-clear').addEventListener('click', () => {
+    S.backArtworkFile = null;
+    S.clearBack = true;
+    if (S.backArtworkUrl) {
+      URL.revokeObjectURL(S.backArtworkUrl);
+      S.backArtworkUrl = null;
+    }
+    $('f-back-artwork').value = '';
+    $('back-note').classList.add('hidden');
+    markDirty();
     renderPreview();
   });
 

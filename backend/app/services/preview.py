@@ -34,21 +34,26 @@ def _back_key(book_id: uuid.UUID) -> str:
     return f"books/{book_id}/preview/back.jpg"
 
 
-def _back_as_page(cover: dict) -> dict | None:
+def _back_as_page(cover: dict, has_artwork: bool = False) -> dict | None:
     """The back panel expressed as a page, or None when it is blank (A91).
 
     It is 148x210 with a slot grid and placements — an interior page in
     every respect the preview cares about — so it renders through the same
     function rather than a near-copy that could drift from it.
+
+    Back artwork counts as content (A95): a designed back is emphatically
+    not blank, and a customer who picks such a design must be shown it
+    before they pay. Without this, the tile would appear only once they
+    happened to drop a photo on top of the artwork.
     """
     back = (cover.get("back") or {})
-    if not back.get("placements"):
+    if not back.get("placements") and not has_artwork:
         return None
     return {
         "index": -1,
         "bg_color": cover.get("bg_color", "#ffffff"),
         "layout": back.get("layout", "full"),
-        "placements": back["placements"],
+        "placements": back.get("placements") or [],
         "texts": [],
         "stickers": [],
     }
@@ -85,9 +90,14 @@ async def run_preview(session: AsyncSession, book_id: uuid.UUID) -> None:
             cover_bytes = await anyio.to_thread.run_sync(
                 storage.get_bytes, cover_photo.original_key
             )
-        from app.services.cover_designs import design_artwork_bytes
+        from app.services.cover_designs import (
+            design_artwork_bytes,
+            design_back_artwork_bytes,
+        )
 
         artwork = await design_artwork_bytes(session, cover.get("design_id"))
+        back_artwork = await design_back_artwork_bytes(
+            session, cover.get("design_id"))
         cover_jpeg = await anyio.to_thread.run_sync(
             render_preview_cover, cover, cover_bytes, artwork
         )
@@ -98,10 +108,11 @@ async def run_preview(session: AsyncSession, book_id: uuid.UUID) -> None:
         )
         del cover_jpeg
 
-        # The back panel, when the customer has put something there. No tile
-        # when it is blank: a preview of a flat rectangle tells nobody
-        # anything, and its absence is what `back_url: null` means.
-        back_page = _back_as_page(cover)
+        # The back panel, when there is something on it — the customer's
+        # photos, or the design's own back artwork (A95). No tile when it is
+        # blank: a preview of a flat rectangle tells nobody anything, and its
+        # absence is what `back_url: null` means.
+        back_page = _back_as_page(cover, has_artwork=back_artwork is not None)
         if back_page is not None:
             back_bytes: dict[str, bytes] = {}
             for placement in back_page["placements"]:
@@ -111,13 +122,14 @@ async def run_preview(session: AsyncSession, book_id: uuid.UUID) -> None:
                         storage.get_bytes, photo.original_key
                     )
             back_jpeg = await anyio.to_thread.run_sync(
-                render_preview_page, back_page, back_bytes
+                render_preview_page, back_page, back_bytes, back_artwork
             )
             del back_bytes
             await anyio.to_thread.run_sync(
                 storage.put_bytes, _back_key(book_id), back_jpeg, "image/jpeg"
             )
             del back_jpeg
+        del back_artwork
 
         for page in book.layout["pages"]:
             photo_bytes: dict[str, bytes] = {}

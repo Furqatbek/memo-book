@@ -1430,6 +1430,18 @@ function renderPage(canvas) {
   const page = pageDoc();
   canvas.style.background = page.bg_color || '#ffffff';
 
+  // The design's back artwork, behind the slots, on the back panel only —
+  // the mirror of what renderCover does with the front (A95). `has-art`
+  // tells the empty slots to stop veiling what is underneath them.
+  if (S.page === BACK) {
+    const design = coverDesign();
+    if (design && design.back_display_url) {
+      canvas.classList.add('has-art');
+      canvas.append(h('img', { class: 'cover-art', src: design.back_display_url,
+                               alt: '', draggable: 'false' }));
+    }
+  }
+
   canvas.append(
     h('div', {
       class: 'guide trim',
@@ -2685,7 +2697,9 @@ function renderFilm() {
   nav.innerHTML = '';
   const coverPhoto = S.book.layout.cover.photo_id
     ? photoById(S.book.layout.cover.photo_id) : null;
-  nav.append(filmItem(-1, coverPhoto, t('page.cover')));
+  const design = coverDesign();
+  nav.append(filmItem(-1, coverPhoto, t('page.cover'), false,
+                      design && design.thumb_url));
   S.book.layout.pages.forEach((page, i) => {
     const pl = page.placements[0];
     const photo = pl ? photoById(pl.photo_id) : null;
@@ -2698,12 +2712,13 @@ function renderFilm() {
   const back = backAsPage();
   const backPl = back.placements[0];
   nav.append(filmItem(BACK, backPl ? photoById(backPl.photo_id) : null,
-                      t('page.back'), false));
+                      t('page.back'), false,
+                      design && design.back_display_url));
   const active = nav.querySelector('.film-item.active');
   if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 
-function filmItem(index, photo, label, empty) {
+function filmItem(index, photo, label, empty, artUrl) {
   // The cover and the back are the same printed sheet, so they share a
   // colour; only real pages carry one of their own.
   const bg = index < 0
@@ -2724,6 +2739,9 @@ function filmItem(index, photo, label, empty) {
   });
   const thumb = h('div', { class: 'film-thumb' });
   thumb.style.background = bg;
+  // A design's artwork behind the photo, so a designed cover or back reads
+  // as designed in the strip rather than as a flat colour (A95).
+  if (artUrl) thumb.append(h('img', { class: 'film-art', src: artUrl, alt: '' }));
   if (photo && photo.thumb_url) thumb.append(h('img', { src: photo.thumb_url, alt: '' }));
   item.append(thumb, h('span', { class: 'film-label' }, label));
   return item;

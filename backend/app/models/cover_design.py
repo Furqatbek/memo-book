@@ -44,6 +44,15 @@ class CoverDesign(Base):
     artwork_width: Mapped[int] = mapped_column(sa.Integer)
     artwork_height: Mapped[int] = mapped_column(sa.Integer)
 
+    # A second artwork file for the BACK panel (A95). NULL — the common case,
+    # and every design made before this existed — means the back stays the
+    # flat `bg_color`. No thumb: the gallery card shows the front, which is
+    # what the customer is choosing between.
+    back_artwork_key: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
+    back_display_key: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
+    back_artwork_width: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    back_artwork_height: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+
     # Where the customer's photo goes on this design, in front-panel trim mm
     # (same origin as the built-in compositions). NULL = a complete artwork
     # cover with no photo window.

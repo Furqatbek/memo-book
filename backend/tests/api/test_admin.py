@@ -290,3 +290,120 @@ class TestSharedValidation:
     def test_a_wrong_aspect_says_what_will_happen(self):
         note = aspect_note(ARTWORK_W_PX, ARTWORK_W_PX)
         assert note and "centre-cropped" in note
+
+
+class TestBackArtwork:
+    """A95: the optional second file for the back panel.
+
+    The three states are the whole feature — set it, clear it, leave it
+    alone — and the third is the one that is easy to get wrong: correcting a
+    design's front must not silently throw its back away.
+    """
+
+    async def test_a_design_starts_with_no_back(self, client, admin):
+        resp = await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH, data=upload(),
+            files={"artwork": ("a.jpg", artwork(), "image/jpeg")})
+        assert resp.status_code == 201
+        assert resp.json()["back_artwork_width"] is None
+        assert "back_display_url" not in resp.json()
+
+    async def test_it_can_be_uploaded_alongside_the_front(self, client, admin):
+        resp = await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH, data=upload(),
+            files={"artwork": ("a.jpg", artwork(), "image/jpeg"),
+                   "back_artwork": ("b.jpg", artwork(), "image/jpeg")})
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["back_artwork_width"] == ARTWORK_W_PX
+        assert body["back_display_url"], "the editor needs a URL to draw it"
+
+    async def test_it_can_be_added_to_a_design_that_already_exists(
+            self, client, admin):
+        """Without re-uploading a front that has not changed — the whole
+        reason the back has an endpoint of its own."""
+        created = (await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH, data=upload(),
+            files={"artwork": ("a.jpg", artwork(), "image/jpeg")})).json()
+
+        resp = await client.post(
+            f"/api/v1/admin/cover-designs/{created['design_id']}/back-artwork",
+            headers=AUTH, files={"artwork": ("b.jpg", artwork(), "image/jpeg")})
+        assert resp.status_code == 200
+        assert resp.json()["back_artwork_width"] == ARTWORK_W_PX
+
+    async def test_the_back_is_held_to_the_same_minimum_as_the_front(
+            self, client, admin):
+        """It prints at the same size, so art that prints soft on the front
+        prints soft here. The message has to say which file is at fault."""
+        resp = await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH, data=upload(),
+            files={"artwork": ("a.jpg", artwork(), "image/jpeg"),
+                   "back_artwork": ("small.jpg", artwork(400, 590), "image/jpeg")})
+        assert resp.status_code == 422
+        assert "back artwork" in resp.text and "minimum" in resp.text
+
+    async def test_a_bad_back_file_does_not_create_a_half_made_design(
+            self, client, admin):
+        """The front was fine; if the back is refused, nothing is stored —
+        otherwise a design appears in the gallery that nobody asked for."""
+        await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH, data=upload(),
+            files={"artwork": ("a.jpg", artwork(), "image/jpeg"),
+                   "back_artwork": ("x.jpg", b"not an image", "image/jpeg")})
+        listing = (await client.get("/api/v1/admin/cover-designs",
+                                    headers=AUTH)).json()
+        assert listing["designs"] == []
+
+    async def test_re_uploading_the_front_keeps_the_back(self, client, admin):
+        """The state that is easy to lose. Correcting a front is the most
+        ordinary edit there is, and it must not discard the other file."""
+        created = (await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH, data=upload(),
+            files={"artwork": ("a.jpg", artwork(), "image/jpeg"),
+                   "back_artwork": ("b.jpg", artwork(), "image/jpeg")})).json()
+        assert created["back_artwork_width"] == ARTWORK_W_PX
+
+        again = (await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH,
+            data=upload(name="Gold hearts, fixed"),
+            files={"artwork": ("a2.jpg", artwork(), "image/jpeg")})).json()
+        assert again["name"] == "Gold hearts, fixed"
+        assert again["back_artwork_width"] == ARTWORK_W_PX, (
+            "correcting the front threw the back away")
+
+    async def test_it_can_be_removed_on_purpose(self, client, admin):
+        created = (await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH, data=upload(),
+            files={"artwork": ("a.jpg", artwork(), "image/jpeg"),
+                   "back_artwork": ("b.jpg", artwork(), "image/jpeg")})).json()
+
+        resp = await client.patch(
+            f"/api/v1/admin/cover-designs/{created['design_id']}",
+            headers=AUTH, json={"clear_back": True})
+        assert resp.status_code == 200
+        assert resp.json()["back_artwork_width"] is None
+        assert "back_display_url" not in resp.json()
+
+    async def test_an_ordinary_patch_leaves_the_back_alone(self, client, admin):
+        """`clear_back` is opt-in: renaming a design must not strip it."""
+        created = (await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH, data=upload(),
+            files={"artwork": ("a.jpg", artwork(), "image/jpeg"),
+                   "back_artwork": ("b.jpg", artwork(), "image/jpeg")})).json()
+
+        resp = await client.patch(
+            f"/api/v1/admin/cover-designs/{created['design_id']}",
+            headers=AUTH, json={"name": "Renamed"})
+        assert resp.json()["name"] == "Renamed"
+        assert resp.json()["back_artwork_width"] == ARTWORK_W_PX
+
+    async def test_the_customer_is_told_about_the_back(self, client, admin):
+        """The editor draws the back panel from this URL; without it the
+        customer would confirm a preview that does not match the print."""
+        await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH, data=upload(),
+            files={"artwork": ("a.jpg", artwork(), "image/jpeg"),
+                   "back_artwork": ("b.jpg", artwork(), "image/jpeg")})
+        shop = (await client.get("/api/v1/cover-designs?book_type=love")).json()
+        assert shop["designs"][0]["back_display_url"]

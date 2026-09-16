@@ -14,7 +14,13 @@
 Artwork covers the FRONT PANEL plus its turn-in — 164 x 242 mm, i.e.
 1937 x 2858 px at 300 dpi. One file serves every page tier, because only the
 spine width changes between tiers and the spine is not part of the artwork;
-the back panel and spine take --bg.
+the spine takes --bg.
+
+`--back FILE` adds artwork for the back panel too (A95), same size, mirrored:
+its turn-in is on the LEFT, top and bottom, and its RIGHT edge is the spine
+fold. Without it the back panel is flat --bg, as it has always been.
+`--no-back` takes an existing back off a design. Passing neither leaves the
+design's back exactly as it was, so correcting a front never discards a back.
 
 Re-running `add` with the same slug replaces that design in place, so
 correcting one never leaves a second copy in the gallery.
@@ -102,6 +108,15 @@ async def cmd_add(args) -> None:
         raise SystemExit(f"--types {args.types!r} named no known occasion")
 
     artwork, display, thumb, w, h = _renditions(path)
+
+    back = None
+    if args.back:
+        back_path = Path(args.back)
+        if not back_path.exists():
+            raise SystemExit(f"no such file: {back_path}")
+        b_full, b_display, _b_thumb, b_w, b_h = _renditions(back_path)
+        back = (b_full, b_display, b_w, b_h)
+
     async with _get_sessionmaker()() as session:
         design = await upsert_design(
             session, slug=args.slug, name=args.name or args.slug,
@@ -110,10 +125,13 @@ async def cmd_add(args) -> None:
             photo_rect=_rect(args.photo_rect), title=_title(args.title),
             title_color=_hex(args.title_color, "--title-color"),
             bg_color=_hex(args.bg, "--bg") or "#ffffff",
-            sort_order=args.order)
+            sort_order=args.order, back=back, clear_back=args.no_back)
+        back_note = (f"{design.back_artwork_width}x{design.back_artwork_height}px"
+                     if design.back_artwork_key else "flat colour")
     print(f"saved {design.slug}  {w}x{h}px  "
           f"occasions={types or 'any'}  "
-          f"photo={'yes' if design.photo_rect else 'no'}")
+          f"photo={'yes' if design.photo_rect else 'no'}  "
+          f"back={back_note}")
 
 
 async def cmd_list(args) -> None:
@@ -169,11 +187,27 @@ def cmd_spec(_args) -> None:
     - let the art bleed off the top, bottom and right; nothing there survives
     - keep text and faces 21 mm inside the top, bottom and right edges
       (16 mm turn-in + 5 mm safe margin), and 5 mm inside the left
-    - the back panel and the spine are NOT in this file; they print in the
-      flat colour you pass as --bg, so pick one that belongs with the art
+    - the spine is NOT in this file; it prints in the flat colour you pass
+      as --bg, so pick one that belongs with the art
 
   One file works for every page tier. Only the spine width changes between
   tiers, and the spine is not part of the artwork.
+
+  THE BACK PANEL (--back FILE, optional)
+
+  Same size, same minimum, same format — and the exact MIRROR of the front,
+  because that is the back cover as you see it on the closed book:
+
+    x =   0 mm  left edge of your file; the first 16 mm folds out of sight
+    x =  16 mm  the fore-edge of the closed book
+    x = 164 mm  spine fold. Visible. Nothing is trimmed here.
+    y            exactly as the front: 16 mm folds away top and bottom
+
+    - let the art bleed off the LEFT, top and bottom; the right edge is the
+      spine fold and must not be bled past
+    - keep anything that matters 21 mm inside the left, top and bottom, and
+      5 mm inside the right
+    - without --back the back panel stays flat --bg, as before
 
   If the design leaves room for the customer's photo, say where with
   --photo-rect x,y,w,h in mm measured from the top-left of the 148 x 210
@@ -195,7 +229,11 @@ def main() -> None:
                      help="x,y,w,h in mm for the customer's photo")
     add.add_argument("--title", default=None, help="x,y[,size_pt] in mm/pt")
     add.add_argument("--title-color", default=None)
-    add.add_argument("--bg", default=None, help="back panel + spine colour")
+    add.add_argument("--bg", default=None, help="spine + undesigned back colour")
+    add.add_argument("--back", default=None,
+                     help="artwork for the back panel, mirrored (A95)")
+    add.add_argument("--no-back", action="store_true",
+                     help="remove this design's back artwork")
     add.add_argument("--order", type=int, default=100)
 
     ls = sub.add_parser("list", help="list designs")

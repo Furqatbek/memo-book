@@ -5,10 +5,18 @@ deploy. This module owns three jobs — what the customer is offered, what
 the renderer needs, and what the admin script writes.
 
 Artwork covers exactly the region a full-bleed cover photo covers: the front
-panel plus the turn-in above, below and to its right. The back panel and the
-spine take the design's own `bg_color`, so one file serves every page tier —
-the spine width changes with the tier, and a fixed-width wrap image would
-have to be redrawn for each one.
+panel plus the turn-in above, below and to its right. The spine takes the
+design's own `bg_color`, so one file serves every page tier — the spine width
+changes with the tier, and a fixed-width wrap image would have to be redrawn
+for each one.
+
+A design may carry a SECOND file for the back panel (A95). It is deliberately
+a separate upload rather than one wide back-spine-front image, for that same
+reason: the spine is the only part whose width varies, so keeping it out of
+both files is what lets one design serve all four sizes. The back file is the
+exact mirror of the front — same 164x242mm, but the turn-in is on the LEFT,
+top and bottom, and the RIGHT edge is the spine fold. That is the back cover
+as you see it on the closed book, so the file reads the right way round.
 """
 import io
 import uuid
@@ -54,6 +62,14 @@ def display_key(slug: str) -> str:
 
 def thumb_key(slug: str) -> str:
     return f"{DESIGN_PREFIX}/{slug}/thumb.jpg"
+
+
+def back_artwork_key(slug: str) -> str:
+    return f"{DESIGN_PREFIX}/{slug}/back-artwork.jpg"
+
+
+def back_display_key(slug: str) -> str:
+    return f"{DESIGN_PREFIX}/{slug}/back-display.jpg"
 
 
 def build_renditions(data: bytes) -> tuple[bytes, bytes, bytes, int, int]:
@@ -143,6 +159,11 @@ def serialize(design: CoverDesign) -> dict:
         "photo_rect": design.photo_rect,
         "bg_color": design.bg_color,
     }
+    # Only when the design actually has one: the editor uses the key's
+    # presence to decide whether the back panel is artwork or flat colour,
+    # so a URL that 404s would be worse than no URL at all (A95).
+    if design.back_display_key:
+        payload["back_display_url"] = storage.presign_get(design.back_display_key)
     if design.title_x_mm is not None and design.title_y_mm is not None:
         payload["title"] = {"x_mm": design.title_x_mm, "y_mm": design.title_y_mm,
                             "size_pt": design.title_size_pt}
@@ -194,18 +215,42 @@ async def design_artwork_bytes(session: AsyncSession,
         return None
 
 
+async def design_back_artwork_bytes(session: AsyncSession,
+                                    design_id: str | None) -> bytes | None:
+    """The back panel's artwork, or None — which is the ordinary case, and
+    means the back prints in the design's flat colour (A95)."""
+    design = await get_design(session, design_id)
+    if design is None or not design.back_artwork_key:
+        return None
+    try:
+        return storage.get_bytes(design.back_artwork_key)
+    except Exception:
+        return None
+
+
 async def upsert_design(session: AsyncSession, *, slug: str, name: str,
                         book_types: str, artwork: bytes, display: bytes,
                         thumb: bytes, width: int, height: int,
                         photo_rect: dict | None, title: dict | None,
                         title_color: str | None, bg_color: str,
-                        sort_order: int) -> CoverDesign:
+                        sort_order: int,
+                        back: tuple[bytes, bytes, int, int] | None = None,
+                        clear_back: bool = False) -> CoverDesign:
     """Add a design, or replace the artwork and settings of one with the same
     slug. Re-running the admin command is how a design gets corrected, so it
-    must not leave a second copy behind."""
+    must not leave a second copy behind.
+
+    `back` is (artwork, display, width, height) for the back panel. The three
+    states are deliberate (A95): pass `back` to set it, `clear_back` to remove
+    it, and NEITHER to leave whatever the design already had alone — so
+    re-uploading a corrected front does not silently throw the back away.
+    """
     storage.put_bytes(artwork_key(slug), artwork, "image/jpeg")
     storage.put_bytes(display_key(slug), display, "image/jpeg")
     storage.put_bytes(thumb_key(slug), thumb, "image/jpeg")
+    if back is not None:
+        storage.put_bytes(back_artwork_key(slug), back[0], "image/jpeg")
+        storage.put_bytes(back_display_key(slug), back[1], "image/jpeg")
 
     design = (await session.execute(
         select(CoverDesign).where(CoverDesign.slug == slug)
@@ -221,6 +266,16 @@ async def upsert_design(session: AsyncSession, *, slug: str, name: str,
     design.thumb_key = thumb_key(slug)
     design.artwork_width = width
     design.artwork_height = height
+    if back is not None:
+        design.back_artwork_key = back_artwork_key(slug)
+        design.back_display_key = back_display_key(slug)
+        design.back_artwork_width = back[2]
+        design.back_artwork_height = back[3]
+    elif clear_back:
+        design.back_artwork_key = None
+        design.back_display_key = None
+        design.back_artwork_width = None
+        design.back_artwork_height = None
     design.photo_rect = photo_rect
     design.title_x_mm = title["x_mm"] if title else None
     design.title_y_mm = title["y_mm"] if title else None

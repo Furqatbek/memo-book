@@ -135,10 +135,23 @@ def _open_rgb(data: bytes, what: str) -> Image.Image:
 def _compose_cover_raster(cover: dict, geo: CoverGeometry,
                           photo_bytes: bytes | None,
                           artwork_bytes: bytes | None = None,
-                          back_photo_bytes: dict[str, bytes] | None = None) -> bytes:
+                          back_photo_bytes: dict[str, bytes] | None = None,
+                          back_artwork_bytes: bytes | None = None) -> bytes:
     w_px = mm_to_px(geo.total_w_mm)
     h_px = mm_to_px(geo.total_h_mm)
     canvas = Image.new("RGB", (w_px, h_px), hex_to_rgb(cover.get("bg_color")))
+
+    # A design's back-panel artwork (A95), the mirror of the front's: it
+    # covers the back panel and the turn-in to its left, and stops dead at
+    # the spine fold. Drawn before the customer's back photos so those sit
+    # on top of it, the way the front artwork sits under the front photo.
+    if back_artwork_bytes is not None:
+        back_box = back_box_px(FULL_RECT, geo, w_px, h_px)
+        back_art = _open_rgb(back_artwork_bytes, "back cover artwork")
+        canvas.paste(_fit_cover(back_art, back_box[2] - back_box[0],
+                                back_box[3] - back_box[1]),
+                     (back_box[0], back_box[1]))
+        del back_art
 
     # The back panel (A91). Same slot grid as an interior page, drawn first
     # so nothing else on the sheet has to know it is there — and skipped
@@ -285,11 +298,12 @@ def build_cover_pdf(cover: dict, page_count: int,
                     photo_bytes: bytes | None,
                     cache_tag: str = "cover",
                     artwork_bytes: bytes | None = None,
-                    back_photo_bytes: dict[str, bytes] | None = None) -> bytes:
+                    back_photo_bytes: dict[str, bytes] | None = None,
+                    back_artwork_bytes: bytes | None = None) -> bytes:
     _register_fonts()
     geo = cover_geometry(page_count)
     raster = _compose_cover_raster(cover, geo, photo_bytes, artwork_bytes,
-                                   back_photo_bytes)
+                                   back_photo_bytes, back_artwork_bytes)
 
     page_w_pt = geo.total_w_mm * MM_TO_PT
     page_h_pt = geo.total_h_mm * MM_TO_PT

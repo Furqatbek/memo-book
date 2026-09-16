@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>RS Pixel — admin</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='4' width='24' height='24' rx='4' fill='%2316181d'/%3E%3Cpath d='M11 20V12h4a3 3 0 010 6h-4l6 2' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="admin.css?v=20260825">
+  <link rel="stylesheet" href="admin.css?v=20260916">
   <script src="../editor/config.js"></script>
 </head>
 <body>
@@ -176,6 +176,19 @@
                 The turn-in is already excluded from this view.
               </p>
               <p id="art-note" class="warn small hidden"></p>
+
+              <!-- the back panel, only once the design has one (A95) -->
+              <div id="back-col" class="hidden">
+                <div class="preview-head">
+                  <b>Back cover</b>
+                  <span class="muted small">spine edge on the right</span>
+                </div>
+                <div id="back-cover" class="cover">
+                  <img id="back-art" alt="" draggable="false">
+                  <div class="cover-safe"></div>
+                </div>
+                <p id="back-note" class="warn small hidden"></p>
+              </div>
             </div>
 
             <!-- settings -->
@@ -185,6 +198,15 @@
                 <input id="f-artwork" type="file" accept="image/png,image/jpeg">
                 <small id="art-spec" class="muted"></small>
               </label>
+
+              <div class="field">
+                <span>Back artwork</span>
+                <input id="f-back-artwork" type="file" accept="image/png,image/jpeg">
+                <small id="back-spec" class="muted"></small>
+                <button id="f-back-clear" class="btn small hidden" type="button">
+                  Remove back artwork
+                </button>
+              </div>
 
               <label class="field">
                 <span>Slug</span>
@@ -246,7 +268,8 @@
                 <label class="col">
                   <span>Back &amp; spine</span>
                   <input id="f-bg" type="color">
-                  <small class="muted">The artwork does not cover these.</small>
+                  <small class="muted">Always the spine; the back too, unless
+                    back artwork covers it.</small>
                 </label>
               </div>
 
@@ -279,6 +302,6 @@
     </main>
   </section>
 
-  <script type="module" src="js/app.js?v=20260829"></script>
+  <script type="module" src="js/app.js?v=20260916"></script>
 </body>
 </html>

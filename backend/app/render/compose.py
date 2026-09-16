@@ -59,18 +59,36 @@ def _fit_contain(img: Image.Image, tw: int, th: int,
 
 
 def compose_page(page: dict, photo_bytes: dict[str, bytes],
-                 scale: float = 1.0) -> bytes:
+                 scale: float = 1.0,
+                 bg_image_bytes: bytes | None = None) -> bytes:
     """Render one page's placements onto a white canvas; returns JPEG bytes.
 
     `scale` < 1 renders a proportionally smaller raster (used by the preview
     pipeline); 1.0 is full 300dpi print resolution. Photos are opened from
     ORIGINAL bytes — EXIF orientation is re-applied here because originals
     are stored untouched.
+
+    `bg_image_bytes` fills the whole canvas behind the placements, replacing
+    the flat colour. Interior pages never have one; the cover's back panel
+    does when its design carries back artwork (A95), and that panel renders
+    through this function precisely so it cannot drift from a real page.
     """
     cw = max(1, round(CANVAS_W_PX * scale))
     ch = max(1, round(CANVAS_H_PX * scale))
     bg = hex_to_rgb(page.get("bg_color"))
     canvas = Image.new("RGB", (cw, ch), bg)
+
+    if bg_image_bytes is not None:
+        try:
+            back = Image.open(io.BytesIO(bg_image_bytes))
+            back.load()
+        except Exception as exc:
+            raise RenderError("unreadable background artwork") from exc
+        back = ImageOps.exif_transpose(back)
+        if back.mode != "RGB":
+            back = back.convert("RGB")
+        canvas.paste(_fit_cover(back, cw, ch), (0, 0))
+        del back
 
     for placement in page.get("placements", []):
         pid = placement["photo_id"]

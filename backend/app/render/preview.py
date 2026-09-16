@@ -97,10 +97,16 @@ def _watermark(img: Image.Image) -> Image.Image:
     return combined.convert("RGB")
 
 
-def render_preview_page(page: dict, photo_bytes: dict[str, bytes]) -> bytes:
+def render_preview_page(page: dict, photo_bytes: dict[str, bytes],
+                        bg_image_bytes: bytes | None = None) -> bytes:
     """One page -> watermarked 72dpi JPEG. Empty pages render as watermarked
-    blanks — the preview shows the book exactly as it would print."""
-    page_jpeg = compose_page(page, photo_bytes, scale=PREVIEW_SCALE)
+    blanks — the preview shows the book exactly as it would print.
+
+    `bg_image_bytes` is the cover back panel's design artwork (A95); interior
+    pages never pass one.
+    """
+    page_jpeg = compose_page(page, photo_bytes, scale=PREVIEW_SCALE,
+                             bg_image_bytes=bg_image_bytes)
     img = Image.open(io.BytesIO(page_jpeg))
     img.load()
     _draw_stickers(img, page.get("stickers", []))

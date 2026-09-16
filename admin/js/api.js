@@ -62,17 +62,29 @@ export const ping = (candidate) =>
 
 export const listDesigns = () => request('GET', `${V}/cover-designs`);
 
-export function saveDesign(fields, artworkFile) {
+export function saveDesign(fields, artworkFile, backArtworkFile) {
   const form = new FormData();
   for (const [k, v] of Object.entries(fields)) {
     if (v !== null && v !== undefined) form.append(k, v);
   }
   form.append('artwork', artworkFile);
+  // Sent only when there is one to send: an empty part would still read as
+  // "a back artwork was supplied" on the server, and the three states —
+  // set it, clear it, leave it — have to stay distinguishable (A95).
+  if (backArtworkFile) form.append('back_artwork', backArtworkFile);
   return request('POST', `${V}/cover-designs`, { form });
 }
 
 export const patchDesign = (id, patch) =>
   request('PATCH', `${V}/cover-designs/${id}`, { body: patch });
+
+/* Back artwork for a design that already exists, without re-uploading the
+   front it does not change (A95). */
+export function saveBackArtwork(id, file) {
+  const form = new FormData();
+  form.append('artwork', file);
+  return request('POST', `${V}/cover-designs/${id}/back-artwork`, { form });
+}
 
 export const retireDesign = (id) =>
   request('DELETE', `${V}/cover-designs/${id}`);

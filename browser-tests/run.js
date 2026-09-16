@@ -43,6 +43,8 @@ const NEEDS = {
   // depending on designs someone uploaded by hand.
   designflow: 'ADMIN_TOKEN=dev-admin (it seeds its own cover designs)',
   designswap: 'ADMIN_TOKEN=dev-admin (it seeds its own cover designs)',
+  backart: 'ADMIN_TOKEN=dev-admin (it seeds a design, then adds a back to it '
+    + 'through the console)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',

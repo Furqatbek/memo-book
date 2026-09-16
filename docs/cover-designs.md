@@ -74,6 +74,55 @@ A design can either leave a window for the customer's photo, or be a
 complete cover with no photo at all. Both work; say which with
 `--photo-rect`.
 
+## The back panel — a second, optional file
+
+By default the back of the book prints in the flat colour you pick, and most
+designs are happier that way. A design can also carry **a second artwork file
+for the back**, same size, same minimum, same format.
+
+It is a separate file rather than one wide back-spine-front image on purpose.
+The spine is the only part of the wrap whose width changes between the four
+book sizes, so keeping it out of both files is exactly what lets one design
+serve all four. The spine always takes the flat colour.
+
+**The back file is the mirror of the front.** That is the back cover as you
+see it on the closed book — spine on the right, fore-edge on the left:
+
+```
+    x=0        x=16mm                                  x=164mm
+    │            │                                        │
+    ├──────────────── 1937 px (164 mm) ─────────────────────┤
+ y=0┌───────────────────────────────────────────────────────┐ ┐
+    │ ▓▓▓▓▓▓▓▓▓ 16 mm — folds out of sight ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ │
+    ├───────────┬───────────────────────────────────────────┤ │
+    │▓▓▓▓▓▓▓▓▓▓▓│                                           │ │
+    │▓▓ 16 mm ▓▓│      148 × 210 mm — what is seen on       │ 2858 px
+    │▓▓ folds ▓▓│      the closed book. Flush RIGHT.        │ (242 mm)
+    │▓▓ away  ▓▓│                                           │ │
+    ├───────────┴───────────────────────────────────────────┤ │
+    │ ▓▓▓▓▓▓▓▓▓ 16 mm — folds out of sight ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ │
+    └───────────────────────────────────────────────────────┘ ┘
+                                    spine fold: visible, nothing trimmed ↑
+```
+
+Every rule from the front, reflected:
+
+1. **16 mm folds out of sight on the left, top and bottom — nothing on the
+   right.** The right edge is the spine fold; art there is printed.
+2. **Keep anything that matters 21 mm inside the left, top and bottom** and
+   **5 mm inside the right.**
+3. Art that runs past the right edge does not vanish — it appears on the
+   *front* of the closed book, over your front design, on every copy.
+
+The customer's own back-cover photos are drawn **on top** of this artwork, so
+a designed back can still have a photo window in it.
+
+In the console, **Back artwork** sits under **Artwork**; the back preview
+appears beneath the front one as soon as you choose a file, and **Remove back
+artwork** takes it off again. On the command line it is `--back FILE`, and
+`--no-back` removes it. Passing neither leaves whatever the design already
+had — so correcting a front never discards a back.
+
 ## Adding a design — the console
 
 Go to **`https://your-domain/admin/`** and sign in with `ADMIN_TOKEN` from the
@@ -123,7 +172,9 @@ python scripts/cover_design.py add romance-gold ~/art/romance-gold.png \
 | `--photo-rect x,y,w,h` | Where the customer's photo goes, in mm from the top-left of the 148 × 210 front panel. **Leave it out for a complete artwork cover.** |
 | `--title x,y[,size]` | Where the title sits, in mm; size in points. **Leave it out for artwork that already carries its own lettering** — the customer then gets no title box at all. |
 | `--title-color` | `#rrggbb`. Leave it out and it is chosen automatically. |
-| `--bg` | Back panel and spine colour. |
+| `--bg` | Spine colour, and the back panel's too unless `--back` covers it. |
+| `--back FILE` | Artwork for the back panel, mirrored. **Leave it out and the back is flat `--bg`.** |
+| `--no-back` | Remove a back artwork already on this design. |
 | `--order` | Sort position in the gallery — lower comes first. |
 
 `python scripts/cover_design.py spec` prints the same specification, so you

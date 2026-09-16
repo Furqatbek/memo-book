@@ -1459,3 +1459,47 @@ Now cleared on every poll, before any branch decides what to say. The
 general shape is worth keeping in mind: **a banner that is only ever turned
 ON inside a conditional will eventually be shown next to a state that
 contradicts it.**
+
+**A95 — a design can carry back-panel artwork too.** A ready-made design was
+one file, the front, and the back printed in the flat `bg_color`. Designs
+that want a decorated back — a pattern, a colophon, a border that continues
+round the book — had no way to say so.
+
+A design now takes an optional SECOND file for the back. Deliberately a
+second file rather than one wide back-spine-front image: the spine is the
+only part of the wrap whose width varies between the four sizes, so keeping
+it out of both files is precisely what lets one design serve all four. The
+spine keeps the flat colour either way.
+
+**The back file is the mirror of the front**, and mirrors are the thing to
+be careful about here. It is 164 x 242 mm like the front, but the turn-in is
+on the LEFT, top and bottom, and the RIGHT edge is the spine fold. That is
+the back cover as you see it on a closed book, so the file reads the right
+way round — and it reuses `back_box_px` (A91) rather than a second copy of
+that geometry, so if the mirror is ever corrected both are corrected.
+
+Getting it backwards is not cosmetic: art past the spine fold prints on the
+*front* face of the closed book, over the design, on every copy — and looks
+perfectly fine on screen until someone folds one. So the tests assert where
+the ink lands in pixels on the real sheet, and were checked by deliberately
+pasting the back through `photo_box_px`: five of them fail.
+
+Three states, not two: **set it, clear it, leave it alone.** Re-uploading a
+corrected front must not silently discard the back, so `upsert_design` only
+touches the back when explicitly told to. The console gets a dedicated
+`POST .../back-artwork` endpoint for the same reason — adding a back to a
+finished design would otherwise mean re-uploading an unchanged front, and a
+re-upload that is only a formality is exactly the step that eventually gets
+done with the wrong file.
+
+Two consequences worth naming:
+
+* **A designed back earns a preview tile.** `_back_as_page` used to return
+  None unless the customer had put photos there, which was right when the
+  alternative was a flat rectangle. A back can now be fully designed and
+  carry no photos, and the preview is the contract — a customer must not
+  confirm a panel they were never shown.
+* **`compose_page` grew a `bg_image_bytes` argument**, so the back panel
+  still renders through the same function a real page does rather than a
+  near-copy that could drift from it. Interior pages never pass one, and a
+  test asserts that passing None is byte-identical to not passing it at all.

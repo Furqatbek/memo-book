@@ -31,6 +31,7 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import storage
 from app.config import get_settings
 from app.db.session import get_session
 from app.domain.book_types import BOOK_TYPES
@@ -46,6 +47,8 @@ from app.services.cover_designs import (
     ARTWORK_W_PX,
     MIN_ARTWORK_H_PX,
     MIN_ARTWORK_W_PX,
+    back_artwork_key,
+    back_display_key,
     build_renditions,
     list_designs,
     parse_book_types,
@@ -95,7 +98,9 @@ def _admin_view(design: CoverDesign) -> dict:
             "active": design.active,
             "sort_order": design.sort_order,
             "artwork_width": design.artwork_width,
-            "artwork_height": design.artwork_height}
+            "artwork_height": design.artwork_height,
+            "back_artwork_width": design.back_artwork_width,
+            "back_artwork_height": design.back_artwork_height}
 
 
 @router.get("/cover-designs", dependencies=[Admin])
@@ -144,6 +149,8 @@ async def admin_upsert(
     bg_color: str | None = Form(None),
     sort_order: int = Form(100),
     artwork: UploadFile = File(...),
+    back_artwork: UploadFile | None = File(None),
+    clear_back: bool = Form(False),
     session: AsyncSession = Session,
 ) -> dict:
     """Add a design, or replace one that already has this slug — the same
@@ -156,6 +163,20 @@ async def admin_upsert(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    # The back panel is optional and held to the same standard as the front —
+    # it prints at the same size, so art that would print soft there prints
+    # soft here too (A95).
+    back = None
+    if back_artwork is not None:
+        back_raw = await back_artwork.read()
+        if back_raw:
+            try:
+                b_full, b_display, _b_thumb, b_w, b_h = build_renditions(back_raw)
+            except ValueError as exc:
+                raise HTTPException(status_code=422,
+                                    detail=f"back artwork: {exc}") from exc
+            back = (b_full, b_display, b_w, b_h)
+
     design = await upsert_design(
         session, slug=_slug(slug), name=name.strip(), book_types=book_types,
         artwork=full, display=display, thumb=thumb, width=width, height=height,
@@ -163,7 +184,39 @@ async def admin_upsert(
         title=_json_field(title, "title"),
         title_color=_hex(title_color, "title_color"),
         bg_color=_hex(bg_color, "bg_color", "#ffffff"),
-        sort_order=sort_order)
+        sort_order=sort_order, back=back, clear_back=clear_back)
+    return _admin_view(design)
+
+
+@router.post("/cover-designs/{design_id}/back-artwork", dependencies=[Admin])
+async def admin_back_artwork(design_id: uuid.UUID,
+                             artwork: UploadFile = File(...),
+                             session: AsyncSession = Session) -> dict:
+    """Put back artwork on a design that already exists (A95).
+
+    Its own endpoint because the upsert above demands a front artwork file:
+    adding a back to a finished design would otherwise mean re-uploading a
+    front that has not changed, and a re-upload that is only a formality is
+    exactly the kind of step that eventually gets done with the wrong file.
+    """
+    design = await _load(session, design_id)
+    raw = await artwork.read()
+    if not raw:
+        raise HTTPException(status_code=422, detail="back artwork file is empty")
+    try:
+        full, display, _thumb, width, height = build_renditions(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=422,
+                            detail=f"back artwork: {exc}") from exc
+
+    storage.put_bytes(back_artwork_key(design.slug), full, "image/jpeg")
+    storage.put_bytes(back_display_key(design.slug), display, "image/jpeg")
+    design.back_artwork_key = back_artwork_key(design.slug)
+    design.back_display_key = back_display_key(design.slug)
+    design.back_artwork_width = width
+    design.back_artwork_height = height
+    await session.commit()
+    await session.refresh(design)
     return _admin_view(design)
 
 
@@ -203,6 +256,16 @@ async def admin_patch(design_id: uuid.UUID, body: dict,
         design.sort_order = int(body["sort_order"])
     if "active" in body:
         design.active = bool(body["active"])
+    # Removing the back artwork is a settings change, not an upload, so it
+    # belongs here too — otherwise the only way to take a back off a design
+    # would be to re-upload its front (A95). The stored objects are left in
+    # place: nothing reads them once the keys are gone, and a design being
+    # corrected twice in a minute should not race its own deletes.
+    if body.get("clear_back"):
+        design.back_artwork_key = None
+        design.back_display_key = None
+        design.back_artwork_width = None
+        design.back_artwork_height = None
     await session.commit()
     await session.refresh(design)
     return _admin_view(design)
