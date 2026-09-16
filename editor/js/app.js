@@ -1635,10 +1635,21 @@ function closeSwatchPop() {
   const open = document.querySelector('.swatch-pop');
   if (open) open.remove();
   document.removeEventListener('pointerdown', outsideSwatchClose, true);
+  document.removeEventListener('keydown', escSwatchClose, true);
 }
 
 function outsideSwatchClose(e) {
   if (!e.target.closest('.swatch-pop, .color-tool')) closeSwatchPop();
+}
+
+/* Escape closes it. The popup had no key handler at all — the editor had no
+   Escape handling anywhere — so the only way out was clicking somewhere
+   else on the page, which is awkward with a keyboard and needs "somewhere
+   else" to be a point the popup does not cover. */
+function escSwatchClose(e) {
+  if (e.key !== 'Escape') return;
+  e.stopPropagation();
+  closeSwatchPop();
 }
 
 function colorControl(value, label, onPick) {
@@ -1671,7 +1682,10 @@ function colorControl(value, label, onPick) {
     const width = pop.offsetWidth;
     pop.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, r.left))}px`;
     pop.style.top = `${Math.min(window.innerHeight - pop.offsetHeight - 8, r.bottom + 6)}px`;
-    setTimeout(() => document.addEventListener('pointerdown', outsideSwatchClose, true), 0);
+    setTimeout(() => {
+      document.addEventListener('pointerdown', outsideSwatchClose, true);
+      document.addEventListener('keydown', escSwatchClose, true);
+    }, 0);
   });
   return btn;
 }
