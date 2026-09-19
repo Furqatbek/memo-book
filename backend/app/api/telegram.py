@@ -42,9 +42,9 @@ async def require_telegram(request: Request) -> None:
     from app.services.telegram import control_enabled
 
     settings = get_settings()
-    # Both halves, not just the secret: an allowlist that is empty means
-    # nobody may act, and a webhook that accepts updates nobody may act on is
-    # an open door with a sign on it rather than a locked one.
+    # The secret alone decides whether this route exists. WHO may act is a
+    # per-press database check (A97): a chat where nobody is linked yet can
+    # still receive `/link`, which is how anybody becomes linked at all.
     if not control_enabled():
         raise _GONE
     supplied = request.headers.get(SECRET_HEADER) or ""

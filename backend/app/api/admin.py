@@ -220,6 +220,49 @@ async def admin_back_artwork(design_id: uuid.UUID,
     return _admin_view(design)
 
 
+# ---------------------------------------------------------------- telegram
+#
+# Linking an operator's Telegram account (A97). The code is issued HERE, in
+# the authenticated console, and redeemed in the bot — that is what makes
+# the link two-sided. A code issued by the bot itself would be visible to
+# everyone in the chat, which is precisely the surface we do not trust.
+
+
+@router.post("/telegram/link-code", dependencies=[Admin])
+async def admin_link_code(session: AsyncSession = Session) -> dict:
+    from app.services.telegram import control_enabled
+    from app.services.telegram_link import CODE_TTL, issue_code
+
+    code, expires_at = await issue_code(session)
+    return {"code": code, "expires_at": expires_at,
+            "ttl_seconds": int(CODE_TTL.total_seconds()),
+            # So the console can say the webhook still needs registering
+            # rather than leaving the operator wondering why nothing happens.
+            "webhook_configured": control_enabled()}
+
+
+@router.get("/telegram/operators", dependencies=[Admin])
+async def admin_list_operators(session: AsyncSession = Session) -> dict:
+    from app.services.telegram import control_enabled, control_user_ids
+    from app.services.telegram_link import list_operators
+
+    return {"operators": await list_operators(session),
+            "webhook_configured": control_enabled(),
+            # Shown so an id that cannot be revoked from here is visible
+            # rather than mysterious — it lives in .env, not the database.
+            "env_user_ids": sorted(control_user_ids())}
+
+
+@router.delete("/telegram/operators/{user_id}", dependencies=[Admin])
+async def admin_revoke_operator(user_id: int,
+                                session: AsyncSession = Session) -> dict:
+    from app.services.telegram_link import revoke
+
+    if not await revoke(session, user_id):
+        raise HTTPException(status_code=404, detail="no such linked account")
+    return {"revoked": user_id}
+
+
 async def _load(session: AsyncSession, design_id: uuid.UUID) -> CoverDesign:
     design = (await session.execute(
         select(CoverDesign).where(CoverDesign.id == design_id)

@@ -43,6 +43,10 @@ def main() -> None:
     os.environ.setdefault("ADMIN_DIR", str(BACKEND.parent / "admin"))
     # A local console needs a token; production sets its own in .env.
     os.environ.setdefault("ADMIN_TOKEN", "dev-admin")
+    # Telegram order control needs a webhook secret to exist at all
+    # (A97). A dev default lets the browser check drive the real
+    # linking flow; production sets its own or stays switched off.
+    os.environ.setdefault("TELEGRAM_WEBHOOK_SECRET", "dev-telegram-secret")
     # 60/min is right in production — it exists to make guessing the token
     # expensive, and one operator never comes close. The browser checks drive
     # the console far faster than a person can, and three admin checks in the

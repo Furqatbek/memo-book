@@ -1555,3 +1555,62 @@ three tests, skipping the secret comparison fails two.
 Not included, on purpose: confirming a payment. The production notification
 only exists once an order is paid, so no message in the chat belongs to an
 order awaiting a transfer, and a button nobody can reach is worse than none.
+
+**A97 — a Telegram account links itself, from the console.** A96 kept the
+operator list in `TELEGRAM_CONTROL_USER_IDS`. Adding a second person, or
+removing one who left, meant an SSH session, a file edit and a restart — and
+the only way to learn a Telegram user id was a CLI command that stops working
+the moment a webhook exists. The list lives in the database now, and an
+account joins it by redeeming a code.
+
+**The obvious version of this does not work, and the reason is the whole
+design.** "Send /subscribe, the bot replies with a code, type it back" proves
+nothing: whatever the bot says is visible to everyone in the chat, so the
+code would be a secret handed out by the surface we do not trust. It is a
+loop — the thing you are proving access to is the thing that showed you the
+secret.
+
+So the code is issued in the **console**, which is authenticated, and
+redeemed in the **bot**. Holding it means holding `ADMIN_TOKEN`; spending it
+means controlling that Telegram account; the link binds the two. This is not
+privilege escalation — anyone who can read the code can already cancel
+orders in the console. It gives an existing authority a second handle.
+
+What a code is worth, and why each part matters:
+
+* **Ten minutes, once.** Issuing a new one invalidates any outstanding code,
+  so "press the button again" is the complete recovery for every way this
+  goes wrong — including a code read off a screen an hour ago.
+* **8 characters from a 30-letter alphabet** (~2^39), with I, L, O, U, 0 and
+  1 left out because it is read off one screen and typed into a phone.
+* **Five redemption attempts per account per minute.** A ten-minute window
+  is only safe if it cannot be swept.
+* **Wrong, expired and already-spent get one identical answer.** Telling
+  them apart confirms that a guessed code was once real.
+* **Stored as a SHA-256 hash.** It is a live credential while it lasts, and
+  one that can be read out of a database backup is one worth not writing
+  down.
+
+**The gate moved, deliberately.** A96 made the webhook 404 unless the secret
+AND the allowlist were set. The route now exists on the secret alone, because
+`/link` has to be reachable before anybody is linked — that is how they
+become linked. What replaced the 404 is not weaker: an unlinked account is
+refused every action and told how to link. The test that used to assert the
+404 now asserts the thing that actually matters, that the order does not
+move.
+
+`control_enabled()` is settings-only on purpose. Two callers need the answer
+where no database is available — the webhook's own lock, and the outbox
+worker deciding whether to draw buttons on a message it is sending from a
+thread. So "is the feature on" stays a synchronous settings read, and "who
+may act" is a per-press database check. The two questions were conflated in
+A96 and separating them is what made this simple.
+
+`TELEGRAM_CONTROL_USER_IDS` survives as a **break-glass path**: an id there
+acts without being linked, for when the console is unreachable or the last
+linked account was removed by accident. The console lists those ids and says
+they cannot be revoked from there, because a Remove button that silently did
+nothing would be worse than no button.
+
+Checked by breaking it: dropping the single-use and expiry conditions from
+the redemption query fails four tests.

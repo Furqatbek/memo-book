@@ -91,15 +91,31 @@ class TestTheLock:
         finally:
             get_settings.cache_clear()
 
-    async def test_no_allowlist_means_no_webhook(self, client, monkeypatch):
-        """A secret with nobody allowed to act would be an open door with a
-        sign on it: updates accepted, every one of them refused."""
+    async def test_a_secret_with_nobody_linked_accepts_but_refuses(
+            self, client, db, monkeypatch):
+        """A96 made this a 404; A97 deliberately does not.
+
+        The route has to exist before anyone is linked, because `/link` is
+        how they become linked. What must hold is the part that matters: an
+        update is accepted and the order does not move.
+        """
+        monkeypatch.setenv("ADMIN_TOKEN", "test-admin-token")
         monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", SECRET)
         monkeypatch.setenv("TELEGRAM_CONTROL_USER_IDS", "")
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-bot-token")
+        monkeypatch.setenv("TELEGRAM_CHAT_ID", "-100123")
         get_settings.cache_clear()
+        calls: list[tuple[str, dict]] = []
+        monkeypatch.setattr(telegram_svc, "_call",
+                            lambda method, body: calls.append((method, body)))
         try:
-            resp = await client.post(HOOK, headers=HDRS, json=press("UB-X", "shipped"))
-            assert resp.status_code == 404
+            ref = await rendered_order(client, db)
+            resp = await client.post(HOOK, headers=HDRS,
+                                     json=press(ref, "sent_to_production"))
+            assert resp.status_code == 200
+            assert await status_of(db, ref) == "rendered", (
+                "an unlinked account moved an order")
+            assert any("not linked" in a.lower() for a in answers(calls))
         finally:
             get_settings.cache_clear()
 
@@ -132,7 +148,7 @@ class TestWhoMayAct:
             json=press(ref, "sent_to_production", user_id=STRANGER))
         assert resp.status_code == 200
         assert await status_of(db, ref) == "rendered", "a stranger moved an order"
-        assert any("Not authorised" in a for a in answers(control))
+        assert any("not linked" in a.lower() for a in answers(control))
 
     async def test_a_stranger_is_told_nothing_about_the_order(
             self, client, db, control):
@@ -152,7 +168,7 @@ class TestWhoMayAct:
         await client.post(HOOK, headers=HDRS,
                           json=command("/orders", user_id=STRANGER))
         said = " ".join(b.get("text", "") for _, b in control)
-        assert "Not authorised" in said
+        assert "not linked" in said.lower()
         assert "open order" not in said
 
     async def test_the_allowlist_drops_rubbish_rather_than_guessing(

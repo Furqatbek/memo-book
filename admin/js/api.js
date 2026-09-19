@@ -89,6 +89,18 @@ export function saveBackArtwork(id, file) {
 export const retireDesign = (id) =>
   request('DELETE', `${V}/cover-designs/${id}`);
 
+/* ---------- Telegram order control (A97) ----------
+   The link code is issued HERE, in the authenticated console, and typed into
+   the bot. A code the bot handed out would be visible to everyone in the
+   chat, which is the surface the link exists to distrust. */
+
+export const newLinkCode = () => request('POST', `${V}/telegram/link-code`);
+
+export const listOperators = () => request('GET', `${V}/telegram/operators`);
+
+export const revokeOperator = (userId) =>
+  request('DELETE', `${V}/telegram/operators/${userId}`);
+
 /* ---------- orders (A73) ---------- */
 
 export function listOrders({ status = 'open', q = '' } = {}) {

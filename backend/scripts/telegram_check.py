@@ -14,10 +14,17 @@ message to TELEGRAM_CHAT_ID — the exact call the order notification uses.
 If no chat id is configured yet, it lists the chats the bot can currently
 see (message the bot first, then re-run) so you can copy the right id.
 
-Order matters when switching on inbound control (A96): `--who` reads
-getUpdates, and Telegram refuses getUpdates while a webhook is registered.
-So find your user id FIRST, put it in TELEGRAM_CONTROL_USER_IDS, then
---set-webhook.
+Switching on inbound control (A96/A97):
+
+    1. TELEGRAM_WEBHOOK_SECRET in .env, then restart
+    2. --set-webhook https://YOURDOMAIN
+    3. admin console -> Telegram -> Link a Telegram account, and send the
+       bot `/link <code>`
+
+`--who` is only needed for the break-glass path: putting an id straight in
+TELEGRAM_CONTROL_USER_IDS, for when the console is unavailable. It reads
+getUpdates, which Telegram refuses while a webhook is registered, so run it
+BEFORE step 2 (or --delete-webhook first).
 """
 import argparse
 import sys
@@ -65,8 +72,10 @@ def cmd_who(token: str) -> None:
     print("user id      name                 chat id")
     for uid, (name, cid) in seen.items():
         print(f"{uid:<12} {name:<20} {cid}")
-    print("\nTELEGRAM_CONTROL_USER_IDS takes the USER ids (comma-separated) "
-          "of whoever may move orders.")
+    print("\nThe ordinary way to allow an account is the admin console "
+          "-> Telegram -> Link a Telegram account.\n"
+          "TELEGRAM_CONTROL_USER_IDS (comma-separated USER ids) is the "
+          "break-glass path for when the console is unavailable.")
 
 
 def cmd_set_webhook(token: str, base: str) -> None:
@@ -76,11 +85,6 @@ def cmd_set_webhook(token: str, base: str) -> None:
         sys.exit("TELEGRAM_WEBHOOK_SECRET is empty. Generate one "
                  "(openssl rand -hex 32), put it in .env, restart, re-run.\n"
                  "Without it the webhook route answers 404 by design.")
-    if not settings.telegram_control_user_ids:
-        sys.exit("TELEGRAM_CONTROL_USER_IDS is empty, so nobody would be "
-                 "allowed to act and the route stays 404.\n"
-                 "Run --who to find your user id, put it in .env, restart, "
-                 "then re-run this.")
     if not base.startswith("https://"):
         sys.exit("Telegram only delivers webhooks over HTTPS — the URL must "
                  "start with https://")
@@ -91,8 +95,11 @@ def cmd_set_webhook(token: str, base: str) -> None:
         allowed_updates=["message", "callback_query"],
         drop_pending_updates=True)
     print(f"webhook set: {url}")
-    print("Buttons will appear under the next print notification. "
-          "Send /orders to the bot to control an order already in flight.")
+    print("\nNow link your Telegram account (A97):")
+    print("  admin console -> Telegram -> Link a Telegram account")
+    print("  then send the bot:  /link <the code>")
+    print("\nUntil an account is linked nobody can move orders — the bot "
+          "will answer every press by saying so.")
 
 
 def cmd_webhook_info(token: str) -> None:
@@ -104,9 +111,9 @@ def cmd_webhook_info(token: str) -> None:
     # print about it here. A wrong one shows up as 404s in last_error_message.
     if info.get("last_error_message"):
         print(f"last error:     {info['last_error_message']}")
-        print("A 404 here is the route refusing: check TELEGRAM_WEBHOOK_SECRET "
-              "and TELEGRAM_CONTROL_USER_IDS are both set, and that the API "
-              "was restarted after setting them.")
+        print("A 404 here is the route refusing: check "
+              "TELEGRAM_WEBHOOK_SECRET is set and the API was restarted "
+              "after setting it.")
 
 
 def main() -> None:

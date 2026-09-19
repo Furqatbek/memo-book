@@ -29,7 +29,7 @@ statuses and amounts — the operator opens the console for a name.
 import structlog
 
 from app.domain.errors import DomainError
-from app.services import admin_orders, telegram
+from app.services import admin_orders, telegram, telegram_link
 
 log = structlog.get_logger()
 
@@ -45,14 +45,30 @@ HELP = (
     "Customer details stay in the admin console."
 )
 
-NOT_ALLOWED = "Not authorised."
+# What an account that has not been linked is told. It names the way in and
+# nothing else: whoever is reading has not proved they are anybody yet.
+NOT_LINKED = ("This account is not linked.\n\n"
+              "Open the admin console → Telegram, press Link a Telegram "
+              "account, and send me /link followed by the code.")
+
+LINK_USAGE = "Send the code with it, like this:  /link 7K3M2QX4"
+
+LINK_REPLIES = {
+    telegram_link.LinkResult.OK:
+        "Linked. You can now move orders from here — /orders to see what is "
+        "open.",
+    telegram_link.LinkResult.ALREADY:
+        "This account was already linked. Nothing to do.",
+    telegram_link.LinkResult.BAD:
+        "That code is not valid. Codes last 10 minutes and work once — issue "
+        "a fresh one in the admin console.",
+    telegram_link.LinkResult.RATE_LIMITED:
+        "Too many attempts. Wait a minute and try again.",
+}
 
 
-def _is_allowed(user_id) -> bool:
-    try:
-        return int(user_id) in telegram.control_user_ids()
-    except (TypeError, ValueError):
-        return False
+async def _is_allowed(session, user_id) -> bool:
+    return await telegram_link.is_operator(session, user_id)
 
 
 async def handle_update(session, update: dict) -> dict:
@@ -77,13 +93,13 @@ async def _handle_press(session, query: dict) -> dict:
     chat_id = (message.get("chat") or {}).get("id")
     message_id = message.get("message_id")
 
-    if not _is_allowed(user_id):
+    if not await _is_allowed(session, user_id):
         # Answered rather than ignored: an unauthorised press should stop
         # spinning and say so, and the refusal reveals nothing about the
         # order — it does not even look it up.
         log.warning("telegram_press_refused", user_id=user_id)
         if query_id:
-            telegram.answer_callback(query_id, NOT_ALLOWED, alert=True)
+            telegram.answer_callback(query_id, NOT_LINKED, alert=True)
         return {"ok": True, "ignored": "not allowed"}
 
     parsed = telegram.parse_callback_data(query.get("data") or "")
@@ -106,6 +122,8 @@ async def _handle_press(session, query: dict) -> dict:
         detail = await admin_orders.set_status(
             session, human_ref, target,
             note=f"telegram button by user {user_id}")
+        await telegram_link.touch(session, user_id)
+        await session.commit()
         answer = f"{human_ref} → {telegram.STATUS_LABELS.get(target, target)}"
         log.info("telegram_order_advanced", human_ref=human_ref,
                  target=target, user_id=user_id)
@@ -157,18 +175,25 @@ async def _safe_detail(session, human_ref: str):
 
 
 async def _handle_message(session, message: dict) -> dict:
-    user_id = (message.get("from") or {}).get("id")
+    sender = message.get("from") or {}
+    user_id = sender.get("id")
     chat_id = (message.get("chat") or {}).get("id")
     text = (message.get("text") or "").strip()
     if not text.startswith("/"):
         return {"ok": True, "ignored": "not a command"}
+    parts = text.split()
     # Group chats deliver "/orders@rspixelbot".
-    command = text.split()[0].split("@")[0].lower()
+    command = parts[0].split("@")[0].lower()
 
-    if not _is_allowed(user_id):
+    # `/link` is the ONE command an unlinked account may use — it is how an
+    # account stops being unlinked. Everything past it needs the link.
+    if command == "/link":
+        return await _handle_link(session, chat_id, sender, parts[1:])
+
+    if not await _is_allowed(session, user_id):
         log.warning("telegram_command_refused", user_id=user_id, command=command)
         if chat_id is not None:
-            telegram.send_to(chat_id, NOT_ALLOWED)
+            telegram.send_to(chat_id, NOT_LINKED)
         return {"ok": True, "ignored": "not allowed"}
 
     if command in ("/start", "/help"):
@@ -179,6 +204,22 @@ async def _handle_message(session, message: dict) -> dict:
         return {"ok": True, "command": command}
     telegram.send_to(chat_id, f"Unknown command. {HELP}")
     return {"ok": True, "ignored": "unknown command"}
+
+
+async def _handle_link(session, chat_id, sender: dict, args: list) -> dict:
+    user_id = sender.get("id")
+    if user_id is None:
+        return {"ok": True, "ignored": "no sender"}
+    if not args:
+        telegram.send_to(chat_id, LINK_USAGE)
+        return {"ok": True, "ignored": "no code"}
+    result = await telegram_link.redeem(
+        session, args[0], int(user_id),
+        username=sender.get("username") or "",
+        display_name=" ".join(
+            p for p in (sender.get("first_name"), sender.get("last_name")) if p))
+    telegram.send_to(chat_id, LINK_REPLIES[result])
+    return {"ok": True, "command": "/link", "result": result}
 
 
 async def _send_open_orders(session, chat_id) -> None:

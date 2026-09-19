@@ -174,31 +174,45 @@ away. Presses go through the same state machine and write the same audit
 rows as the console, so the bot can only offer what the order can legally
 do next.
 
-**It is off until you switch it on, and it takes two variables, not one.**
-A Telegram chat is not an authenticated surface — it is why the attention
-alerts carry no customer details — and this chat already holds 7-day links
-to every print file. Being able to read it must not mean being able to
-cancel someone's order.
+**It is off until you switch it on, and it takes two things: a secret, and
+a linked account.** A Telegram chat is not an authenticated surface — it is
+why the attention alerts carry no customer details — and this chat already
+holds 7-day links to every print file. Being able to read it must not mean
+being able to cancel someone's order.
 
 ```bash
 # 1. a secret for the webhook, so guessing the URL is not enough
 openssl rand -hex 32          # -> TELEGRAM_WEBHOOK_SECRET in .env
 
-# 2. YOUR user id, so being in the chat is not enough.
-#    Do this BEFORE step 3: Telegram refuses getUpdates once a webhook exists.
-docker compose -f docker-compose.prod.yml exec api \
-    python scripts/telegram_check.py --who
-#    -> TELEGRAM_CONTROL_USER_IDS in .env (comma-separated for more than one)
-
-# 3. restart, then register the webhook
+# 2. restart, then tell Telegram where to deliver
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml exec api \
     python scripts/telegram_check.py --set-webhook https://YOURDOMAIN
 ```
 
-Check it with `--webhook-info`; `--delete-webhook` turns control off again
-at the Telegram end. Clearing either variable turns it off at this end —
-the webhook route then answers 404, exactly as if it had never existed.
+**3. Link your account, in the console.** Open **Telegram** in the admin
+console, press **Link a Telegram account**, and send the bot `/link` with
+the code it shows. The code lasts ten minutes and works once.
+
+That third step is the whole point: the code is only visible to someone
+signed into the console, so redeeming it proves both that you are the
+operator and that you control that Telegram account. A code the bot handed
+out would be visible to everyone in the chat.
+
+Adding a second person — your printer, an assistant — is the same three
+seconds, and **Remove** in that list takes an account away again. No SSH, no
+restart, and the whole thing works from a phone.
+
+Until an account is linked nobody can move anything: the buttons appear and
+every press answers with instructions. Check the Telegram end with
+`--webhook-info`; `--delete-webhook` switches it off there, and clearing
+`TELEGRAM_WEBHOOK_SECRET` switches it off here — the route then answers 404,
+exactly as if it had never existed.
+
+`TELEGRAM_CONTROL_USER_IDS` still works and is now a **break-glass path**:
+an id there can act without being linked, for when the console is
+unreachable or the last linked account was removed by accident. It cannot be
+revoked from the console, so normally leave it empty.
 
 Customer names and phone numbers are **not** added to the chat by any of
 this: `/orders` lists references, statuses and amounts. The print

@@ -33,7 +33,8 @@ def _admin_routes() -> list[tuple[str, str]]:
     from app.api.admin import router
 
     placeholders = {"design_id": "00000000-0000-0000-0000-000000000001",
-                    "human_ref": "UB-NOPE1"}
+                    "human_ref": "UB-NOPE1",
+                    "user_id": "424242"}
     found: list[tuple[str, str]] = []
     for route in router.routes:
         path = route.path

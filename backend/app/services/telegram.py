@@ -195,18 +195,30 @@ def send_production_notification(payload: dict) -> None:
 
 
 def control_enabled() -> bool:
-    """Whether the bot may be told to do anything. Both halves are required:
-    a secret with no allowlist would let any Telegram user who found the chat
-    act, and an allowlist with no secret would trust anyone who guessed the
-    webhook URL."""
-    settings = get_settings()
-    return bool(settings.telegram_webhook_secret
-                and control_user_ids(settings))
+    """Whether the bot listens at all.
+
+    One setting, read synchronously, because two callers need the answer
+    where a database is not available: the webhook's own lock, and the
+    outbox worker deciding whether to draw buttons on a message it is about
+    to send from a thread.
+
+    It deliberately says nothing about WHO may act. That list lives in the
+    database now (A97) and is checked per press. With a secret set but
+    nobody linked, the buttons appear and every press is refused with
+    instructions — which is a better place to arrive than a webhook that
+    answers 404 to a person who has done everything but the last step.
+    """
+    return bool(get_settings().telegram_webhook_secret)
 
 
 def control_user_ids(settings=None) -> frozenset[int]:
-    """The Telegram user ids allowed to act. Anything unparseable is dropped
-    rather than guessed at — a typo must narrow this set, never widen it."""
+    """The break-glass allowlist from `.env` (A97).
+
+    Linking through the console is the ordinary way in; this is the door for
+    whoever owns the server, for when the console is down or the last
+    operator revoked themselves by accident. Anything unparseable is dropped
+    rather than guessed at — a typo must narrow this set, never widen it.
+    """
     raw = (settings or get_settings()).telegram_control_user_ids or ""
     out = set()
     for part in raw.replace(";", ",").split(","):

@@ -45,6 +45,8 @@ const NEEDS = {
   designswap: 'ADMIN_TOKEN=dev-admin (it seeds its own cover designs)',
   backart: 'ADMIN_TOKEN=dev-admin (it seeds a design, then adds a back to it '
     + 'through the console)',
+  tglink: 'ADMIN_TOKEN=dev-admin and TELEGRAM_WEBHOOK_SECRET (the dev server '
+    + 'sets both; it drives the console and the bot webhook against it)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',

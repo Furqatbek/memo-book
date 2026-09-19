@@ -88,8 +88,91 @@ function showTab(name) {
   for (const el of document.querySelectorAll('.tab')) {
     el.classList.toggle('active', el.dataset.tab === name);
   }
-  for (const id of ['tab-orders', 'tab-designs']) {
+  for (const id of ['tab-orders', 'tab-designs', 'tab-telegram']) {
     $(id).classList.toggle('hidden', id !== `tab-${name}`);
+  }
+  // Loaded on arrival rather than at sign-in: most sessions never open this
+  // tab, and the list is only interesting when you are looking at it.
+  if (name === 'telegram') refreshOperators();
+}
+
+/* ---------- Telegram (A97) ---------- */
+
+async function refreshOperators() {
+  let body;
+  try {
+    body = await api.listOperators();
+  } catch (err) {
+    return adminError(err, 'Could not load linked accounts.');
+  }
+  $('tg-webhook-warn').classList.toggle('hidden', body.webhook_configured);
+
+  const list = $('tg-operators');
+  list.innerHTML = '';
+  const rows = body.operators || [];
+  $('tg-empty').classList.toggle('hidden', rows.length > 0);
+  for (const op of rows) {
+    const who = op.display_name || op.username || `id ${op.telegram_user_id}`;
+    const meta = [op.username ? `@${op.username}` : null,
+                  `id ${op.telegram_user_id}`,
+                  op.last_used_at ? `last used ${shortDate(op.last_used_at)}`
+                    : 'never used'].filter(Boolean).join(' · ');
+    const row = h('div', { class: 'tg-op' },
+      h('span', { class: 'row-meta' }, h('b', {}, who),
+        h('span', { class: 'muted small' }, meta)));
+    const remove = h('button', { class: 'btn small danger', type: 'button' },
+                     'Remove');
+    remove.addEventListener('click', () => revokeOperator(op, who));
+    row.append(remove);
+    list.append(row);
+  }
+
+  // Ids from .env cannot be removed from here, so say where they live
+  // rather than leaving a Remove button that would not work.
+  const env = body.env_user_ids || [];
+  $('tg-env').classList.toggle('hidden', env.length === 0);
+  if (env.length) {
+    $('tg-env').textContent =
+      `Also allowed from the server's .env, and not removable here: `
+      + `${env.join(', ')}. Clear TELEGRAM_CONTROL_USER_IDS to drop them.`;
+  }
+}
+
+function shortDate(value) {
+  try {
+    return new Date(value).toLocaleDateString(undefined,
+      { day: 'numeric', month: 'short' });
+  } catch { return '?'; }
+}
+
+async function revokeOperator(op, who) {
+  if (!confirm(`Remove ${who}?\n\n`
+    + 'That account stops being able to move orders from Telegram. '
+    + 'It can be linked again with a new code.')) return;
+  try {
+    await api.revokeOperator(op.telegram_user_id);
+    toast('Removed.');
+    await refreshOperators();
+  } catch (err) {
+    await adminError(err, 'Could not remove.');
+  }
+}
+
+async function newLinkCode() {
+  $('tg-new-code').disabled = true;
+  try {
+    const body = await api.newLinkCode();
+    $('tg-code').textContent = body.code;
+    $('tg-code-box').classList.remove('hidden');
+    $('tg-code-expiry').textContent =
+      `Valid until ${new Date(body.expires_at).toLocaleTimeString()}.`;
+    // Issuing invalidates any previous code, so the warning above may have
+    // just become relevant — and the list may be stale.
+    await refreshOperators();
+  } catch (err) {
+    await adminError(err, 'Could not make a code.');
+  } finally {
+    $('tg-new-code').disabled = false;
   }
 }
 
@@ -522,6 +605,7 @@ function bind() {
     el.addEventListener('click', () => showTab(el.dataset.tab));
   }
   bindOrders(deps);
+  $('tg-new-code').addEventListener('click', newLinkCode);
   $('btn-new').addEventListener('click', () => edit(null));
   $('btn-cancel').addEventListener('click', closeEditor);
   $('btn-retire').addEventListener('click', retire);

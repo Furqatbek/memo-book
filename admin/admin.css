@@ -304,3 +304,21 @@ input[type=color] {
   background: var(--warn-bg); color: var(--warn-ink); border: 1px solid #f0d48a;
   border-radius: 8px; padding: 8px; font-size: 13px; line-height: 1.35;
 }
+
+/* ---------- Telegram order control (A97) ---------- */
+.tg-pane { padding: 22px; max-width: 640px; display: flex;
+           flex-direction: column; gap: 14px; }
+.tg-pane h2 { font-size: 1.15rem; }
+.tg-pane h3 { font-size: .95rem; margin-top: 6px; }
+.tg-link-box { border: 1px solid var(--line); border-radius: var(--radius);
+               padding: 16px; display: flex; flex-direction: column; gap: 10px;
+               align-items: flex-start; }
+/* Big, spaced and monospaced: this gets read off one screen and typed into
+   a phone, which is exactly when 8 tight characters go wrong. */
+.tg-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+           font-size: 1.9rem; letter-spacing: .22em; font-weight: 700;
+           background: #f6f7f9; border: 1px solid var(--line);
+           border-radius: var(--radius); padding: 10px 16px; user-select: all; }
+.tg-op { display: flex; align-items: center; gap: 12px; padding: 10px 0;
+         border-bottom: 1px solid var(--line); }
+.tg-op .row-meta { flex: 1; display: flex; flex-direction: column; }
