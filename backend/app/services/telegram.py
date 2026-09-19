@@ -21,9 +21,90 @@ BOOK_TYPE_LABELS = {
     "memory": "📸 Memory book",
 }
 
+# What each status is called on a button and in a status line (A96). Labels,
+# not the raw enum: the operator is reading a phone, not a state machine.
+STATUS_LABELS = {
+    "draft_order": "Draft",
+    "pending_payment": "Awaiting payment",
+    "cancelled": "Cancelled",
+    "paid": "Paid",
+    "rendering": "Rendering",
+    "render_failed": "Render failed",
+    "rendered": "Ready for print",
+    "sent_to_production": "At the printer",
+    "shipped": "Shipped",
+    "delivered": "Delivered",
+    "refunded": "Refunded",
+}
+
+# The verb on the button, which is not the same as the name of the state it
+# leads to: "Shipped" as a destination reads as a fact, but as a button it
+# has to read as something you are about to do.
+ACTION_LABELS = {
+    "sent_to_production": "📦 Sent to printer",
+    "shipped": "🚚 Shipped",
+    "delivered": "✅ Delivered",
+    "cancelled": "✖️ Cancel order",
+    "refunded": "↩️ Refunded",
+    "rendering": "🔄 Retry render",
+}
+
+CALLBACK_PREFIX = "o"
+# Telegram rejects callback_data over 64 bytes. "o:UB-ABC12:sent_to_production"
+# is 29, and the check below is what stops a future longer status from
+# silently producing a button that does nothing when pressed.
+CALLBACK_MAX_BYTES = 64
+
 
 class TelegramError(Exception):
     pass
+
+
+def callback_data(human_ref: str, target: str) -> str:
+    data = f"{CALLBACK_PREFIX}:{human_ref}:{target}"
+    if len(data.encode()) > CALLBACK_MAX_BYTES:
+        raise TelegramError(f"callback_data too long for Telegram: {data!r}")
+    return data
+
+
+def parse_callback_data(data: str) -> tuple[str, str] | None:
+    """`o:<ref>:<target>` -> (ref, target), or None for anything else.
+
+    Deliberately strict and total: this parses a string that arrived over the
+    internet, and every shape that is not exactly ours is simply not ours.
+    """
+    parts = (data or "").split(":")
+    if len(parts) != 3 or parts[0] != CALLBACK_PREFIX:
+        return None
+    ref, target = parts[1].strip(), parts[2].strip()
+    if not ref or not target:
+        return None
+    return ref, target
+
+
+def order_keyboard(human_ref: str, status: str,
+                   next_statuses: list[str]) -> dict:
+    """The inline keyboard under an order's message.
+
+    The first row is the order's current state. It is a button because a
+    Telegram keyboard has no other kind of row, but it does nothing except
+    say where the order is — which is the part that has to survive on screen
+    after the toast from a press has faded.
+    """
+    rows = [[{"text": f"● {STATUS_LABELS.get(status, status)}",
+              "callback_data": callback_data(human_ref, "noop")}]]
+    row: list[dict] = []
+    for target in next_statuses:
+        label = ACTION_LABELS.get(target)
+        if not label:
+            continue
+        row.append({"text": label, "callback_data": callback_data(human_ref, target)})
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    return {"inline_keyboard": rows}
 
 
 def build_production_message(payload: dict) -> str:
@@ -64,25 +145,101 @@ def build_production_message(payload: dict) -> str:
     return "\n".join(lines)
 
 
-def _post_telegram(text: str) -> None:
-    """Synchronous send; runs inside the outbox worker. Raising here is how a
-    delivery attempt fails and gets retried with backoff."""
+def _call(method: str, body: dict) -> None:
+    """One Telegram Bot API call. Raising is how a delivery attempt fails and
+    gets retried with backoff by the outbox worker."""
     settings = get_settings()
-    if not settings.telegram_bot_token or not settings.telegram_chat_id:
+    if not settings.telegram_bot_token:
         raise TelegramError("telegram credentials are not configured")
     resp = httpx.post(
-        f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
-        json={"chat_id": settings.telegram_chat_id, "text": text,
-              "disable_web_page_preview": True},
-        timeout=15,
+        f"https://api.telegram.org/bot{settings.telegram_bot_token}/{method}",
+        json=body, timeout=15,
     )
     if resp.status_code != 200:
-        raise TelegramError(f"telegram sendMessage failed: {resp.status_code} "
+        raise TelegramError(f"telegram {method} failed: {resp.status_code} "
                             f"{resp.text[:200]}")
 
 
+def _post_telegram(text: str, reply_markup: dict | None = None) -> None:
+    """Synchronous send to the operator chat."""
+    settings = get_settings()
+    if not settings.telegram_chat_id:
+        raise TelegramError("telegram credentials are not configured")
+    body = {"chat_id": settings.telegram_chat_id, "text": text,
+            "disable_web_page_preview": True}
+    if reply_markup is not None:
+        body["reply_markup"] = reply_markup
+    _call("sendMessage", body)
+
+
 def send_production_notification(payload: dict) -> None:
-    _post_telegram(build_production_message(payload))
+    """The print job, and — when inbound control is switched on — the buttons
+    that move it the rest of the way (A96).
+
+    The keyboard is built from the status in the payload rather than from the
+    database, because this runs in the outbox worker at delivery time and the
+    message must not depend on a second query that could fail. It can
+    therefore be out of date by the time a thumb reaches it, which is fine:
+    the press is re-checked against the live order, and the keyboard is
+    rewritten with whatever was actually true.
+    """
+    from app.services.admin_orders import next_statuses_for
+
+    text = build_production_message(payload)
+    markup = None
+    if control_enabled():
+        status = payload.get("status") or "rendered"
+        markup = order_keyboard(payload["human_ref"], status,
+                                next_statuses_for(status))
+    _post_telegram(text, markup)
+
+
+def control_enabled() -> bool:
+    """Whether the bot may be told to do anything. Both halves are required:
+    a secret with no allowlist would let any Telegram user who found the chat
+    act, and an allowlist with no secret would trust anyone who guessed the
+    webhook URL."""
+    settings = get_settings()
+    return bool(settings.telegram_webhook_secret
+                and control_user_ids(settings))
+
+
+def control_user_ids(settings=None) -> frozenset[int]:
+    """The Telegram user ids allowed to act. Anything unparseable is dropped
+    rather than guessed at — a typo must narrow this set, never widen it."""
+    raw = (settings or get_settings()).telegram_control_user_ids or ""
+    out = set()
+    for part in raw.replace(";", ",").split(","):
+        part = part.strip()
+        if part.lstrip("-").isdigit():
+            out.add(int(part))
+    return frozenset(out)
+
+
+def answer_callback(callback_id: str, text: str,
+                    alert: bool = False) -> None:
+    """Telegram shows a spinner on a pressed button until this is sent, so it
+    goes out on every path including the refusals."""
+    _call("answerCallbackQuery",
+          {"callback_query_id": callback_id, "text": text[:200],
+           "show_alert": alert})
+
+
+def edit_keyboard(chat_id, message_id: int, reply_markup: dict) -> None:
+    """Rewrite the buttons under a message that is already on screen, so the
+    order's state on the phone matches the database after a press."""
+    _call("editMessageReplyMarkup",
+          {"chat_id": chat_id, "message_id": message_id,
+           "reply_markup": reply_markup})
+
+
+def send_to(chat_id, text: str, reply_markup: dict | None = None) -> None:
+    """Reply into the chat an update came from, rather than the configured
+    operator chat."""
+    body = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+    if reply_markup is not None:
+        body["reply_markup"] = reply_markup
+    _call("sendMessage", body)
 
 
 def build_attention_message(payload: dict) -> str:

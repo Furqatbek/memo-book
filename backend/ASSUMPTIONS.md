@@ -1503,3 +1503,55 @@ Two consequences worth naming:
   still renders through the same function a real page does rather than a
   near-copy that could drift from it. Interior pages never pass one, and a
   test asserts that passing None is byte-identical to not passing it at all.
+
+**A96 — the Telegram bot can be told to do things, if you switch it on.**
+The bot could always talk: print notifications and attention alerts go out,
+and everything else meant opening the console. Now each print notification
+can carry buttons that move the order — sent to printer, shipped, delivered,
+cancel — with `/orders` for anything that has scrolled out of reach.
+
+**This reverses a judgement A76 made, so it is guarded accordingly.** A76
+withholds customer PII from the attention alert on the explicit grounds that
+"unlike this chat the console is authenticated". Making that chat a place
+where orders can be *moved* needs three independent things, and is off until
+all of them are true:
+
+1. `TELEGRAM_WEBHOOK_SECRET`, compared constant-time against the header
+   Telegram sends, so guessing the URL is not enough;
+2. `TELEGRAM_CONTROL_USER_IDS`, an allowlist of Telegram USER ids, so being
+   in the chat is not enough. This is the one worth restating: the chat
+   holds 7-day signed links to every print file, so its readers are already
+   a wider circle than its operators, and reading must not imply cancelling.
+   An unparseable id is dropped, never guessed at — a typo must narrow the
+   set, never widen it;
+3. the state machine, unchanged. Presses go through `admin_orders.set_status`,
+   the console's own path, so there is no "set it to whatever I say" here any
+   more than there is there.
+
+With either variable unset the route answers **404**, not 401 or 403 — the
+admin API's property (A72), for the same reason: the endpoint is not an
+oracle for whether an RS Pixel bot lives here. Every deployment that has
+never heard of this feature therefore has no new surface at all, and a test
+asserts the print notification is byte-for-byte unchanged in that state.
+
+Three things a keyboard on a phone forces you to think about:
+
+* **It is a cache of the order's state.** It can be stale — someone used the
+  console meanwhile — or pressed twice. Neither may become a wrong write, so
+  the press is re-checked against the live order and the keyboard is
+  rewritten with whatever was actually true. A refusal refreshes the buttons
+  too, because a refusal usually means the picture is out of date.
+* **Telegram retries anything that is not a 200.** An exception in the
+  handler would become an infinite redelivery loop rather than one failure,
+  so `handle_update` never raises and a nonsense update is a logged 200.
+* **`callback_data` is capped at 64 bytes** and Telegram rejects a longer
+  one silently — a button that does nothing when pressed, which is the bug
+  class A85/A90/A92 kept producing. `callback_data()` raises instead, and a
+  test walks every status in the enum.
+
+Both locks were checked by breaking them: disabling the allowlist fails
+three tests, skipping the secret comparison fails two.
+
+Not included, on purpose: confirming a payment. The production notification
+only exists once an order is paid, so no message in the chat belongs to an
+order awaiting a transfer, and a button nobody can reach is worse than none.

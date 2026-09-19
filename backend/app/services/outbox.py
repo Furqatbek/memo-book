@@ -118,6 +118,10 @@ def rendered_payload(order, book, interior_key: str, cover_key: str,
         "soft_pages": soft or [],
         "order_id": str(order.id),
         "human_ref": order.human_ref,
+        # Carried so the Telegram message can offer the right buttons without
+        # a second query at delivery time (A96). It is the status when the
+        # message was enqueued; a press is re-checked against the live order.
+        "status": order.status,
         "customer_name": order.customer_name,
         "customer_phone": order.customer_phone,
         "customer_address": order.customer_address,

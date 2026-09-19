@@ -164,6 +164,47 @@ docker compose -f docker-compose.prod.yml exec api \
 If Telegram credentials are missing or wrong, deliveries retry with
 backoff — fix `.env`, restart (`up -d`), and queued notifications go out.
 
+### Optional: moving orders from Telegram
+
+The status commands above have a shortcut. Switch on inbound control and
+each print notification arrives with buttons — **Sent to printer**,
+**Shipped**, **Delivered**, **Cancel order** — and `/orders` lists whatever
+is still open, each with its own buttons, for orders that have scrolled
+away. Presses go through the same state machine and write the same audit
+rows as the console, so the bot can only offer what the order can legally
+do next.
+
+**It is off until you switch it on, and it takes two variables, not one.**
+A Telegram chat is not an authenticated surface — it is why the attention
+alerts carry no customer details — and this chat already holds 7-day links
+to every print file. Being able to read it must not mean being able to
+cancel someone's order.
+
+```bash
+# 1. a secret for the webhook, so guessing the URL is not enough
+openssl rand -hex 32          # -> TELEGRAM_WEBHOOK_SECRET in .env
+
+# 2. YOUR user id, so being in the chat is not enough.
+#    Do this BEFORE step 3: Telegram refuses getUpdates once a webhook exists.
+docker compose -f docker-compose.prod.yml exec api \
+    python scripts/telegram_check.py --who
+#    -> TELEGRAM_CONTROL_USER_IDS in .env (comma-separated for more than one)
+
+# 3. restart, then register the webhook
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml exec api \
+    python scripts/telegram_check.py --set-webhook https://YOURDOMAIN
+```
+
+Check it with `--webhook-info`; `--delete-webhook` turns control off again
+at the Telegram end. Clearing either variable turns it off at this end —
+the webhook route then answers 404, exactly as if it had never existed.
+
+Customer names and phone numbers are **not** added to the chat by any of
+this: `/orders` lists references, statuses and amounts. The print
+notification still carries contact details, because that is the job sheet
+the printer needs.
+
 ## Step 6 — Payments during the pilot (card transfer, trust-first)
 
 Until a real acquirer (Payme/Click/Uzum) is integrated, payment is a card

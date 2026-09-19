@@ -16,6 +16,7 @@ from app.api.payments import router as payments_router
 from app.api.photos import router as photos_router
 from app.api.preview import router as preview_router
 from app.api.pricing import router as pricing_router
+from app.api.telegram import router as telegram_router
 from app.config import get_settings
 from app.logging import configure_logging
 
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(pricing_router)
     app.include_router(cover_designs_router)
     app.include_router(admin_router)
+    app.include_router(telegram_router)
     # A mounted app answers `/editor/...` but NOT a bare `/editor`: Starlette
     # matches a Mount on `^/editor(?P<path>/.*)$`, and its redirect-slashes
     # fallback only fires when nothing matched at all. The site mount below

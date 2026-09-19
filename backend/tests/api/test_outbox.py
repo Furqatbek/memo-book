@@ -14,13 +14,14 @@ from tests.api.test_payments import checked_out, pay_event, send
 def telegram_capture(monkeypatch):
     """Successful Telegram transport; captures every sent message text."""
     sent: list[str] = []
-    monkeypatch.setattr(telegram_svc, "_post_telegram", sent.append)
+    monkeypatch.setattr(telegram_svc, "_post_telegram",
+                        lambda text, markup=None: sent.append(text))
     return sent
 
 
 @pytest.fixture
 def telegram_down(monkeypatch):
-    def boom(text: str) -> None:
+    def boom(text: str, markup=None) -> None:
         raise telegram_svc.TelegramError("telegram is down")
     monkeypatch.setattr(telegram_svc, "_post_telegram", boom)
 
@@ -120,7 +121,8 @@ class TestOutboxResilience:
 
         # Telegram recovers; make the retry due now.
         sent: list[str] = []
-        monkeypatch.setattr(telegram_svc, "_post_telegram", sent.append)
+        monkeypatch.setattr(telegram_svc, "_post_telegram",
+                            lambda text, markup=None: sent.append(text))
         message.next_attempt_at = datetime.now(UTC) - timedelta(seconds=1)
         await db.commit()
 

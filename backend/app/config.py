@@ -114,6 +114,23 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # Inbound control (A96). Telegram is an UNAUTHENTICATED surface — A76 is
+    # why the attention alert carries no customer PII — so letting it move
+    # orders is off unless BOTH of these are set, and the webhook answers 404
+    # until they are. A bot that can report without being able to act is the
+    # safe default, and it is what every existing deployment keeps.
+    #
+    # The secret is the value given to Telegram's setWebhook as
+    # `secret_token`; it comes back on every delivery in the
+    # X-Telegram-Bot-Api-Secret-Token header and is what proves the request
+    # is Telegram's rather than someone who guessed the URL.
+    telegram_webhook_secret: str = ""
+    # Comma-separated Telegram USER ids (not the chat id) allowed to press
+    # the buttons. Being in the chat is not enough: the chat holds 7-day
+    # signed links to every print file, so whoever is in it can already read
+    # a great deal, and acting has to be a smaller circle than reading.
+    telegram_control_user_ids: str = ""
+
     # --- Frontend editor ---
     # Comma-separated origins allowed to call the API from a browser
     # (e.g. "https://furqatbek.github.io"). Empty = no cross-origin access;

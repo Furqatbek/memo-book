@@ -19,7 +19,8 @@ MM_TO_PT = 72 / 25.4
 
 async def test_full_journey(client, db, monkeypatch):
     telegram_sent: list[str] = []
-    monkeypatch.setattr(telegram_svc, "_post_telegram", telegram_sent.append)
+    monkeypatch.setattr(telegram_svc, "_post_telegram",
+                        lambda text, markup=None: telegram_sent.append(text))
 
     # 1. Create book, tier 16
     book = (await client.post("/api/v1/books", json={"page_count": 16})).json()

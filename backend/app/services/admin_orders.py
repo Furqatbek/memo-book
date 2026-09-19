@@ -75,11 +75,25 @@ class OrderRow:
     book: Book | None
 
 
-def _next_statuses(order: Order) -> list[str]:
-    """What this order can become next, from the state machine itself rather
-    than a list in the page that would drift away from it."""
-    allowed = ORDER_TRANSITIONS.get(OrderStatus(order.status), frozenset())
+def next_statuses_for(status: str) -> list[str]:
+    """What an order in `status` can become next, from the state machine
+    itself rather than a list in the page that would drift away from it.
+
+    Takes a status rather than an order because the Telegram bot builds its
+    buttons in the outbox worker, where there is no row to hand (A96) — and
+    because two callers deciding separately what is allowed is exactly how
+    a console and a bot come to disagree.
+    """
+    try:
+        current = OrderStatus(status)
+    except ValueError:
+        return []
+    allowed = ORDER_TRANSITIONS.get(current, frozenset())
     return sorted(s.value for s in allowed if s.value in OPERATOR_TARGETS)
+
+
+def _next_statuses(order: Order) -> list[str]:
+    return next_statuses_for(order.status)
 
 
 def serialize_row(row: OrderRow) -> dict:
