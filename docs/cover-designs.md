@@ -12,7 +12,7 @@ command on the server, never a deploy.
 |---|---|
 | **Size** | **1937 × 2858 px** — 164 × 242 mm at 300 dpi |
 | Minimum accepted | 1600 × 2360 px (below this it prints soft and is refused) |
-| Format | PNG or JPEG, sRGB |
+| Format | PNG, JPEG or WebP, sRGB |
 
 > **The minimum counts pixels, not detail.** Enlarging a small image until it
 > clears 1600 × 2360 gets it past the check and still prints soft — the check

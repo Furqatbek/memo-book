@@ -293,6 +293,39 @@ class TestSharedValidation:
         assert note and "centre-cropped" in note
 
 
+class TestFormatsWeAccept:
+    """Whatever the upscaler happens to emit.
+
+    Upscayl and friends often write WebP, and the input format has nothing
+    to do with print quality: every upload is re-encoded to JPEG at a fixed
+    quality before it is stored, so the only thing a narrow format list
+    achieves is turning a usable file into an error.
+    """
+
+    @staticmethod
+    def _as(fmt: str) -> bytes:
+        out = io.BytesIO()
+        Image.new("RGB", (ARTWORK_W_PX, ARTWORK_H_PX),
+                  (30, 90, 160)).save(out, format=fmt)
+        return out.getvalue()
+
+    @pytest.mark.parametrize("fmt", ["PNG", "JPEG", "WEBP"])
+    def test_it_is_accepted_and_stored_as_jpeg(self, fmt):
+        full, _display, _thumb, w, h = build_renditions(self._as(fmt))
+        assert (w, h) == (ARTWORK_W_PX, ARTWORK_H_PX)
+        with Image.open(io.BytesIO(full)) as im:
+            assert im.format == "JPEG", "renditions are always JPEG"
+
+    @pytest.mark.parametrize("fmt", ["PNG", "JPEG", "WEBP"])
+    async def test_the_console_takes_it_too(self, client, admin, fmt):
+        resp = await client.post(
+            "/api/v1/admin/cover-designs", headers=AUTH,
+            data=upload(slug=f"fmt-{fmt.lower()}"),
+            files={"artwork": (f"a.{fmt.lower()}", self._as(fmt),
+                               f"image/{fmt.lower()}")})
+        assert resp.status_code == 201, resp.text
+
+
 class TestBackArtwork:
     """A95: the optional second file for the back panel.
 

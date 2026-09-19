@@ -169,7 +169,7 @@ def cmd_spec(_args) -> None:
 
   Size      {ARTWORK_W_PX} x {ARTWORK_H_PX} px  ({ARTWORK_W_MM} x {ARTWORK_H_MM} mm at 300 dpi)
   Minimum   {MIN_ARTWORK_W_PX} x {MIN_ARTWORK_H_PX} px
-  Format    PNG or JPEG, sRGB
+  Format    PNG, JPEG or WebP, sRGB
 
   The artwork is the FRONT of the book plus the turn-in that folds around
   the board. The turn-in is on THREE sides only — the left edge is the
