@@ -60,7 +60,7 @@ LINK_REPLIES = {
     telegram_link.LinkResult.ALREADY:
         "This account was already linked. Nothing to do.",
     telegram_link.LinkResult.BAD:
-        "That code is not valid. Codes last 10 minutes and work once — issue "
+        "That code is not valid. Codes last a day and work once — issue "
         "a fresh one in the admin console.",
     telegram_link.LinkResult.RATE_LIMITED:
         "Too many attempts. Wait a minute and try again.",

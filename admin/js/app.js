@@ -164,8 +164,12 @@ async function newLinkCode() {
     const body = await api.newLinkCode();
     $('tg-code').textContent = body.code;
     $('tg-code-box').classList.remove('hidden');
+    // Date AND time: the code now outlives the day it was made, so a bare
+    // clock time would not say which day it means.
     $('tg-code-expiry').textContent =
-      `Valid until ${new Date(body.expires_at).toLocaleTimeString()}.`;
+      `Valid until ${new Date(body.expires_at).toLocaleString(undefined, {
+        weekday: 'short', day: 'numeric', month: 'short',
+        hour: '2-digit', minute: '2-digit' })}.`;
     // Issuing invalidates any previous code, so the warning above may have
     // just become relevant — and the list may be stale.
     await refreshOperators();

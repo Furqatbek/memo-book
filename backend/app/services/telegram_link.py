@@ -34,7 +34,13 @@ log = structlog.get_logger()
 # phone, and every pair those letters form is a pair somebody gets wrong.
 ALPHABET = "23456789ABCDEFGHJKMNPQRSTVWXYZ"
 CODE_LEN = 8                    # 30^8 ≈ 2^39 — far past guessing
-CODE_TTL = timedelta(minutes=10)
+# A day, not minutes: the operator issuing a code and the person redeeming it
+# are often not in the same room, and a code that dies before it reaches the
+# printer's phone just means issuing another one. What keeps the window safe
+# is not its length — it is that the code is single-use, that issuing a new
+# one kills the old, and that guessing is rate-limited. At 5 attempts a
+# minute a whole day buys 7,200 tries against a keyspace of 6.6e11.
+CODE_TTL = timedelta(days=1)
 
 # Redemption attempts per Telegram account per minute. Generous for a person
 # mistyping, useless for anything working through a keyspace.
@@ -64,8 +70,8 @@ async def issue_code(session: AsyncSession) -> tuple[str, datetime]:
     """A fresh code, and the moment it dies.
 
     Issuing invalidates any code still outstanding. One live code at a time
-    means a code read off a screen an hour ago, or shared and forgotten,
-    cannot still be spent — and it makes "press the button again" the
+    is what makes the day-long window safe: a code shared and forgotten stops
+    working the moment a new one is made, and "press the button again" is the
     complete recovery for every way this can go wrong.
     """
     now = _now()

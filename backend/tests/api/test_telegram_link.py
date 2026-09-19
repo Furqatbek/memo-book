@@ -126,6 +126,20 @@ class TestWhatACodeIsWorth:
             "a spent code linked a second account")
         assert "not valid" in said(bot)
 
+    async def test_it_lasts_long_enough_to_hand_over(self, client, db, bot):
+        """The person issuing a code and the person redeeming it are often
+        not in the same room, and often not on the same errand. A window
+        measured in minutes made the ordinary case — send it to the printer,
+        they get to it after lunch — fail for no security gain.
+        """
+        resp = await client.post("/api/v1/admin/telegram/link-code",
+                                 headers=AUTH)
+        row = (await db.execute(select(TelegramLinkCode))).scalars().first()
+        assert row.expires_at - row.created_at >= timedelta(hours=12)
+        # And the console is told the same figure it is about to display.
+        assert resp.json()["ttl_seconds"] == \
+            telegram_link.CODE_TTL.total_seconds()
+
     async def test_it_expires(self, client, db, bot):
         code = await issue(client)
         row = (await db.execute(select(TelegramLinkCode))).scalars().first()
@@ -150,7 +164,7 @@ class TestWhatACodeIsWorth:
         assert await db.get(TelegramOperator, LINKER) is None
 
     async def test_guessing_is_rate_limited(self, client, db, bot):
-        """A ten-minute window is only safe if it cannot be swept."""
+        """The window is a day, so this is what keeps it safe."""
         await issue(client)
         for _ in range(telegram_link.REDEEM_ATTEMPTS_PER_MIN + 3):
             await link(client, "AAAAAAAA")

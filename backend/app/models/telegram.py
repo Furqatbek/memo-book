@@ -44,8 +44,7 @@ class TelegramLinkCode(Base):
 
     The code is stored as a SHA-256 hash, not in the clear. It is a live
     credential for as long as it lasts, and a credential that can be read
-    out of a database backup is one worth not writing down — even a
-    ten-minute one.
+    out of a database backup is one worth not writing down.
     """
 
     __tablename__ = "telegram_link_codes"

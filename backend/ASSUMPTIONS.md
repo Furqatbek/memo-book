@@ -1578,13 +1578,16 @@ orders in the console. It gives an existing authority a second handle.
 
 What a code is worth, and why each part matters:
 
-* **Ten minutes, once.** Issuing a new one invalidates any outstanding code,
-  so "press the button again" is the complete recovery for every way this
-  goes wrong — including a code read off a screen an hour ago.
+* **A day, once.** The length is the least of it: what keeps the window
+  safe is that the code is single-use and that issuing a new one invalidates
+  any outstanding one, so "press the button again" is the complete recovery
+  for every way this goes wrong. A day because the person issuing the code
+  and the person redeeming it are often not in the same room.
 * **8 characters from a 30-letter alphabet** (~2^39), with I, L, O, U, 0 and
   1 left out because it is read off one screen and typed into a phone.
-* **Five redemption attempts per account per minute.** A ten-minute window
-  is only safe if it cannot be swept.
+* **Five redemption attempts per account per minute.** This, not the
+  expiry, is what makes guessing hopeless: a whole day at that rate buys
+  7,200 tries against a keyspace of 6.6e11.
 * **Wrong, expired and already-spent get one identical answer.** Telling
   them apart confirms that a guessed code was once real.
 * **Stored as a SHA-256 hash.** It is a live credential while it lasts, and

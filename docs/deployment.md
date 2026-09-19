@@ -192,7 +192,7 @@ docker compose -f docker-compose.prod.yml exec api \
 
 **3. Link your account, in the console.** Open **Telegram** in the admin
 console, press **Link a Telegram account**, and send the bot `/link` with
-the code it shows. The code lasts ten minutes and works once.
+the code it shows. The code lasts a day and works once.
 
 That third step is the whole point: the code is only visible to someone
 signed into the console, so redeeming it proves both that you are the
