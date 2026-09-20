@@ -1754,3 +1754,42 @@ This also added the i18n completeness test that did not exist. Nine strings
 in five languages at once is exactly the change that leaves one locale
 showing a customer a raw key like `receipt.title` — nothing errors, nothing
 logs, and it only looks wrong to someone reading that language.
+
+**A101 — the flake was a real bug, and it was ours.** `freeform` failed
+intermittently for three sessions. It was reported honestly as "not caused
+by this change" each time, which was true and was also not an answer.
+
+The colour-swatch popup attached its dismiss listeners in a
+`setTimeout(..., 0)`. For one tick after opening there was a popup on screen
+and **nothing listening** for the click or the key that closes it. Anything
+trying to close it in that window did nothing — and tore down listeners that
+were then attached a tick later, with no popup to match. `freeform` picks a
+colour on one tool and then reaches for the next; a popup still open turns
+that second click into a toggle-shut, so the second colour is never picked
+and the check waits for a popup that will not come.
+
+Two things made this hard to see. It reproduced about once in eighty cycles,
+so every "run it again" said it was fine. And **instrumenting it changed the
+rate** — adding a MutationObserver and wrapping `addEventListener` took it
+from 1-in-80 to 8-in-30, which is itself the tell: a timing race, not a
+logic error. The trace that settled it was four entries long:
+`["--cycle--", "POPUP+"]` — popup created, listeners never attached.
+
+The timer was guarding against the opening interaction immediately closing
+the popup it had just opened, and it never needed to. The handler runs on
+`click`, whose `pointerdown` and `keydown` have already been and gone, and
+`outsideSwatchClose` ignores `.color-tool` anyway. Attached synchronously,
+the window does not exist.
+
+`closeSwatchPop` also now removes EVERY `.swatch-pop` rather than the first.
+Nothing should be able to put two on the page, but if anything did, the
+second was left open with the listeners already torn down — a popup nothing
+could dismiss. Closing all of them makes the function's name true whatever
+led there.
+
+**The guard does not hammer.** Hammering catches this once in eighty, which
+is how it survived three sessions. `checks/swatchpop.js` opens the popup and
+dismisses it IN THE SAME TASK: a deferred attach cannot have run by then, so
+with the timer restored it fails 3 runs out of 3 rather than 1 in 80. That
+is the lesson worth keeping — **when a race is only reachable inside one
+tick, the test should occupy that tick rather than roll dice against it.**

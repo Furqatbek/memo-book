@@ -51,6 +51,8 @@ const NEEDS = {
     + 'signed URLs, so it is slow and best not run alongside others',
   receipt: 'ADMIN_TOKEN=dev-admin (it checks the operator gets a link to '
     + 'open, not just that the customer was thanked)',
+  swatchpop: 'nothing — and it needs no photos either, so it is the fastest '
+    + 'check here; it guards the race that made freeform flaky (A101)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',

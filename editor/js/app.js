@@ -1730,8 +1730,11 @@ const SWATCHES = [
 ];
 
 function closeSwatchPop() {
-  const open = document.querySelector('.swatch-pop');
-  if (open) open.remove();
+  // ALL of them, not the first. This used to close one, so any state that
+  // managed to put two on the page left the second open with the listeners
+  // already torn down — a popup nothing could dismiss (A101). Closing every
+  // one makes the function's name true whatever led to it.
+  for (const open of document.querySelectorAll('.swatch-pop')) open.remove();
   document.removeEventListener('pointerdown', outsideSwatchClose, true);
   document.removeEventListener('keydown', escSwatchClose, true);
 }
@@ -1780,10 +1783,18 @@ function colorControl(value, label, onPick) {
     const width = pop.offsetWidth;
     pop.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, r.left))}px`;
     pop.style.top = `${Math.min(window.innerHeight - pop.offsetHeight - 8, r.bottom + 6)}px`;
-    setTimeout(() => {
-      document.addEventListener('pointerdown', outsideSwatchClose, true);
-      document.addEventListener('keydown', escSwatchClose, true);
-    }, 0);
+    // Attached NOW, not on a timer (A101). Deferring this by a tick left a
+    // window in which the popup was on screen with nothing listening for
+    // the click or the key that dismisses it — and anything that closed it
+    // during that window tore down listeners that were then attached a tick
+    // later, with no popup to match.
+    //
+    // The tick was guarding against the opening interaction closing the
+    // popup it had just opened, and it never needed to: this runs on
+    // `click`, whose `pointerdown` and `keydown` have already been and
+    // gone, and `outsideSwatchClose` ignores `.color-tool` anyway.
+    document.addEventListener('pointerdown', outsideSwatchClose, true);
+    document.addEventListener('keydown', escSwatchClose, true);
   });
   return btn;
 }
