@@ -15,13 +15,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.outbox import OutboxMessage, OutboxStatus
-from app.services.telegram import send_attention_alert, send_production_notification
+from app.services.telegram import (
+    send_attention_alert,
+    send_production_notification,
+    send_receipt_notification,
+)
 
 log = structlog.get_logger()
 
 TOPIC_ORDER_RENDERED = "order.rendered"
 TOPIC_BOOK_REMINDER = "book.reminder"
 TOPIC_ORDER_ATTENTION = "order.attention"
+TOPIC_ORDER_RECEIPT = "order.receipt"
 
 
 def _send_reminder(payload: dict) -> None:
@@ -40,6 +45,7 @@ HANDLERS: dict[str, Callable[[dict], None]] = {
     TOPIC_ORDER_RENDERED: send_production_notification,
     TOPIC_BOOK_REMINDER: _send_reminder,
     TOPIC_ORDER_ATTENTION: send_attention_alert,
+    TOPIC_ORDER_RECEIPT: send_receipt_notification,
 }
 
 
@@ -107,6 +113,29 @@ def attention_payload(order, reason: str, detail: str | None = None) -> dict:
         "status": order.status,
         "reason": reason,
         "detail": (detail or "")[:500] or None,
+    }
+
+
+def receipt_payload(order) -> dict:
+    """Thin like the attention alert, for the same reason (A76): this chat is
+    not authenticated, so it gets the reference, the money and the receipt —
+    not the customer.
+
+    The KEY, not a URL. Presigning here would put a deadline on a message
+    that has not been sent yet, so a delivery that waited out a Telegram
+    outage would arrive with a link that no longer opens. The link is built
+    at delivery time, on every attempt.
+    """
+    return {
+        "human_ref": order.human_ref,
+        # As it was when the receipt landed. Nothing is pressed from this
+        # message, so it is a fact for reading, not a keyboard to trust.
+        "status": order.status,
+        "amount_minor": order.amount_minor,
+        "currency": order.currency,
+        "receipt_key": order.receipt_key,
+        "receipt_content_type": order.receipt_content_type,
+        "receipt_bytes": order.receipt_bytes,
     }
 
 

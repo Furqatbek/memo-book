@@ -21,6 +21,7 @@
  * Needs ADMIN_TOKEN (the dev server sets `dev-admin`).
  */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 const SHOTS = path.join(__dirname, '..', 'shots');
 const BASE = 'http://127.0.0.1:8000';
@@ -69,14 +70,11 @@ const STUB = {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await (await browser.newContext({ viewport: { width: 1400, height: 950 } })).newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => {
-    // The click-through step answers 404 on purpose (see below), and the
-    // browser logs every failed fetch. Anything else is a real error.
-    if (m.type() === 'error' && !/404/.test(m.text())) {
-      errors.push('console: ' + m.text());
-    }
-  });
+  // The click-through step answers 404 on purpose (see below), and the
+  // browser logs every failed fetch. That was filtered here by hand, for
+  // 404s only — the shared policy covers every resource-load line, which is
+  // what the hand-rolled version was missing (A102).
+  const noise = watchPage(page, errors);
 
   console.log('THE CONTRACT');
   check('the live endpoint answers with a count and a list',
@@ -150,6 +148,9 @@ const STUB = {
     String(asked));
 
   console.log('errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) throw new Error('page errors');
   if (failures) throw new Error(`${failures} checks failed`);

@@ -9,6 +9,7 @@
  * Both features ride on placeRect/applyCrop, which the cover work also uses.
  */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 const SHOTS = path.join(__dirname, '..', 'shots');
 const BASE = 'http://127.0.0.1:8000';
@@ -21,8 +22,7 @@ const TRIM_W = 148;
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await (await browser.newContext({ viewport: { width: 1400, height: 950 } })).newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const noise = watchPage(page, errors);
 
   await page.goto(`${BASE}/editor/`);
   await page.evaluate(() => localStorage.clear());
@@ -128,6 +128,9 @@ const TRIM_W = 148;
   }
 
   console.log('errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) throw new Error('page errors');
   console.log('FOLD + GUTTER CHECK PASSED');

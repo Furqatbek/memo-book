@@ -7,6 +7,7 @@
  * `dev-admin` by default).
  */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const fs = require('fs');
 const path = require('path');
 const SHOTS = path.join(__dirname, '..', 'shots');
@@ -67,8 +68,7 @@ async function galleryFor(page, type) {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await (await browser.newContext({ viewport: { width: 1200, height: 950 } })).newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const noise = watchPage(page, errors);
 
   // 1. the backend filters the shelf by occasion
   const seen = {};
@@ -169,6 +169,9 @@ async function galleryFor(page, type) {
   console.log('   no artwork on the canvas: true');
 
   console.log('errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) throw new Error('page errors');
   console.log('DESIGN FLOW CHECK PASSED');

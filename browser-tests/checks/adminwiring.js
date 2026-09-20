@@ -9,6 +9,7 @@
  * half, an order to work on, which it places as a customer.
  */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 const BASE = 'http://127.0.0.1:8000';
 const TOKEN = 'dev-admin';
@@ -87,8 +88,7 @@ async function placeOrder(page) {
   const ctx = await browser.newContext({ viewport: { width: 1360, height: 980 } });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const noise = watchPage(page, errors);
 
   const ref = await placeOrder(page);
 
@@ -360,6 +360,9 @@ async function placeOrder(page) {
     (await page.evaluate(() => localStorage.getItem('mb-admin-token'))) === null);
 
   console.log('errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) fails.push('page errors');
   if (fails.length) throw new Error(`${fails.length} wiring problems: ${fails.join('; ')}`);

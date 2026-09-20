@@ -9,6 +9,7 @@
  *   AUTO_CONFIRM_ORDERS=false python scripts/devserver.py
  */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 const SHOTS = path.join(__dirname, '..', 'shots');
 const BASE = 'http://127.0.0.1:8000';
@@ -62,8 +63,7 @@ async function placeOrder(page) {
   const ctx = await browser.newContext({ viewport: { width: 1360, height: 950 } });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const noise = watchPage(page, errors);
 
   const ref = await placeOrder(page);
   console.log('0. a customer ordered', ref);
@@ -235,6 +235,9 @@ async function placeOrder(page) {
   console.log('9. switching to cover designs still works: true');
 
   console.log('errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) throw new Error('page errors');
   console.log('ORDERS ADMIN CHECK PASSED');

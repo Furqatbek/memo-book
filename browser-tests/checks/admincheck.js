@@ -1,6 +1,7 @@
 /* A72: the admin console. Sign in, upload artwork, place the photo window by
    dragging, save — and the design must reach a real customer's gallery. */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 const BASE = 'http://127.0.0.1:8000';
 const ART = path.join(__dirname, '..', 'fixtures', 'artwork-hearts.png');
@@ -11,8 +12,7 @@ const TOKEN = 'dev-admin';
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 950 } });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const noise = watchPage(page, errors);
 
   await page.goto(`${BASE}/admin/`);
   await page.waitForSelector('#screen-login.active');
@@ -201,6 +201,9 @@ const TOKEN = 'dev-admin';
   if (stored) throw new Error('token survived sign out');
 
   console.log('errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) throw new Error('page errors');
   console.log('ADMIN CONSOLE CHECK PASSED');

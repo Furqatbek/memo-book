@@ -2,6 +2,7 @@
    start -> create a 16-SHEET (32-page) book -> upload 32 photos -> auto-fill -> add text ->
    preview -> checkout -> dev payment -> order rendered. */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 
 const BASE = 'http://127.0.0.1:8000/editor/';
@@ -13,8 +14,7 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await browser.newPage({ viewport: { width: 1360, height: 850 } });
   const errors = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('pageerror', (e) => errors.push(String(e)));
+  const noise = watchPage(page, errors);
 
   await page.goto(BASE);
   await page.waitForSelector('.btype:not([disabled])', { timeout: 10000 });
@@ -140,6 +140,9 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   await mob.screenshot({ path: SHOT('13-mobile-editor.png') });
 
   console.log('console errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) process.exit(2);
   console.log('E2E PASSED');

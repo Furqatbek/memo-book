@@ -1,6 +1,7 @@
 /* Free-form editing E2E: type anywhere (dblclick), drag text, resize photo,
    page/cover/title colours — all persisted to the backend layout. */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 
 const BASE = 'http://127.0.0.1:8000';
@@ -30,8 +31,7 @@ async function setColor(page, container, index, value) {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await browser.newPage({ viewport: { width: 1360, height: 850 } });
   const errors = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('pageerror', (e) => errors.push(String(e)));
+  const noise = watchPage(page, errors);
 
   await page.goto(`${BASE}/editor/`);
   await page.click('.btype[data-btype=\"memory\"]');
@@ -139,6 +139,9 @@ async function setColor(page, container, index, value) {
   if (failed.length) throw new Error('persistence checks failed: ' + failed.map(([k]) => k).join(', '));
 
   console.log('console errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) process.exit(2);
   console.log('FREEFORM E2E PASSED');

@@ -7,6 +7,7 @@
  * (the dev server sets `dev-admin` by default).
  */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const fs = require('fs');
 const path = require('path');
 const BASE = 'http://127.0.0.1:8000';
@@ -51,8 +52,7 @@ async function seedDesigns() {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await (await browser.newContext({ viewport: { width: 1240, height: 950 } })).newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const noise = watchPage(page, errors);
 
   // start a travel book on design A
   await page.goto(`${BASE}/editor/`);
@@ -153,6 +153,9 @@ async function seedDesigns() {
   if (back.design_id !== ids['swap-a']) throw new Error('could not go back');
 
   console.log('errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) throw new Error('page errors');
   console.log('DESIGN SWAP CHECK PASSED');

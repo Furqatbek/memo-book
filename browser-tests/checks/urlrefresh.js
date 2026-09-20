@@ -15,6 +15,7 @@
  *   node checks/urlrefresh.js
  */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 const BASE = 'http://127.0.0.1:8000';
 const SHOTS = path.join(__dirname, '..', 'shots');
@@ -73,7 +74,7 @@ async function breakImages(page, n) {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   const errs = [];
-  page.on('pageerror', (e) => errs.push(String(e)));
+  const noise = watchPage(page, errs);
 
   await page.goto(`${BASE}/editor/`);
   await page.evaluate(() => localStorage.clear());
@@ -145,7 +146,18 @@ async function breakImages(page, n) {
   check('many dead images, no further re-fetch', photoFetches === before,
     `broke ${brokeMany}, ${photoFetches - before} extra fetches`);
 
+  // This check breaks images ON PURPOSE, so it is the right place to hold
+  // the policy that says a broken image is not a check failure (A102). Every
+  // abort above is a "Failed to load resource" line; if those counted as
+  // errors, this run — and thirteen others — would fail for the very thing
+  // the product is here to recover from.
+  check('the deliberate failures were recorded as noise', noise.length > 0,
+    `${noise.length} lines`);
+  check('and none of them counted as an error', errs.length === 0,
+    JSON.stringify(errs.slice(0, 2)));
+
   console.log('errors:', errs.length ? errs : 'none');
+  console.log(`ignored ${noise.length} resource-load line(s)`);
   await browser.close();
   if (errs.length || failed) {
     console.error(`URL REFRESH CHECK FAILED (${failed} checks)`);

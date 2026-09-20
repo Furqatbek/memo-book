@@ -15,7 +15,9 @@ from sqlalchemy import select
 
 from app import storage
 from app.models.order import Order
+from app.models.outbox import OutboxMessage, OutboxStatus
 from app.services.orders import PAY_CARD_STATUSES
+from app.services.outbox import TOPIC_ORDER_RECEIPT
 from app.services.receipts import RECEIPT_MAX_BYTES
 from tests.api.test_checkout import CUSTOMER, do_checkout, ready_book
 
@@ -37,6 +39,22 @@ async def load(db, ref: str) -> Order:
     db.expire_all()
     return (await db.execute(
         select(Order).where(Order.human_ref == ref))).scalar_one()
+
+
+async def receipt_messages(db) -> list[OutboxMessage]:
+    """The outbox rows this upload wrote, oldest first.
+
+    Refreshed one by one rather than through `expire_all`, which would also
+    expire an Order the caller is still holding — and reading an expired
+    instance is lazy IO in a place async SQLAlchemy will not do it.
+    """
+    rows = (await db.execute(
+        select(OutboxMessage)
+        .where(OutboxMessage.topic == TOPIC_ORDER_RECEIPT)
+        .order_by(OutboxMessage.created_at))).scalars().all()
+    for row in rows:
+        await db.refresh(row)
+    return list(rows)
 
 
 async def send(client, ref: str, data: bytes, *, phone: str = PHONE,
@@ -219,3 +237,121 @@ class TestWhoSeesIt:
 
         ref = await an_order(client, db)
         assert (await order_detail(db, ref))["receipt"] is None
+
+
+@pytest.fixture
+def telegram_capture(monkeypatch):
+    """Every message the operator chat would receive, with its keyboard."""
+    from app.services import telegram as telegram_svc
+
+    sent: list[tuple[str, dict | None]] = []
+    monkeypatch.setattr(telegram_svc, "_post_telegram",
+                        lambda text, markup=None: sent.append((text, markup)))
+    return sent
+
+
+class TestTheOperatorIsTold:
+    """A102: a receipt saved where nobody is told about it is a customer
+    waiting for a book while their proof of payment sits in a bucket.
+
+    The upload now announces itself in the Telegram chat with a link to open
+    the file — so the operator can go to the bank with the evidence in front
+    of them rather than noticing the receipt next time they open the console.
+    """
+
+    async def test_an_upload_sends_a_message_with_a_link(
+            self, client, db, telegram_capture):
+        ref = await an_order(client, db)
+        await send(client, ref, PNG)
+        [(text, _markup)] = telegram_capture
+        assert ref in text
+        assert "receipt" in text.lower()
+        assert "http" in text
+        assert "PNG" in text
+
+    async def test_the_link_points_at_the_bytes_that_were_stored(
+            self, client, db, telegram_capture):
+        """The load-bearing one. A link in a message and an object in a
+        bucket are two separate things, and the message is only worth
+        sending if it opens the file this customer actually uploaded."""
+        ref = await an_order(client, db)
+        await send(client, ref, PDF, name="r.pdf", mime="application/pdf")
+        order = await load(db, ref)
+        [(text, _)] = telegram_capture
+        assert order.receipt_key in text
+        assert storage.get_bytes(order.receipt_key) == PDF
+
+    async def test_the_link_is_signed_and_time_limited(
+            self, client, db, telegram_capture):
+        ref = await an_order(client, db)
+        await send(client, ref, PNG)
+        [(text, _)] = telegram_capture
+        url = [w for w in text.split() if w.startswith("http")][0]
+        assert "Expires=" in url or "X-Amz-Signature=" in url
+
+    async def test_the_message_carries_no_customer_pii(
+            self, client, db, telegram_capture):
+        """A76's rule for this chat: reference, money and the file. The name
+        and the phone are a click away in a console that asks who you are."""
+        ref = await an_order(client, db)
+        await send(client, ref, PNG)
+        [(text, _)] = telegram_capture
+        for private in (CUSTOMER["name"], CUSTOMER["phone"],
+                        CUSTOMER.get("email") or "\0",
+                        CUSTOMER.get("address") or "\0"):
+            assert private not in text
+
+    async def test_it_offers_no_buttons(self, client, db, telegram_capture):
+        """Confirming a payment is not a Telegram action — it stamps
+        `paid_at` and starts the render, so it lives in the console. The only
+        button this order could offer is *Cancel*, and a cancel button
+        directly under a receipt is one fat thumb from killing the order the
+        receipt is evidence for."""
+        ref = await an_order(client, db)
+        await send(client, ref, PNG)
+        [(text, markup)] = telegram_capture
+        assert markup is None
+        assert "admin console" in text
+
+    async def test_a_replacement_is_announced_too(
+            self, client, db, telegram_capture):
+        """A corrected receipt is precisely the thing worth a second
+        message, and the new link must not point at the deleted object."""
+        ref = await an_order(client, db)
+        await send(client, ref, PNG)
+        await send(client, ref, JPEG, name="better.jpg", mime="image/jpeg")
+        assert len(telegram_capture) == 2
+        order = await load(db, ref)
+        assert order.receipt_key in telegram_capture[1][0]
+        assert order.receipt_key not in telegram_capture[0][0]
+
+    async def test_a_refused_upload_tells_nobody(
+            self, client, db, telegram_capture):
+        ref = await an_order(client, db)
+        assert (await send(client, ref, b"GIF89a" + b"\x00" * 50)
+                ).status_code == 422
+        assert telegram_capture == []
+        assert await receipt_messages(db) == []
+
+    async def test_the_message_is_enqueued_with_the_key_not_a_url(self, client, db,
+                                                                  telegram_capture):
+        """Presigning at enqueue time puts a deadline on a message that has
+        not been sent yet, so a delivery that waited out a Telegram outage
+        and three backoffs would arrive with a link that no longer opens."""
+        ref = await an_order(client, db)
+        await send(client, ref, PNG)
+        [message] = await receipt_messages(db)
+        assert message.payload["receipt_key"].endswith(".png")
+        assert "http" not in str(message.payload)
+
+    async def test_it_is_committed_with_the_receipt_not_after_it(
+            self, client, db, telegram_capture):
+        """The outbox point: one transaction records the receipt and the
+        message, so there is no window in which the file exists and nothing
+        is going to say so."""
+        ref = await an_order(client, db)
+        await send(client, ref, PNG)
+        order = await load(db, ref)
+        [message] = await receipt_messages(db)
+        assert order.receipt_key and message.payload["human_ref"] == ref
+        assert message.status == OutboxStatus.SENT.value

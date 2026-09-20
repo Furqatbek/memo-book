@@ -6,6 +6,7 @@
  * the editor draws must be the geometry the server stores.
  */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 const SHOTS = path.join(__dirname, '..', 'shots');
 const BASE = 'http://127.0.0.1:8000';
@@ -30,8 +31,7 @@ const same = (a, b) => a && b
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await (await browser.newContext({ viewport: { width: 1360, height: 950 } })).newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const noise = watchPage(page, errors);
 
   await page.goto(`${BASE}/editor/`);
   await page.evaluate(() => localStorage.clear());
@@ -126,6 +126,9 @@ const same = (a, b) => a && b
   await page.mouse.click(5, 5);
 
   console.log('errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errors.length) throw new Error('page errors');
   console.log('COVER TEMPLATE CHECK PASSED');

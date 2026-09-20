@@ -1793,3 +1793,91 @@ dismisses it IN THE SAME TASK: a deferred attach cannot have run by then, so
 with the timer restored it fails 3 runs out of 3 rather than 1 in 80. That
 is the lesson worth keeping — **when a race is only reachable inside one
 tick, the test should occupy that tick rather than roll dice against it.**
+
+**A102 — the second flake: a check that failed for the thing the product
+recovers from.** `adminwiring` was the other intermittent failure, and it
+was a different bug from A101 wearing the same clothes. Its failure named
+nothing: every assertion printed `ok`, and the run still said FAILED.
+
+Every check watched its page the same way — any `pageerror`, plus **any**
+console message of type `error` — and then `if (errors.length) fails.push('page errors')`.
+Chromium writes a console error for any resource that fails to load, so one
+transient blip on one signed image URL failed a check in which nothing the
+check actually asserts had gone wrong. Measured with a probe: zero console
+errors in a clean run, exactly one — `Failed to load resource:
+net::ERR_FAILED` — after a single aborted image. That is the whole
+mechanism, and it explains the two things that made it look like a ghost:
+the failure named nothing because nothing named had failed, and re-running
+always passed because the blip is a blip.
+
+It was also asserting something the product does not promise. **Since A99 a
+failed signed image is a condition the editor recovers from** — it asks for
+fresh URLs and redraws. A check that fails because a resource blipped is
+failing for the thing we built the recovery to handle.
+
+So the policy lives in one place, `checks/_watch.js`, and it is: resource-load
+noise is **counted and printed, never fatal**; everything else stays fatal.
+The two that matter are untouched — a `pageerror` is an uncaught exception
+and always a real defect, and a console error our own code wrote is us
+saying something is wrong. Fourteen checks now share it, including
+`freeform`, which had both flakes at once.
+
+**Not-fatal must not mean invisible**, so `watchPage` returns the ignored
+lines and the checks print `ignored N resource-load line(s)`. And the policy
+itself is held by a check rather than by this paragraph:
+`checks/urlrefresh.js` breaks images on purpose, so it asserts that the
+deliberate failures were recorded as noise and that none of them counted as
+an error. With the old policy pasted back in, that check fails — which is
+the only way to know the rule is still doing anything.
+
+Two smaller things the hunt turned up. `run.js` was reducing a failed
+check's entire output to the first line matching `/error|failed/i`, which is
+enough to see THAT something failed and never enough to see why — and a
+check that only fails inside a full run cannot be re-run alone to find out.
+It now writes the whole output to `shots/<name>.fail.log`. And `run.js`
+treated every `.js` in `checks/` as a check, so the shared `_watch.js` would
+have been "run" and counted; files starting with `_` are now skipped.
+
+**A102 — the receipt now tells someone it arrived.** A100 stored the
+customer's proof of transfer, showed it in the admin console, and stopped
+there. That left the evidence somewhere nobody was looking: an operator
+learns a receipt exists by happening to open that order, so a customer can
+pay, upload the screenshot, and wait while their proof sits in a bucket.
+Storing it and announcing it are two different features, and only one of
+them was built.
+
+The upload now enqueues `order.receipt`, which reaches the operator chat as
+a message with a **link to open the file**. Four things about it:
+
+* **Enqueued in the receipt's own transaction.** One commit records the
+  columns and the message, so there is no window where the file exists and
+  nothing is going to say so — the whole reason the outbox exists.
+* **The payload carries the KEY, not a URL.** Presigning at enqueue time
+  puts a deadline on a message that has not been sent yet, so a delivery
+  that waited out a Telegram outage and three backoffs would arrive with a
+  link that no longer opens. It is signed at delivery, on every attempt,
+  exactly as the print files are.
+* **No buttons, deliberately.** The one action this message calls for is
+  "the money arrived", and that is not a Telegram action: confirming a
+  payment stamps `paid_at` and starts the render, which is why `paid` is
+  absent from `OPERATOR_TARGETS`. The keyboard a `pending_payment` order
+  would get here is a single *Cancel order* — sitting directly under a
+  receipt, one fat thumb from killing the order the receipt is evidence
+  for. A message with no buttons and a sentence saying where to go is the
+  better object.
+* **Reference, amount, link — no name, no phone.** A76's rule for this chat
+  holds. What the operator needs in order to go to the bank is the amount
+  and the picture.
+
+Worth naming the tension rather than pretending it away: A76 calls this chat
+unauthenticated, and this puts a seven-day link to a customer's bank
+screenshot in it. The judgement is the same one already made for the print
+files, which carry every photo in the book — whoever can read that chat can
+already read a great deal, and narrowing that is `TELEGRAM_CHAT_ID`'s job,
+not this message's. The customer is still never handed the file back: the
+status page says only that it arrived.
+
+Every upload sends, including a replacement, because a corrected receipt is
+exactly the thing worth a second message. A refused upload sends nothing —
+the enqueue is past the sniffing, so a file that is not a PNG, JPEG or PDF
+never becomes a notification.

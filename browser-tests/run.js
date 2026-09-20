@@ -64,7 +64,8 @@ const NEEDS = {
 const CONFLICTS = [['autoflow', 'ordersadmin']];
 
 const all = fs.readdirSync(CHECKS)
-  .filter((f) => f.endsWith('.js'))
+  // `_name.js` is shared code for the checks, not a check (A102).
+  .filter((f) => f.endsWith('.js') && !f.startsWith('_'))
   .map((f) => f.replace(/\.js$/, ''))
   .sort();
 
@@ -114,9 +115,17 @@ function reachable(url) {
         .split('\n').filter((l) => l && !l.startsWith('[net]'));
       console.log(out[out.length - 1] || 'ok');
     } catch (err) {
-      const detail = `${err.stdout || ''}${err.stderr || ''}`
-        .split('\n').find((l) => /error|failed/i.test(l)) || 'failed';
+      const full = `${err.stdout || ''}${err.stderr || ''}`;
+      const detail = full.split('\n').find((l) => /error|failed/i.test(l))
+        || 'failed';
+      // Keep ALL of it. One matched line is enough to see THAT a check
+      // failed and never enough to see why, and a check that only fails
+      // inside a full run cannot be re-run on its own to find out — which
+      // is how a flake survives for months (A101).
+      const log = path.join(__dirname, 'shots', `${name}.fail.log`);
+      try { fs.writeFileSync(log, full); } catch { /* best effort */ }
       console.log(`FAILED  ${detail.slice(0, 100)}`);
+      console.log(`${' '.repeat(16)}full output: browser-tests/shots/${name}.fail.log`);
       if (NEEDS[name]) console.log(`${' '.repeat(16)}(needs ${NEEDS[name]})`);
       failed.push(name);
     }

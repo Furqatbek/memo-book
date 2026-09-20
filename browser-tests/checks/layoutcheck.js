@@ -1,6 +1,7 @@
 /* Does the SHIPPED code actually do layouts + snapping? Decides whether the
    production report is a code bug or a stale-cache problem. */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 const SHOTS = path.join(__dirname, '..', 'shots');
 const PHOTOS = Array.from({ length: 4 }, (_, i) =>
@@ -9,8 +10,7 @@ const PHOTOS = Array.from({ length: 4 }, (_, i) =>
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await browser.newPage({ viewport: { width: 1360, height: 850 } });
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const noise = watchPage(page, errors);
 
   await page.goto('http://127.0.0.1:8000/editor/');
   await page.click('.btype[data-btype="memory"]');
@@ -101,6 +101,9 @@ const PHOTOS = Array.from({ length: 4 }, (_, i) =>
   }
 
   console.log('errors:', errors.length ? errors : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await page.screenshot({ path: SHOTS + '/83-layout-check.png' });
   await browser.close();
   if (errors.length) throw new Error('page errors');

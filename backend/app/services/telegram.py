@@ -107,6 +107,13 @@ def order_keyboard(human_ref: str, status: str,
     return {"inline_keyboard": rows}
 
 
+def format_amount(amount_minor) -> str:
+    """Money the way an operator reads it: thin spaces between thousands, and
+    the fractional part only when there is one."""
+    major, minor_part = from_minor(int(amount_minor))
+    return f"{major:,}".replace(",", " ") + (f".{minor_part:02d}" if minor_part else "")
+
+
 def build_production_message(payload: dict) -> str:
     """Presigning happens at DELIVERY time, so retried messages carry fresh
     links rather than expired ones."""
@@ -114,8 +121,7 @@ def build_production_message(payload: dict) -> str:
                                        expires_in=ARTIFACT_URL_EXPIRY_S)
     cover_url = storage.presign_get(payload["cover_key"],
                                     expires_in=ARTIFACT_URL_EXPIRY_S)
-    major, minor_part = from_minor(int(payload["amount_minor"]))
-    amount = f"{major:,}".replace(",", " ") + (f".{minor_part:02d}" if minor_part else "")
+    amount = format_amount(payload["amount_minor"])
     lines = [f"📖 New order {payload['human_ref']}"]
     book_type = BOOK_TYPE_LABELS.get(payload.get("book_type") or "")
     if book_type:
@@ -252,6 +258,58 @@ def send_to(chat_id, text: str, reply_markup: dict | None = None) -> None:
     if reply_markup is not None:
         body["reply_markup"] = reply_markup
     _call("sendMessage", body)
+
+
+# What to call the file in a sentence. The bytes already said which of the
+# three it is (A100); this is just the word for it.
+RECEIPT_TYPE_LABELS = {
+    "image/png": "PNG",
+    "image/jpeg": "JPEG",
+    "application/pdf": "PDF",
+}
+
+
+def build_receipt_message(payload: dict) -> str:
+    """The customer attached proof of their transfer (A102).
+
+    Presigned at DELIVERY time like the print files, for the same reason: a
+    message that waited out a Telegram outage and three backoffs must arrive
+    with a link that still opens.
+
+    Reference, money and the link — no name, no phone. A76's rule for this
+    chat holds: what the operator needs in order to go and look at the bank
+    is the amount and the picture, and everything else is a click away in a
+    console that asks who they are.
+    """
+    url = storage.presign_get(payload["receipt_key"],
+                              expires_in=ARTIFACT_URL_EXPIRY_S)
+    kind = RECEIPT_TYPE_LABELS.get(payload.get("receipt_content_type") or "",
+                                   "file")
+    size = int(payload.get("receipt_bytes") or 0)
+    lines = [f"🧾 Payment receipt for {payload['human_ref']}",
+             f"Status: {STATUS_LABELS.get(payload.get('status') or '', 'unknown')}",
+             f"Amount: {format_amount(payload['amount_minor'])} "
+             f"{payload.get('currency', 'UZS')}",
+             f"{kind}, {max(1, size // 1024)} KB (7-day link):",
+             url,
+             "Check it against the bank, then confirm the payment in the "
+             "admin console → Orders."]
+    return "\n".join(lines)
+
+
+def send_receipt_notification(payload: dict) -> None:
+    """Sent with NO buttons, deliberately.
+
+    The one action this message calls for is "the money arrived" — and that
+    is not a Telegram action. Confirming a payment is not a status flip: it
+    stamps `paid_at` and starts the render, so it lives in the console, which
+    is why `paid` is absent from `OPERATOR_TARGETS`. The keyboard a
+    `pending_payment` order would get here is therefore a single *Cancel
+    order* button, sitting directly under a receipt, one fat thumb away from
+    killing the order it is evidence for. A message with no buttons and a
+    sentence saying where to go is the better object.
+    """
+    _post_telegram(build_receipt_message(payload))
 
 
 def build_attention_message(payload: dict) -> str:

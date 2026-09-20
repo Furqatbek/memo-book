@@ -8,6 +8,7 @@
  *   node checks/backcover.js
  */
 const { chromium } = require('playwright');
+const { watchPage } = require('./_watch');
 const path = require('path');
 const BASE = 'http://127.0.0.1:8000';
 const SHOTS = path.join(__dirname, '..', 'shots');
@@ -25,8 +26,7 @@ function check(what, ok, detail) {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   const errs = [];
-  page.on('pageerror', (e) => errs.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
+  const noise = watchPage(page, errs);
 
   await page.goto(`${BASE}/editor/`);
   await page.evaluate(() => localStorage.clear());
@@ -128,6 +128,9 @@ function check(what, ok, detail) {
   await page.screenshot({ path: `${SHOTS}/91-back-preview.png` });
 
   console.log('errors:', errs.length ? errs : 'none');
+  if (noise.length) {
+    console.log(`ignored ${noise.length} resource-load line(s) — see checks/_watch.js`);
+  }
   await browser.close();
   if (errs.length || failed) {
     console.error(`BACK COVER CHECK FAILED (${failed} checks)`);

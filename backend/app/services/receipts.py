@@ -4,7 +4,8 @@ In the card-transfer pilot nobody tells us a payment arrived — the operator
 matches transfers against the bank by hand. A screenshot of the transfer is
 the one piece of evidence only the customer has, so this lets them attach it
 to their own order, and puts it in front of the operator at the moment they
-decide whether the money came.
+decide whether the money came: stored, shown in the console, and announced
+in the Telegram chat with a link to open it (A102).
 
 **The declared content type is ignored.** A browser will happily send
 `image/png` for a file of HTML, and these objects are served from our own
@@ -93,8 +94,31 @@ async def attach_receipt(session: AsyncSession, order: Order,
     order.receipt_content_type = content_type
     order.receipt_bytes = len(raw)
     order.receipt_uploaded_at = datetime.now(UTC)
+
+    # Telling the operator is the POINT of the upload, so it is enqueued in
+    # the same transaction that records the receipt: one commit, and either
+    # both are true or neither is (A102). A receipt filed in a bucket that
+    # nobody is told about is a customer waiting for a book while their proof
+    # of payment sits where nobody thought to look.
+    #
+    # Every upload sends, including a replacement — a corrected receipt is
+    # precisely the thing worth a second message, and the outbox is
+    # at-least-once anyway.
+    from app.services import outbox
+
+    outbox.enqueue(session, outbox.TOPIC_ORDER_RECEIPT,
+                   outbox.receipt_payload(order))
     await session.commit()
     await session.refresh(order)
     log.info("receipt_attached", order=order.human_ref,
              content_type=content_type, bytes=len(raw))
+
+    # Same arrangement as a finished render: where there is no worker to
+    # deliver the outbox, deliver it here. Where there is one, it is already
+    # doing it on its own cadence and this request has no business waiting on
+    # Telegram.
+    from app import queue
+
+    if queue.eager():
+        await outbox.deliver_pending(session)
     return order
