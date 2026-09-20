@@ -230,6 +230,104 @@ async function loadCoverDesign() {
   }
 }
 
+/* ---------- stale signed URLs (A99) ----------
+
+   Every photo and every piece of cover artwork is shown from a presigned
+   storage URL with a deadline baked into it (A98). The page asks for those
+   URLs once, when the book loads, and then holds them — so a long enough
+   sitting leaves the browser with credentials that aged out in its hand.
+   Nothing fails server-side; the images simply stop loading, and the only
+   thing on screen is a broken icon.
+
+   A98 made that rare by giving the URLs a day. This makes it recoverable:
+   when an image fails, ask for fresh URLs once and redraw.
+
+   ONE listener covers every image on every screen, including ones rendered
+   later, because `error` on an <img> does not bubble but does CAPTURE. */
+
+const SIGNED_URL = /[?&](Expires|X-Amz-Signature)=/;
+/* The guards exist because "an image failed" is not the same as "the URL
+   expired". An object that is genuinely gone fails every time, and a
+   refresh that fires on every failure would be an endless loop pointed at
+   our own API — the exact shape this codebase keeps finding (A85/A90/A92).
+   So: one refresh at a time, one a minute at most, and a hard ceiling per
+   page. After that the images stay broken, which is honest. */
+const URL_REFRESH_COOLDOWN_MS = 60 * 1000;
+const URL_REFRESH_MAX = 5;
+
+let urlRefreshDoneAt = 0;
+let urlRefreshing = null;
+let urlRefreshCount = 0;
+
+function onAssetError(e) {
+  const el = e.target;
+  if (!el || el.tagName !== 'IMG') return;
+  // Only our signed storage URLs. Stickers and the background drawing are
+  // served from this origin and a refresh would do nothing for them.
+  if (!SIGNED_URL.test(el.currentSrc || el.getAttribute('src') || '')) return;
+  refreshSignedUrls();
+}
+
+function refreshSignedUrls() {
+  if (!S.creds || !S.book) return;
+  if (urlRefreshing) return;
+  if (urlRefreshCount >= URL_REFRESH_MAX) return;
+  if (Date.now() - urlRefreshDoneAt < URL_REFRESH_COOLDOWN_MS) return;
+  urlRefreshCount += 1;
+  urlRefreshing = doRefreshSignedUrls().finally(() => {
+    urlRefreshing = null;
+    // From when it FINISHED: a slow refresh must not let the next one fire
+    // the moment it lands.
+    urlRefreshDoneAt = Date.now();
+  });
+}
+
+async function doRefreshSignedUrls() {
+  let changed = false;
+  try {
+    const r = await api.listPhotos(S.creds);
+    const fresh = new Map((r.photos || []).map((p) => [p.photo_id, p]));
+    for (const photo of S.photos) {
+      const f = fresh.get(photo.photo_id);
+      if (!f) continue;
+      // URLs and nothing else. This is a CREDENTIAL refresh, not a state
+      // resync: a photo still uploading must not be dropped because it is
+      // missing from this response, and nothing the customer has arranged
+      // may move because a thumbnail expired.
+      if (f.display_url) photo.display_url = f.display_url;
+      if (f.thumb_url) photo.thumb_url = f.thumb_url;
+      changed = true;
+    }
+  } catch {
+    /* offline, or the book is gone — leave the page exactly as it is */
+  }
+
+  try {
+    const body = await api.coverDesigns(S.book.book_type || null);
+    for (const d of body.designs || []) {
+      const known = S.designById[d.design_id];
+      // Mutated in place, not replaced: `S.designs` holds the same objects,
+      // and swapping one here would leave the gallery pointing at the old.
+      if (!known) continue;
+      known.thumb_url = d.thumb_url;
+      known.display_url = d.display_url;
+      known.back_display_url = d.back_display_url;
+      changed = true;
+    }
+  } catch { /* the cover just draws without its artwork */ }
+
+  if (!changed) return;
+  renderTray();
+  // No `force`: renderCanvas declines to redraw while the customer is
+  // typing, and a caption in progress is worth more than a thumbnail that
+  // will come back on the next redraw anyway.
+  renderCanvas();
+  renderFilm();
+  // The preview grid is drawn straight from a poll response rather than
+  // from stored state, so re-polling IS its refresh.
+  if ($('screen-preview').classList.contains('active')) pollPreview();
+}
+
 /* ---------- start screen ---------- */
 
 /* Prices live in the backend .env (PRICE_MINOR_*); the editor only
@@ -3292,6 +3390,10 @@ function bind() {
       enterStart();
     }
   });
+
+  // Capture, because `error` on an <img> does not bubble. One listener then
+  // covers every image on every screen, including ones drawn later (A99).
+  document.addEventListener('error', onAssetError, true);
 
   window.addEventListener('resize', () => {
     if ($('screen-editor').classList.contains('active')) renderCanvas();

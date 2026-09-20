@@ -47,6 +47,8 @@ const NEEDS = {
     + 'through the console)',
   tglink: 'ADMIN_TOKEN=dev-admin and TELEGRAM_WEBHOOK_SECRET (the dev server '
     + 'sets both; it drives the console and the bot webhook against it)',
+  urlrefresh: 'nothing — but it intercepts every request to fake expired '
+    + 'signed URLs, so it is slow and best not run alongside others',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',

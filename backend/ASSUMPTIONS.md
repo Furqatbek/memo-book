@@ -1656,3 +1656,50 @@ given four by the other would find out on day five.
 **Not fixed, and worth knowing:** a page left open longer than a day still
 ages out. The real repair is for the editor to notice a failed image and
 re-fetch, which is a bigger change than this was.
+
+**A99 — a stale image asks for a fresh URL instead of staying broken.** A98
+gave signed image URLs a day, which made the editor's broken-thumbnail
+failure rare. This makes it recoverable: when an image fails to load, the
+page asks for fresh URLs once and redraws itself.
+
+**One listener covers every image on every screen**, including ones drawn
+later, because `error` on an `<img>` does not bubble but does CAPTURE. A
+regex on `Expires` / `X-Amz-Signature` keeps it to our own signed storage
+URLs — a sticker or the background drawing is served from this origin and a
+refresh would do nothing for it.
+
+**The guards are the feature, not the trimming.** "An image failed" is not
+the same as "the URL expired": an object that is genuinely gone fails every
+single time, so a refresh fired per failure would be an endless loop pointed
+at our own API — the exact shape this codebase keeps producing (A85, A90,
+A92). So: one refresh in flight at a time, one a minute at most, and five
+per page at the outside. Past that the images stay broken, which is honest.
+The cooldown is measured from when a refresh FINISHED, or a slow one would
+let the next fire the moment it landed.
+
+Two deliberate narrownesses:
+
+* **It refreshes URLs, not state.** Only `display_url` / `thumb_url` on
+  photos we already hold, and the URL fields of designs already known.
+  A photo still uploading must not be dropped because it is missing from
+  the response, and nothing the customer has arranged may move because a
+  thumbnail expired.
+* **The redraw does not force.** `renderCanvas()` declines to redraw while
+  the customer is typing, and that rule is worth more than a thumbnail
+  which will come back on the next redraw anyway.
+
+Design objects are mutated in place rather than replaced, because `S.designs`
+holds the same objects and swapping one would leave the gallery pointing at
+the old. The preview grid is drawn straight from a poll response rather than
+stored state, so re-polling IS its refresh.
+
+The check proves both halves by breaking them. With the listener
+unregistered: no re-fetch, and eight visible images stay broken. With the
+guards removed: one broken image becomes five requests and nine dead ones
+become nine more — the loop, on camera.
+
+**Scope worth knowing:** the check asserts over VISIBLE images. The start
+screen's design gallery sits in the DOM behind the editor and is not redrawn
+by the refresh — it does not need to be, since it clears itself and
+re-fetches the catalogue every time it is shown. Asserting over hidden DOM
+would be asserting something nobody can observe.
