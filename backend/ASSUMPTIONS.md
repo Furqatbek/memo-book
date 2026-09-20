@@ -1617,3 +1617,42 @@ nothing would be worse than no button.
 
 Checked by breaking it: dropping the single-use and expiry conditions from
 the redemption query fails four tests.
+
+**A98 — a signed image URL has to outlive the sitting, not the request.**
+`DISPLAY_URL_EXPIRY_S` was one hour. The editor asks for those URLs exactly
+once, when the book loads, and never asks again — there is no refresh, no
+retry, no periodic re-fetch. So a customer who spent ninety minutes
+arranging their book watched every thumbnail and every canvas image turn
+into a broken icon, an hour in, with nothing on screen to explain it and
+nothing to do but reload and lose their place.
+
+Nothing errored to make this visible. The server was fine; the page was
+holding credentials that aged out in its hand. That is the shape worth
+remembering: **a deadline on a thing the client caches is a bug that fires
+on the client's clock, not on ours, and it never shows up in a log.**
+
+Now a day, which covers any real session — and someone who comes back
+tomorrow reloads the page and is handed fresh URLs anyway. The cost is that
+a leaked URL stays good longer; these sign the customer's own photos and our
+cover artwork, not the print files, which have their own deliberate week.
+
+The three deadlines now have a stated ordering, and a test holds it:
+
+    upload (one request, 15 min)
+      < display (one sitting, 1 day)
+        < print file (the printer's week, 7 days)
+
+Each is sized to the thing it must outlive. The tests read the deadline back
+out of the signature rather than asserting the constant against itself, so
+they measure what a browser is actually handed — and they cover both
+signature versions, because the answer must not depend on which one boto
+happens to use. Reverting the display constant to an hour fails two of them.
+
+One more thing the test pins: the console and the Telegram message hold the
+same seven-day figure in two separate constants, in two separate modules,
+and both tell the printer "7-day link". A printer told seven days by one and
+given four by the other would find out on day five.
+
+**Not fixed, and worth knowing:** a page left open longer than a day still
+ages out. The real repair is for the editor to notice a failed image and
+re-fetch, which is a bigger change than this was.

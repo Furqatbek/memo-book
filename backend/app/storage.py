@@ -6,8 +6,22 @@ from botocore.config import Config as BotoConfig
 
 from app.config import get_settings
 
+# A PUT URL is a write credential and is used the moment it is issued, so it
+# stays short (spec Part 11).
 UPLOAD_URL_EXPIRY_S = 15 * 60
-DISPLAY_URL_EXPIRY_S = 60 * 60
+
+# A GET URL for a photo or a design's artwork has to outlive the SITTING it
+# was issued in, not the request. The editor asks for these once, when the
+# book loads, and never asks again — so at one hour a customer who spent
+# ninety minutes arranging their book watched every thumbnail and every
+# canvas image turn into a broken icon, with nothing on screen to explain it
+# and nothing to do but reload. A day covers any real session; someone who
+# comes back tomorrow reloads the page and gets fresh URLs anyway.
+#
+# The cost is that a leaked URL stays good for longer. These sign the
+# customer's own photos and our own cover artwork — not the print files,
+# which are handled separately and deliberately.
+DISPLAY_URL_EXPIRY_S = 24 * 60 * 60
 
 _client = None
 _presign_client = None
