@@ -49,6 +49,8 @@ const NEEDS = {
     + 'sets both; it drives the console and the bot webhook against it)',
   urlrefresh: 'nothing — but it intercepts every request to fake expired '
     + 'signed URLs, so it is slow and best not run alongside others',
+  receipt: 'ADMIN_TOKEN=dev-admin (it checks the operator gets a link to '
+    + 'open, not just that the customer was thanked)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',

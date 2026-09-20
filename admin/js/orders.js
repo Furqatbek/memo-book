@@ -262,6 +262,22 @@ function renderDetail(deps) {
       + 'The customer saw this warning and confirmed.';
   }
 
+  // Proof of transfer, if the customer sent one (A100). Said either way:
+  // "no receipt" is information when you are about to decide whether a
+  // transfer arrived, and a blank space is not.
+  const receipt = $('od-receipt');
+  receipt.innerHTML = '';
+  if (o.receipt) {
+    receipt.append(
+      h('span', { class: 'muted small' }, `Receipt · ${when(o.receipt.uploaded_at)} · `),
+      h('a', { class: 'btn small', href: o.receipt.url,
+               target: '_blank', rel: 'noopener' },
+        `Open receipt · ${bytes(o.receipt.bytes)}`));
+  } else {
+    receipt.append(h('span', { class: 'muted small' },
+                     'No receipt attached by the customer.'));
+  }
+
   const files = $('od-files');
   files.innerHTML = '';
   $('od-nofiles').classList.toggle('hidden', o.artifacts.length > 0);

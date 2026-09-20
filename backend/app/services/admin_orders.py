@@ -200,6 +200,15 @@ async def order_detail(session: AsyncSession, human_ref: str) -> dict:
         # this is the last point where a reprint is still cheap — the
         # customer already saw the warning and chose to go ahead.
         "soft_pages": await _soft_pages(session, row),
+        # The customer's proof of transfer, for the operator deciding
+        # whether the money arrived (A100). A signed link rather than the
+        # bytes: it is shown next to the Confirm button, not embedded.
+        "receipt": ({"url": storage.presign_get(order.receipt_key,
+                                                ARTIFACT_URL_EXPIRY_S),
+                     "content_type": order.receipt_content_type,
+                     "bytes": order.receipt_bytes,
+                     "uploaded_at": order.receipt_uploaded_at}
+                    if order.receipt_key else None),
         "events": [{"from": e.from_status, "to": e.to_status,
                     "note": e.note, "at": e.created_at} for e in events],
         # The print files, for the operator only. Customers never see these

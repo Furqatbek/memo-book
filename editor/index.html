@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex">
   <title>RS Pixel — Book editor</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='22' height='24' rx='3' fill='%232456d6'/%3E%3Crect x='9' y='9' width='14' height='9' rx='1.5' fill='white' opacity='.92'/%3E%3Crect x='9' y='21' width='10' height='2.5' rx='1.25' fill='white' opacity='.7'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="editor.css?v=20260916">
+  <link rel="stylesheet" href="editor.css?v=20260920">
   <script src="config.js?v=20260826"></script>
 </head>
 <body>
@@ -293,6 +293,20 @@
           <button id="pay-copy" class="btn small" type="button" data-i18n="order.copyCard"></button>
           <p class="pay-note" data-i18n="order.payCardNote"></p>
           <p class="pay-note"><b data-i18n="order.callNote"></b></p>
+        </div>
+        <!-- Proof of transfer (A100). Sits under the card, because that is
+             where the customer has just been asked to send money — and it
+             closes as soon as the operator has matched the payment. -->
+        <div id="or-receipt" class="card receipt-box hidden">
+          <b data-i18n="receipt.title"></b>
+          <p class="muted small" data-i18n="receipt.hint"></p>
+          <p id="receipt-done" class="receipt-done hidden"></p>
+          <label class="btn receipt-pick">
+            <span id="receipt-pick-label" data-i18n="receipt.choose"></span>
+            <input id="receipt-input" type="file" hidden
+                   accept="image/png,image/jpeg,application/pdf">
+          </label>
+          <p id="receipt-error" class="err small hidden"></p>
         </div>
         <p class="muted" id="or-pay-note" data-i18n="order.payNote"></p>
         <div id="or-dev" class="card dev hidden">

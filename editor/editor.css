@@ -1241,3 +1241,9 @@ a.brand:hover { color: var(--primary); }
   #screen-preview .pv-page img, .steps-dot, .start-track a { transition: none; }
   .timeline li.now::before { animation: none; }
 }
+
+/* ---------- proof of transfer (A100) ---------- */
+.receipt-box { display: flex; flex-direction: column; gap: 10px;
+               align-items: flex-start; }
+.receipt-pick { cursor: pointer; }
+.receipt-done { color: #1c7a45; font-weight: 600; font-size: .92rem; }

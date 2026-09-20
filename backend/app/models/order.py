@@ -40,6 +40,21 @@ class Order(Base):
     shipped_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True),
                                                         nullable=True)
 
+    # The customer's proof of transfer (A100). In the card-transfer pilot the
+    # operator matches payments against the bank by hand, and a screenshot of
+    # the transfer is the one piece of evidence only the customer has. One per
+    # order: re-uploading replaces, because the second attempt is nearly
+    # always a correction of the first.
+    #
+    # The content type is the one WE determined from the bytes, never the one
+    # the browser claimed — see services/receipts.py.
+    receipt_key: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
+    receipt_content_type: Mapped[str | None] = mapped_column(sa.String(64),
+                                                             nullable=True)
+    receipt_bytes: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    receipt_uploaded_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True)
+
 
 class OrderEvent(Base):
     """Append-only audit: every status transition writes a row (spec Part 3)."""

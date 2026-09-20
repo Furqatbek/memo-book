@@ -1703,3 +1703,54 @@ screen's design gallery sits in the DOM behind the editor and is not redrawn
 by the refresh — it does not need to be, since it clears itself and
 re-fetches the catalogue every time it is shown. Asserting over hidden DOM
 would be asserting something nobody can observe.
+
+**A100 — the customer attaches proof of their transfer.** In the
+card-transfer pilot nobody tells us a payment arrived: the operator matches
+transfers against the bank by hand. A screenshot of the transfer is the one
+piece of evidence only the customer has, so they can now attach it to their
+own order, and it appears beside the Confirm button where the operator
+decides whether the money came.
+
+**It is on the ORDER screen, not the checkout form**, and that is the one
+place this was asked for differently. At checkout the customer has not seen
+the card or the amount yet — there is nothing for them to have a receipt of.
+The upload belongs under the bank card, at the moment they have just been
+asked to send money, and it opens and closes with that card: `PAY_CARD_STATUSES`
+was lifted out of `public_status` so the box and the card cannot drift into
+disagreeing about when payment is still outstanding.
+
+**The declared content type is ignored entirely.** A browser will send
+`image/png` for a file of HTML, and these objects are served from our own
+storage hostname — so a stored HTML file would be a script running on that
+origin. The type is read from the first bytes, the file is stored under the
+name WE decide, and anything not recognisably PNG, JPEG or PDF is refused
+whatever it claims. Checked by breaking it: a `sniff` that falls back to
+"probably a PNG" fails four tests, one of which uploads `<script>`.
+
+Smaller decisions, each with a reason:
+
+* **2 MB, checked twice.** The browser checks so a customer hears about a
+  3 MB screenshot before spending their data on it; the server checks
+  because it is the authority. The server reads one byte past the limit and
+  no further — this endpoint is open to anyone holding a reference, so an
+  unbounded read is an invitation. A test uploads exactly 2 MB, because an
+  off-by-one on a published limit is the difference between "2 MB" being
+  true and being nearly true.
+* **The same door as the status page**: reference plus the phone on the
+  order, sharing that endpoint's rate limit, with a wrong phone
+  indistinguishable from an unknown reference (A77). A second, weaker way to
+  reach an order is how a boundary stops being one. The phone rides in the
+  form body rather than the query string, because a POST has no reason to
+  write a customer's phone number into access logs.
+* **The customer is told it arrived, never handed it back.** That page is
+  guarded by a phone number, which is a weaker thing than a login, and a
+  receipt can carry a bank balance across it. `receipt_uploaded_at` is a
+  fact; the file is the operator's.
+* **One receipt, replacing.** A second upload is nearly always a correction
+  of the first. The previous object is deleted when the format differs, or
+  an orphan nobody can reach is still a receipt sitting in a bucket.
+
+This also added the i18n completeness test that did not exist. Nine strings
+in five languages at once is exactly the change that leaves one locale
+showing a customer a raw key like `receipt.title` — nothing errors, nothing
+logs, and it only looks wrong to someone reading that language.

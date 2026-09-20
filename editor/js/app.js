@@ -3114,6 +3114,8 @@ function showOrder() {
   renderTimeline(S.order.status);
   updateArtifacts(null);   // until the next poll confirms
   updatePayCard(null);
+  $('or-receipt').classList.add('hidden');
+  $('receipt-error').classList.add('hidden');
   pollOrder();
 }
 
@@ -3128,6 +3130,63 @@ function updatePayCard(r) {
     $('pay-number').textContent =
       (digits.match(/.{1,4}/g) || [String(card.number)]).join(' ');
     $('pay-holder').textContent = card.holder || '';
+  }
+}
+
+/* ---------- proof of transfer (A100) ---------- */
+
+const RECEIPT_MAX_BYTES = 2 * 1024 * 1024;
+const RECEIPT_TYPES = ['image/png', 'image/jpeg', 'application/pdf'];
+
+/* The box lives and dies with the bank card: an order still asking for money
+   still accepts the proof of it, and one the operator has already matched
+   does not. The server decides that (`receipt_accepted`) rather than the
+   page working it out from a status it would have to keep in step. */
+function updateReceipt(r) {
+  const box = $('or-receipt');
+  if (!r) return;
+  box.classList.toggle('hidden', !r.receipt_accepted);
+  const done = $('receipt-done');
+  if (r.receipt_uploaded_at) {
+    done.textContent = `✓ ${t('receipt.done')} — `
+      + new Date(r.receipt_uploaded_at).toLocaleString();
+    done.classList.remove('hidden');
+    $('receipt-pick-label').textContent = t('receipt.replace');
+  } else {
+    done.classList.add('hidden');
+    $('receipt-pick-label').textContent = t('receipt.choose');
+  }
+}
+
+async function sendReceipt(file) {
+  const err = $('receipt-error');
+  const show = (key) => {
+    err.textContent = t(key);
+    err.classList.remove('hidden');
+  };
+  err.classList.add('hidden');
+  if (!file || !S.order) return;
+  // Checked here so the customer hears about a 3 MB screenshot before
+  // spending their data on it. The server checks again and is the authority
+  // — this is courtesy, not a gate.
+  if (file.size > RECEIPT_MAX_BYTES) return show('receipt.tooBig');
+  if (file.type && !RECEIPT_TYPES.includes(file.type)) return show('receipt.badType');
+
+  const label = $('receipt-pick-label');
+  const was = label.textContent;
+  label.textContent = t('receipt.uploading');
+  try {
+    const r = await api.uploadReceipt(S.order.ref, S.order.phone, file);
+    updateReceipt({ receipt_accepted: true, ...r });
+    toast(t('receipt.done'));
+  } catch (e) {
+    label.textContent = was;
+    // The server's own words when it has some — it knows whether the file
+    // was too big or the wrong kind, and it looked at the bytes.
+    if (e.code === 'VALIDATION_ERROR' && e.message) {
+      err.textContent = e.message;
+      err.classList.remove('hidden');
+    } else show('receipt.failed');
   }
 }
 
@@ -3172,6 +3231,7 @@ async function pollOrder() {
       $('or-pay-note').classList.toggle('hidden', r.status !== 'pending_payment');
     }
     updatePayCard(r);
+    updateReceipt(r);
   } catch (e) { /* transient */ }
   if (!['delivered', 'cancelled'].includes(S.order.status)) {
     S.orderTimer = setTimeout(pollOrder, 3000);
@@ -3394,6 +3454,12 @@ function bind() {
   // Capture, because `error` on an <img> does not bubble. One listener then
   // covers every image on every screen, including ones drawn later (A99).
   document.addEventListener('error', onAssetError, true);
+
+  $('receipt-input').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';   // so picking the same file twice retries
+    sendReceipt(file);
+  });
 
   window.addEventListener('resize', () => {
     if ($('screen-editor').classList.contains('active')) renderCanvas();

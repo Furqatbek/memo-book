@@ -322,3 +322,6 @@ input[type=color] {
 .tg-op { display: flex; align-items: center; gap: 12px; padding: 10px 0;
          border-bottom: 1px solid var(--line); }
 .tg-op .row-meta { flex: 1; display: flex; flex-direction: column; }
+
+/* The customer's proof of transfer, beside the payment decision (A100). */
+.od-receipt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

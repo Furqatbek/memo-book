@@ -130,6 +130,30 @@ export const checkout = (c, form) =>
 export const orderStatus = (ref, phone) =>
   request('GET', `${V}/orders/${encodeURIComponent(ref)}?phone=${encodeURIComponent(phone)}`);
 
+/* Proof of transfer (A100). Multipart rather than JSON, and the phone rides
+   in the BODY rather than the query string — same credential the status
+   lookup uses, but a POST has no reason to write a customer's phone number
+   into access logs and referrers. */
+export async function uploadReceipt(ref, phone, file) {
+  const form = new FormData();
+  form.append('phone', phone);
+  form.append('receipt', file);
+  let resp;
+  try {
+    resp = await fetch(`${BASE}${V}/orders/${encodeURIComponent(ref)}/receipt`,
+                       { method: 'POST', body: form });
+  } catch (e) {
+    throw new ApiError(0, 'NETWORK', null, {});
+  }
+  let data = null;
+  try { data = await resp.json(); } catch (e) { /* non-JSON body */ }
+  if (!resp.ok) {
+    const err = (data && data.error) || {};
+    throw new ApiError(resp.status, err.code, err.message, err.details);
+  }
+  return data;
+}
+
 /* Dev environments only: the API hands over the simulated-payment
    signature (404 in production). */
 export const devConfig = () =>

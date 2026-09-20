@@ -212,6 +212,44 @@ async def cancel_order(session: AsyncSession, order_id: uuid.UUID,
     return order
 
 
+# While the card is on screen, the customer still owes us a transfer — which
+# is exactly the window in which a receipt means anything. Lifted out of
+# `public_status` so the receipt endpoint cannot drift from it: one rule, one
+# place, or the card and the upload box would eventually disagree about when
+# payment is still outstanding (A100).
+PAY_CARD_STATUSES = frozenset({
+    OrderStatus.PENDING_PAYMENT.value, OrderStatus.PAID.value,
+    OrderStatus.RENDERING.value, OrderStatus.RENDER_FAILED.value,
+    OrderStatus.RENDERED.value,
+})
+
+
+async def order_for_receipt(session: AsyncSession, human_ref: str,
+                            phone: str) -> Order:
+    """The order a receipt is being attached to, or a refusal (A100).
+
+    The same door as `public_status`, deliberately: reference plus the phone
+    on the order, and a wrong phone answers exactly like an unknown
+    reference. Anything else here would be a second, weaker way to reach an
+    order, which is how a boundary stops being one.
+    """
+    order = (await session.execute(
+        select(Order).where(Order.human_ref == human_ref.strip().upper())
+    )).scalar_one_or_none()
+    if order is None or normalize_phone(order.customer_phone) != normalize_phone(phone):
+        raise DomainError(ErrorCode.ORDER_NOT_FOUND, "order not found")
+    if order.status not in PAY_CARD_STATUSES:
+        # Past this point the operator has already matched the payment and
+        # sent the book to be printed. Accepting a receipt would file
+        # evidence against a decision that has been made, where nobody is
+        # going to look at it.
+        raise DomainError(
+            ErrorCode.ILLEGAL_TRANSITION,
+            "this order is past the payment stage",
+            {"order_status": order.status})
+    return order
+
+
 async def public_status(session: AsyncSession, human_ref: str, phone: str) -> dict:
     """Public lookup by reference + phone. A wrong phone is indistinguishable
     from an unknown reference."""
@@ -231,6 +269,11 @@ async def public_status(session: AsyncSession, human_ref: str, phone: str) -> di
         "currency": order.currency,
         "created_at": order.created_at,
         "paid_at": order.paid_at,
+        # The fact, never the file. This endpoint is guarded by a phone
+        # number, which is a weaker thing than a login, and a receipt can
+        # carry a bank balance across it (A100).
+        "receipt_uploaded_at": order.receipt_uploaded_at,
+        "receipt_accepted": order.status in PAY_CARD_STATUSES,
     }
     # Card-transfer pilot: show where to send the money. With auto-confirmed
     # orders the flow proceeds without a payment callback, so the card stays
@@ -239,11 +282,6 @@ async def public_status(session: AsyncSession, human_ref: str, phone: str) -> di
     from app.config import get_settings
 
     settings = get_settings()
-    PAY_CARD_STATUSES = {
-        OrderStatus.PENDING_PAYMENT.value, OrderStatus.PAID.value,
-        OrderStatus.RENDERING.value, OrderStatus.RENDER_FAILED.value,
-        OrderStatus.RENDERED.value,
-    }
     if order.status in PAY_CARD_STATUSES and settings.pay_card_number:
         payload["pay_card"] = {
             "number": settings.pay_card_number,

@@ -2,7 +2,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from app.domain.states import OrderStatus
 from app.payments.registry import available_providers, get_provider
 from app.rate_limit import rate_limit
 from app.services import orders as svc
+from app.services import receipts as svc_receipts
 
 router = APIRouter(prefix="/api/v1", tags=["orders"])
 
@@ -82,3 +83,36 @@ async def order_status(human_ref: str, session: Session,
     (A77).
     """
     return await svc.public_status(session, human_ref, phone)
+
+
+@router.post("/orders/{human_ref}/receipt",
+             dependencies=[rate_limit("order-status",
+                                      lambda s: s.rate_limit_order_status_per_min)])
+async def upload_receipt(
+    human_ref: str, session: Session,
+    phone: Annotated[str, Form(min_length=5, max_length=32)],
+    receipt: UploadFile = File(...),
+):
+    """The customer attaches proof of their transfer (A100).
+
+    Same door as the status page: reference plus the phone on the order, and
+    a wrong phone is indistinguishable from an unknown reference. It shares
+    that endpoint's rate limit for the same reason — guessing is the only
+    attack available, so the request rate is the whole security boundary
+    (A77).
+
+    The phone arrives as a FORM field rather than a query parameter. This is
+    a POST either way, but a query string ends up in access logs and
+    referrers, and there is no reason to write a customer's phone number
+    there on every upload.
+    """
+    # Read one byte past the limit, and no further: this endpoint is open to
+    # anyone holding a reference, so an unbounded read is an invitation.
+    raw = await receipt.read(svc_receipts.RECEIPT_MAX_BYTES + 1)
+    order = await svc.order_for_receipt(session, human_ref, phone)
+    await svc_receipts.attach_receipt(session, order, raw)
+    return {
+        "receipt_uploaded_at": order.receipt_uploaded_at,
+        "receipt_bytes": order.receipt_bytes,
+        "receipt_content_type": order.receipt_content_type,
+    }
