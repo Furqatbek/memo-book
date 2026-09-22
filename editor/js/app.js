@@ -3,12 +3,12 @@
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
 import * as api from './api.js?v=20260826';
-import { LANG_NAMES, applyStatic, fmtAmount, initLang, lang, setLang, t } from './i18n.js?v=20260830';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260922';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
   from './cover-templates.js?v=20260824';
-import { makeJobs, runJobs } from './upload.js?v=20260826';
+import { makeJobs, runJobs } from './upload.js?v=20260922';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
 /* Every interior page is bound along one edge, and paper curves into the
@@ -648,6 +648,9 @@ function renderTray() {
     const card = h('div', { class: `ph-card job ${job.status}` });
     if (job.status === 'failed') {
       card.append(h('span', { class: 'badge err' }, t('tray.failed')));
+      // Why, not just that. A red card saying nothing is how somebody with
+      // a .dng ends up asking whether the site is broken (A103).
+      if (job.why) card.append(h('span', { class: 'ph-why' }, t(`upload.why.${job.why}`)));
       card.append(h('button', {
         class: 'ph-del', 'aria-label': t('tool.remove'),
         onclick: (e) => {
@@ -686,6 +689,11 @@ function renderTray() {
     }
     if (p.status === 'failed' || ingestStuck(p)) {
       card.append(h('span', { class: 'badge err' }, t('tray.failed')));
+      // `error` is a stable code from the ingest worker, translated here.
+      // An unknown code says nothing rather than showing the customer a
+      // raw identifier — a new server reason must never print as debris.
+      const key = `photoerr.${p.error}`;
+      if (p.error && has(key)) card.append(h('span', { class: 'ph-why' }, t(key)));
     } else if (INGESTING.has(p.status)) {
       card.append(h('span', { class: 'spin' }));
     } else {
@@ -694,8 +702,15 @@ function renderTray() {
       // a warning about the biggest thing the photo could be asked to do —
       // hence "small", not "bad" (A68).
       if (p.resolution_status && p.resolution_status !== 'ok') {
-        card.append(h('span', { class: 'badge warn', title: t('tray.lowresHint') },
-                      t('tray.lowres')));
+        // A RAW file that came out small is a different story from a small
+        // JPEG, and telling it the same way would be misleading: the sharp
+        // version IS inside the file they gave us, in a form we cannot
+        // decode. So the hint names the fix rather than blaming the photo.
+        const raw = p.mime_original === 'image/x-adobe-dng';
+        card.append(h('span', {
+          class: 'badge warn',
+          title: t(raw ? 'tray.rawPreviewHint' : 'tray.lowresHint'),
+        }, t(raw ? 'tray.rawPreview' : 'tray.lowres')));
       }
       if (placed.has(p.photo_id)) card.append(h('span', { class: 'badge ok' }, '✓'));
     }

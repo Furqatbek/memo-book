@@ -1881,3 +1881,83 @@ Every upload sends, including a replacement, because a corrected receipt is
 exactly the thing worth a second message. A refused upload sends nothing —
 the enqueue is past the sniffing, so a file that is not a PNG, JPEG or PDF
 never becomes a notification.
+
+**A103 — a RAW photo, and a refusal that says why.** Somebody tried to
+upload a `.dng`. Two separate things were wrong, and both of them were
+silent.
+
+**The editor refused it before it ever left the browser.** The file picker
+did not offer `.dng`, and a file that got in anyway produced a red card
+reading "Failed" and nothing else. There was no way to learn that the format
+was the problem, let alone what to do about it — which is why the question
+reached me as "problem with .dng images" rather than as a bug report.
+
+**And had one reached the server, it would have been ACCEPTED.** This is the
+part worth remembering. A DNG is a TIFF container, so Pillow opens one
+without complaining — and hands back IFD0, which in a DNG is a **thumbnail**.
+Measured on a file with a phone's layout: `Image.open` reported 320x240,
+`process_image` returned that as the photo's dimensions, and the 4032x3024
+picture sat in the file the whole time in a SubIFD nothing had looked at.
+Nothing raised. Nothing logged. A twelve-megapixel photograph would have
+gone into a printed book as a postage stamp, and the only warning anyone
+would have got is the low-resolution badge — telling the customer their
+photo was too small while the sharp version was inside the file they gave
+us.
+
+**Where the picture actually is.** IFD0 carries `SubIFDs` (tag 330): a list
+of further IFDs holding the sensor data (a Bayer mosaic under lossless JPEG,
+which nothing here decodes without a raw processor) and the previews the
+camera rendered itself, which are ordinary JPEGs. `services/dng.py` walks
+that structure and returns the **largest** picture present — "the first one"
+being precisely the bug, since in a DNG the first one is the thumbnail.
+
+Four judgements inside it:
+
+* **The camera's rendering, not ours.** Even with LibRaw on hand, the
+  embedded preview is the better source for a photo book: it is what the
+  customer saw on their phone. Our own demosaic would be flatter and
+  differently coloured — more faithful to the sensor, less faithful to the
+  person.
+* **Sniffed from the bytes.** The declared content type is whatever the
+  browser said, and a DNG renamed `.jpg` is still a DNG. Detection reads the
+  container, which also closes the hole where a mislabelled upload got the
+  thumbnail treatment.
+* **Sensor data is never mistaken for a picture.** The raw SubIFD is
+  JPEG-compressed too; what disqualifies it is its photometric
+  interpretation. A Bayer mosaic decoded as a photograph is a green grid.
+* **The tags say JPEG; the bytes have the last word.** A strip that does not
+  begin with SOI is skipped. Handing a decoder whatever a container points
+  at is how a file format becomes an attack surface.
+
+**It classifies, it does not refuse.** A DNG carrying only a thumbnail comes
+through at that size and gets the ordinary low-resolution treatment, because
+`domain/resolution.py` says that call is not this layer's to make (A79). The
+tray does say something different about a RAW file, though: the sharp
+version IS in the file, so the hint names the fix ("export a JPEG") instead
+of blaming the photo.
+
+**The other half: failures now name themselves.** `IngestError` carries a
+stable `code` as well as its English prose, and the code is what is stored
+on the photo — the column used to hold the prose, which nothing displayed.
+The editor translates the code into one of five languages and prints it on
+the card, and an unknown code prints nothing rather than showing a customer
+a raw identifier like `photoerr.something`. Client-side refusals (wrong
+type, too big) got the same treatment; before this they were indistinguish-
+able from each other and from a server failure.
+
+**The browser is not allowed to shrink a RAW file**, even where it offers
+to. A DNG holds several images and nothing in `createImageBitmap` says which
+one comes back — a downscaled thumbnail would look like a successful upload
+and print like a postage stamp, which is the bug again with the evidence
+moved somewhere we cannot see it. The server picks the image.
+
+The cost of that decision is upload size: a ProRAW file is 25-80MB and goes
+up whole, so a big one is refused for size and a `MAX_UPLOAD_BYTES` raise
+would only make a Tashkent mobile upload slower. **Extracting the preview in
+the browser** — the same SubIFD walk, in JavaScript, uploading a few MB
+instead of tens — is the obvious next step and is deliberately not in this
+change: it is a second parser against a format I cannot test on real files
+here, and the server is the one that has to be right.
+
+`checks/rawphoto.js` holds the whole thing, and it earns its place: with the
+old `_pixel_source` pasted back, it fails reporting `320×240 px`.

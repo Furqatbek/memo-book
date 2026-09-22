@@ -29,7 +29,13 @@ from app.services.image_processing import IngestError, process_image
 
 log = structlog.get_logger()
 
-ALLOWED_MIMES = {"image/jpeg", "image/png", "image/heic", "image/heif"}
+# DNG is here because a phone shooting ProRAW, or anyone exporting from
+# Lightroom, produces one — and refusing it used to mean a red card with no
+# reason on it. What we actually print is the full-size preview the camera
+# rendered into the file, which is both what the customer saw and the only
+# thing in there we can decode without a raw processor (A103).
+ALLOWED_MIMES = {"image/jpeg", "image/png", "image/heic", "image/heif",
+                 "image/x-adobe-dng"}
 # The browser downscales before uploading, so real uploads land far below
 # this; the ceiling only has to accommodate the untouched-original fallback
 # (HEIC on browsers that cannot decode it) and block abuse.
@@ -163,9 +169,14 @@ async def ingest_photo(session: AsyncSession, photo_id: uuid.UUID) -> Photo:
                  taken_at=str(photo.taken_at))
     except IngestError as exc:
         photo.status = PhotoStatus.FAILED.value
-        photo.error = exc.reason
+        # The CODE, not the prose. This column is read by the editor, which
+        # has to say what went wrong in one of five languages; the English
+        # sentence goes to the log, where English is the right language
+        # (A103).
+        photo.error = exc.code
         await session.commit()
-        log.warning("photo.ingest_failed", photo_id=str(photo.id), reason=exc.reason)
+        log.warning("photo.ingest_failed", photo_id=str(photo.id),
+                    code=exc.code, reason=exc.reason)
     return photo
 
 

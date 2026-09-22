@@ -8,6 +8,8 @@ from PIL.ExifTags import IFD
 
 from app.services import image_processing as ip
 from app.services.image_processing import IngestError, process_image
+from tests.dng_fixture import build_dng
+from tests.dng_fixture import jpeg_bytes as fixture_jpeg
 
 TS = "2026:06:01 10:30:00"
 TS_DT = datetime(2026, 6, 1, 10, 30, tzinfo=UTC)
@@ -137,3 +139,98 @@ class TestValidation:
         monkeypatch.setattr(ip, "MAX_BYTES", 10)
         with pytest.raises(IngestError, match="exceeds"):
             process_image(jpeg_bytes())
+
+
+class TestRawFiles:
+    """A103. A DNG is a TIFF container whose IFD0 is a THUMBNAIL, so this
+    pipeline used to accept one, report 320x240, raise nothing, and let a
+    12-megapixel photograph go into a book as a postage stamp. There was no
+    error to notice and no log line to find — the only symptom would have
+    been a printed book."""
+
+    def test_a_dng_yields_the_real_photo_not_the_thumbnail(self):
+        result = process_image(build_dng())
+        assert (result.width, result.height) == (4032, 3024)
+
+    def test_the_derivatives_are_built_from_the_real_photo(self):
+        """Not just the reported numbers: the pixels that reach the page."""
+        result = process_image(build_dng())
+        display = Image.open(io.BytesIO(result.display_jpeg))
+        assert max(display.size) == ip.DISPLAY_LONG_EDGE
+        assert display.width > display.height        # 4:3 landscape, like the raw
+
+    def test_the_hash_is_of_the_file_the_customer_uploaded(self):
+        """Duplicate detection keys on this. Hashing the extracted preview
+        would make two different DNGs that happen to share a preview look
+        like the same photo, and would stop the same file uploaded twice
+        from being recognised as a duplicate at all."""
+        import hashlib
+
+        data = build_dng()
+        assert process_image(data).sha256 == hashlib.sha256(data).hexdigest()
+
+    def test_the_capture_time_comes_off_the_container(self):
+        """The embedded preview usually carries no EXIF of its own, and a
+        photo with no date falls out of date ordering (R2)."""
+        result = process_image(build_dng(taken_at=TS))
+        assert result.taken_at == TS_DT
+
+    def test_the_previews_own_orientation_is_used_when_it_has_one(self):
+        result = process_image(
+            build_dng(preview_size=(400, 200), preview_orientation=6))
+        assert (result.width, result.height) == (200, 400)
+
+    def test_and_the_containers_orientation_when_it_does_not(self):
+        """Cameras differ on whether the embedded preview is already upright.
+        Trusting only one of the two tags puts somebody's photos in
+        sideways."""
+        result = process_image(
+            build_dng(preview_size=(400, 200), thumb_orientation=6))
+        assert (result.width, result.height) == (200, 400)
+
+    def test_a_dng_with_only_a_thumbnail_is_taken_at_face_value(self):
+        """Some DNGs really do carry nothing but sensor data and a thumbnail.
+        We use the best thing present and let the low-resolution machinery
+        say it will print badly — refusing is not this layer's call (A79)."""
+        result = process_image(build_dng(with_preview=False))
+        assert (result.width, result.height) == (320, 240)
+
+    def test_a_dng_we_cannot_read_at_all_says_which_failure_it_is(self):
+        data = build_dng(with_preview=False, thumb_size=(8, 8))
+        broken = data.replace(fixture_jpeg((8, 8), (190, 60, 60))[:3],
+                              b"\x00\x00\x00", 1)
+        with pytest.raises(IngestError) as caught:
+            process_image(broken)
+        assert caught.value.code == "raw_no_preview"
+
+    def test_an_ordinary_photo_is_untouched_by_any_of_this(self):
+        """The DNG path must be invisible to the 99% case."""
+        result = process_image(jpeg_bytes(800, 600, exif=build_exif(TS)))
+        assert (result.width, result.height) == (800, 600)
+        assert result.taken_at == TS_DT
+
+
+class TestFailureCodes:
+    """Every failure carries a stable code, because the editor has to say
+    what went wrong in one of five languages. Before A103 it stored English
+    prose that nothing ever displayed, and every failed upload showed a bare
+    red "Failed" (A103)."""
+
+    @pytest.mark.parametrize("code,make", [
+        ("empty", lambda: b""),
+        ("not_an_image", lambda: b"definitely not an image" * 100),
+        ("raw_no_preview", lambda: build_dng(with_preview=False, thumb_size=(8, 8))
+            .replace(fixture_jpeg((8, 8), (190, 60, 60))[:3], b"\x00\x00\x00", 1)),
+    ])
+    def test_each_failure_has_its_own_code(self, code, make):
+        with pytest.raises(IngestError) as caught:
+            process_image(make())
+        assert caught.value.code == code
+
+    def test_the_prose_survives_for_the_log(self):
+        """The code is for the customer, the sentence is for whoever reads
+        the log — and English is the right language there."""
+        with pytest.raises(IngestError) as caught:
+            process_image(b"")
+        assert caught.value.reason == "empty file"
+        assert str(caught.value) == "empty file"

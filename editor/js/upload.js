@@ -13,9 +13,19 @@ import * as api from './api.js?v=20260826';
 // Absurd-file guard only; the shrink step is what actually keeps uploads
 // small, and the server enforces its own limit on what arrives.
 const MAX_BYTES = 80 * 1024 * 1024;
+/* What the server will actually take (`photos.MAX_UPLOAD_BYTES`). The two
+   differ on purpose: MAX_BYTES is an absurd-file guard on the ORIGINAL, and
+   a 70MB JPEG is fine because the shrink below turns it into a few MB. A
+   RAW file is never shrunk, so for one of those the server's limit is the
+   real one — and a file that passes here only to be refused there comes
+   back as a red card with no reason on it, which is the thing A103 is
+   about. */
+const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
+const DNG_MIME = 'image/x-adobe-dng';
 const MIME_BY_EXT = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
   heic: 'image/heic', heif: 'image/heif',
+  dng: DNG_MIME,
 };
 
 // 3500px long edge: a landscape 4:3 photo cropped to the portrait page still
@@ -25,10 +35,16 @@ const JPEG_QUALITY = 0.85;
 // Below this the transfer is already quick and re-encoding only loses quality.
 const SKIP_SHRINK_BYTES = 900 * 1024;
 
+/* The extension wins whenever we recognise it. The same .dng arrives as
+   'image/x-adobe-dng', 'image/tiff' or nothing at all depending on the
+   browser and the operating system, and only one of those is a type the
+   server takes — so asking the browser first meant a file we support being
+   refused for the name its OS happened to give it (A103). */
 function guessMime(file) {
-  if (file.type && file.type !== 'application/octet-stream') return file.type;
   const ext = (file.name.split('.').pop() || '').toLowerCase();
-  return MIME_BY_EXT[ext] || '';
+  if (MIME_BY_EXT[ext]) return MIME_BY_EXT[ext];
+  if (file.type && file.type !== 'application/octet-stream') return file.type;
+  return '';
 }
 
 /* ---------- JPEG header scan: EXIF date, orientation, raw size ---------- */
@@ -126,6 +142,14 @@ export async function prepareFile(file) {
   const fallback = { blob: file, mime, takenAt: header.date };
   if (typeof createImageBitmap !== 'function') return fallback;
   if (file.size <= SKIP_SHRINK_BYTES) return fallback;
+  /* A RAW file is never shrunk here, even where the browser offers to
+     decode one. A DNG holds several images — a thumbnail, sometimes a
+     full-size preview, and the sensor data — and nothing in this API says
+     WHICH one we would get back. Handing up a downscaled thumbnail would
+     look like a successful upload and print like a postage stamp, which is
+     the exact bug A103 fixed on the server. The server picks the image, and
+     it picks the largest one in the file. */
+  if (mime === DNG_MIME) return fallback;
 
   let bitmap = null;
   try {
@@ -164,15 +188,29 @@ export async function prepareFile(file) {
   }
 }
 
+/* Why a file never left the browser. These are the only two reasons, and
+   before A103 neither of them was ever said out loud: an unsupported file
+   got a red card reading "Failed" and nothing else, so somebody holding a
+   .dng had no way to learn that the format was the problem — let alone
+   what to do about it. */
+export function rejectReason(file) {
+  const mime = guessMime(file);
+  if (!Object.values(MIME_BY_EXT).includes(mime)) return 'type';
+  // A file we will shrink is measured against the absurd-file guard; one we
+  // will not is measured against what the server takes, because for that one
+  // the two are the same number.
+  const cap = mime === DNG_MIME ? MAX_UPLOAD_BYTES : MAX_BYTES;
+  if (file.size <= 0 || file.size > cap) return 'size';
+  return null;
+}
+
 export function makeJobs(files) {
   const jobs = [];
   for (const file of files) {
-    const mime = guessMime(file);
-    const supported = Object.values(MIME_BY_EXT).includes(mime);
-    const sizeOk = file.size > 0 && file.size <= MAX_BYTES;
+    const why = rejectReason(file);
     jobs.push({
-      file, mime, name: file.name, photo_id: null,
-      status: supported && sizeOk ? 'queued' : 'failed',
+      file, mime: guessMime(file), name: file.name, photo_id: null,
+      why, status: why ? 'failed' : 'queued',
     });
   }
   return jobs;

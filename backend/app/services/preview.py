@@ -13,6 +13,7 @@ from app.models.book import Book
 from app.models.photo import Photo
 from app.render.preview import render_preview_cover, render_preview_page
 from app.services.books import get_book_authed
+from app.services.photo_bytes import read_original
 from app.services.placement import USABLE_STATUSES
 
 log = structlog.get_logger()
@@ -88,7 +89,7 @@ async def run_preview(session: AsyncSession, book_id: uuid.UUID) -> None:
         cover_bytes = None
         if cover_photo is not None:
             cover_bytes = await anyio.to_thread.run_sync(
-                storage.get_bytes, cover_photo.original_key
+                read_original, cover_photo.original_key
             )
         from app.services.cover_designs import (
             design_artwork_bytes,
@@ -119,7 +120,7 @@ async def run_preview(session: AsyncSession, book_id: uuid.UUID) -> None:
                 photo = photos.get(placement["photo_id"])
                 if photo is not None:
                     back_bytes[placement["photo_id"]] = await anyio.to_thread.run_sync(
-                        storage.get_bytes, photo.original_key
+                        read_original, photo.original_key
                     )
             back_jpeg = await anyio.to_thread.run_sync(
                 render_preview_page, back_page, back_bytes, back_artwork
@@ -137,7 +138,7 @@ async def run_preview(session: AsyncSession, book_id: uuid.UUID) -> None:
                 photo = photos.get(placement["photo_id"])
                 if photo is not None:
                     photo_bytes[placement["photo_id"]] = await anyio.to_thread.run_sync(
-                        storage.get_bytes, photo.original_key
+                        read_original, photo.original_key
                     )
             jpeg = await anyio.to_thread.run_sync(
                 render_preview_page, page, photo_bytes

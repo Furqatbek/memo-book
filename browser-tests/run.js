@@ -53,6 +53,8 @@ const NEEDS = {
     + 'open, not just that the customer was thanked)',
   swatchpop: 'nothing — and it needs no photos either, so it is the fastest '
     + 'check here; it guards the race that made freeform flaky (A101)',
+  rawphoto: 'nothing — it uploads fixtures/prorawA.dng, whose real picture '
+    + 'hides in a SubIFD behind a 320x240 thumbnail (A103)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',

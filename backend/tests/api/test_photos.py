@@ -5,8 +5,11 @@ from app import storage
 from app.services.photos import MAX_UPLOAD_BYTES
 from tests.api.test_books import auth, make_book
 from tests.services.test_image_processing import build_exif, heic_bytes, jpeg_bytes
+from tests.dng_fixture import build_dng
+from tests.dng_fixture import jpeg_bytes as fixture_jpeg
 
 OVERSIZE = MAX_UPLOAD_BYTES + 1
+DNG_MIME = "image/x-adobe-dng"
 
 
 async def start_upload(client, book, filename="trip.jpg", mime="image/jpeg", size=1000):
@@ -103,7 +106,9 @@ class TestIngestFlow:
         await upload_photo(client, book, b"not an image at all" * 50)
         [photo] = await photo_list(client, book)
         assert photo["status"] == "failed"
-        assert "not a valid image" in photo["error"]
+        # A stable code, not English prose: the editor turns this into a
+        # sentence in the customer's own language (A103).
+        assert photo["error"] == "not_an_image"
 
     async def test_duplicate_detected_within_book(self, client):
         book = await make_book(client)
@@ -196,3 +201,60 @@ class TestClientSuppliedCaptureTime:
         assert resp.status_code == 200
         [photo] = await photo_list(client, book)
         assert photo["taken_at"] is None
+
+
+class TestRawUploads:
+    """A103: a .dng from a phone shooting ProRAW, or a Lightroom export.
+
+    Before this, the editor refused one outright with a red card that said
+    nothing — and had it reached the server, ingest would have accepted the
+    320x240 thumbnail inside it as the photograph.
+    """
+
+    async def test_a_dng_is_accepted_and_lands_at_full_size(self, client):
+        book = await make_book(client)
+        await upload_photo(client, book, build_dng(), mime=DNG_MIME)
+        [photo] = await photo_list(client, book)
+        assert photo["status"] == "ready"
+        assert (photo["width"], photo["height"]) == (4032, 3024)
+        # And that size is what the low-resolution badge is computed from.
+        assert photo["resolution_status"] == "ok"
+
+    async def test_the_editor_can_tell_it_was_a_raw_file(self, client):
+        """The tray says something different about a RAW file that came out
+        small — the sharp version is inside the file the customer gave us,
+        so blaming the photo would be misleading."""
+        book = await make_book(client)
+        await upload_photo(client, book, build_dng(preview_size=(600, 450)),
+                           mime=DNG_MIME)
+        [photo] = await photo_list(client, book)
+        assert photo["mime_original"] == DNG_MIME
+        assert photo["resolution_status"] == "block"
+
+    async def test_a_dng_we_cannot_read_fails_with_a_reason(self, client):
+        book = await make_book(client)
+        data = build_dng(with_preview=False, thumb_size=(8, 8))
+        broken = data.replace(fixture_jpeg((8, 8), (190, 60, 60))[:3],
+                              b"\x00\x00\x00", 1)
+        await upload_photo(client, book, broken, mime=DNG_MIME)
+        [photo] = await photo_list(client, book)
+        assert photo["status"] == "failed"
+        assert photo["error"] == "raw_no_preview"
+
+    async def test_the_same_dng_twice_is_a_duplicate(self, client):
+        """The hash is of the uploaded file, so this still works when the
+        pixels we actually used came from inside it."""
+        book = await make_book(client)
+        data = build_dng()
+        first = await upload_photo(client, book, data, mime=DNG_MIME)
+        second = await upload_photo(client, book, data, mime=DNG_MIME)
+        photos = {p["photo_id"]: p for p in await photo_list(client, book)}
+        assert photos[first]["status"] == "ready"
+        assert photos[second]["status"] == "duplicate"
+
+    async def test_a_format_we_do_not_take_is_still_refused(self, client):
+        """Adding one type must not quietly open the door to every type."""
+        book = await make_book(client)
+        resp = await start_upload(client, book, filename="x.bmp",
+                                  mime="image/bmp", size=1000)
+        assert resp.status_code == 422

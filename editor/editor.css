@@ -459,6 +459,16 @@ select {
   position: absolute; bottom: 2px; left: 4px; right: 4px; font-size: .62rem;
   color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Why a card is red (A103). A failed card used to carry the word "Failed"
+   and nothing else, so an unreadable file and a 90 MB one looked identical
+   and neither told you what to do. Sits above the file name, wraps, and is
+   clamped so a long reason cannot push the name off a card this small. */
+.ph-card .ph-why {
+  position: absolute; left: 4px; right: 4px; bottom: 16px;
+  font-size: .6rem; line-height: 1.25; color: var(--danger); text-align: center;
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+}
 .badge {
   position: absolute; top: 4px; left: 4px; background: rgba(22,24,29,.78); color: #fff;
   font-size: .6rem; border-radius: 5px; padding: 2px 5px; max-width: calc(100% - 8px);

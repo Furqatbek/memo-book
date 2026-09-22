@@ -19,6 +19,7 @@ from app.models.photo import Photo
 from app.render.color import convert_pdf_to_cmyk
 from app.render.compose import RenderError
 from app.render.interior import build_pdf
+from app.services.photo_bytes import read_original
 from app.services.placement import USABLE_STATUSES
 
 log = structlog.get_logger()
@@ -83,7 +84,10 @@ async def render_interior(session: AsyncSession, book_id: uuid.UUID) -> dict:
     started = time.monotonic()
 
     def fetch_original(photo_id: str) -> bytes:
-        return storage.get_bytes(photos[photo_id].original_key)
+        # `read_original`, never `storage.get_bytes`: a DNG's own first
+        # image is a thumbnail, so handing the container straight to the
+        # renderer prints a postage stamp and reports nothing wrong (A103).
+        return read_original(photos[photo_id].original_key)
 
     def build() -> bytes:
         return build_pdf(book.layout["pages"], fetch_original,
@@ -128,7 +132,7 @@ async def render_cover(session: AsyncSession, book_id: uuid.UUID) -> dict:
         if photo is None:
             raise RenderError(f"cover references unavailable photo {photo_id}")
         photo_bytes = await anyio.to_thread.run_sync(
-            storage.get_bytes, photo.original_key
+            read_original, photo.original_key
         )
 
     # Photos the customer put on the back panel (A91). Fetched here rather
@@ -141,7 +145,7 @@ async def render_cover(session: AsyncSession, book_id: uuid.UUID) -> dict:
         if photo is None:
             raise RenderError(f"back cover references unavailable photo {pid}")
         back_photo_bytes[pid] = await anyio.to_thread.run_sync(
-            storage.get_bytes, photo.original_key
+            read_original, photo.original_key
         )
 
     # The chosen design's artwork prints behind everything else (A71), and

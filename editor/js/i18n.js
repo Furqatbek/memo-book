@@ -53,6 +53,15 @@ const STRINGS = {
     'tray.duplicate': 'Duplicate',
     'tray.lowres': 'Small photo',
     'tray.lowresHint': 'Fine in a small frame — may print soft across a whole page.',
+    'tray.rawPreview': 'RAW preview',
+    'tray.rawPreviewHint': 'We used the preview stored inside your RAW file. Export a JPEG from your photo app for full quality.',
+    'upload.why.type': 'We cannot read this kind of file',
+    'upload.why.size': 'This file is too big',
+    'photoerr.empty': 'The file was empty',
+    'photoerr.too_large': 'This photo is too big to process',
+    'photoerr.not_an_image': 'This file is not a photo',
+    'photoerr.corrupt': 'This file is damaged',
+    'photoerr.raw_no_preview': 'This RAW file has no preview we can read — export a JPEG',
     'res.warn': 'May print soft',
     'res.block': 'Too small to print well',
     'preview.softWarn': 'Some photos may print soft — see page {pages}. Zoom out or use a smaller frame.',
@@ -222,6 +231,15 @@ const STRINGS = {
     'tray.duplicate': 'Дубликат',
     'tray.lowres': 'Маленькое фото',
     'tray.lowresHint': 'Годится для небольшой рамки — на всю страницу может выйти нерезко.',
+    'tray.rawPreview': 'Превью RAW',
+    'tray.rawPreviewHint': 'Мы взяли превью из вашего RAW-файла. Для полного качества сохраните JPEG в приложении «Фото».',
+    'upload.why.type': 'Мы не умеем читать такой файл',
+    'upload.why.size': 'Файл слишком большой',
+    'photoerr.empty': 'Файл оказался пустым',
+    'photoerr.too_large': 'Фото слишком большое для обработки',
+    'photoerr.not_an_image': 'Это не фотография',
+    'photoerr.corrupt': 'Файл повреждён',
+    'photoerr.raw_no_preview': 'В этом RAW-файле нет читаемого превью — сохраните JPEG',
     'res.warn': 'Может выйти нерезко',
     'res.block': 'Слишком мало для печати',
     'preview.softWarn': 'Некоторые фото могут выйти нерезкими — см. стр. {pages}. Уменьшите зум или возьмите рамку поменьше.',
@@ -391,6 +409,15 @@ const STRINGS = {
     'tray.duplicate': 'Takror',
     'tray.lowres': 'Kichik rasm',
     'tray.lowresHint': 'Kichik ramkaga yaxshi — butun sahifada xira chiqishi mumkin.',
+    'tray.rawPreview': 'RAW ko‘rinishi',
+    'tray.rawPreviewHint': 'RAW faylingiz ichidagi ko‘rinishdan foydalandik. To‘liq sifat uchun suratlar ilovasidan JPEG saqlang.',
+    'upload.why.type': 'Bu turdagi faylni o‘qiy olmaymiz',
+    'upload.why.size': 'Bu fayl juda katta',
+    'photoerr.empty': 'Fayl bo‘sh ekan',
+    'photoerr.too_large': 'Bu surat qayta ishlash uchun juda katta',
+    'photoerr.not_an_image': 'Bu fayl surat emas',
+    'photoerr.corrupt': 'Bu fayl shikastlangan',
+    'photoerr.raw_no_preview': 'Bu RAW faylda o‘qiy oladigan ko‘rinish yo‘q — JPEG saqlang',
     'res.warn': 'Xira chiqishi mumkin',
     'res.block': 'Chop etish uchun juda kichik',
     'preview.softWarn': 'Ayrim rasmlar xira chiqishi mumkin — {pages}-sahifaga qarang. Zoomni kamaytiring yoki kichikroq ramka tanlang.',
@@ -560,6 +587,15 @@ const STRINGS = {
     'tray.duplicate': 'Такрор',
     'tray.lowres': 'Кичик расм',
     'tray.lowresHint': 'Кичик рамкага яхши — бутун саҳифада хира чиқиши мумкин.',
+    'tray.rawPreview': 'RAW кўриниши',
+    'tray.rawPreviewHint': 'RAW файлингиз ичидаги кўринишдан фойдаландик. Тўлиқ сифат учун суратлар иловасидан JPEG сақланг.',
+    'upload.why.type': 'Бу турдаги файлни ўқий олмаймиз',
+    'upload.why.size': 'Бу файл жуда катта',
+    'photoerr.empty': 'Файл бўш экан',
+    'photoerr.too_large': 'Бу сурат қайта ишлаш учун жуда катта',
+    'photoerr.not_an_image': 'Бу файл сурат эмас',
+    'photoerr.corrupt': 'Бу файл шикастланган',
+    'photoerr.raw_no_preview': 'Бу RAW файлда ўқий оладиган кўриниш йўқ — JPEG сақланг',
     'res.warn': 'Хира чиқиши мумкин',
     'res.block': 'Чоп этиш учун жуда кичик',
     'preview.softWarn': 'Айрим расмлар хира чиқиши мумкин — {pages}-саҳифага қаранг. Зумни камайтиринг ёки кичикроқ рамка танланг.',
@@ -729,6 +765,15 @@ const STRINGS = {
     'tray.duplicate': 'Tákirar',
     'tray.lowres': 'Kishkene súwret',
     'tray.lowresHint': 'Kishkene ramkaǵa jaraydı — pútkil bette búlıńǵır shıǵıwı múmkin.',
+    'tray.rawPreview': 'RAW kórinisi',
+    'tray.rawPreviewHint': 'RAW faylıńız ishindegi kórinisti paydalandıq. Tolıq sapa ushın súwretler qosımshasınan JPEG saqlań.',
+    'upload.why.type': 'Bul túrdegi fayldı oqıy almaymız',
+    'upload.why.size': 'Bul fayl júdá úlken',
+    'photoerr.empty': 'Fayl bos eken',
+    'photoerr.too_large': 'Bul súwret qayta islew ushın júdá úlken',
+    'photoerr.not_an_image': 'Bul fayl súwret emes',
+    'photoerr.corrupt': 'Bul fayl zaqımlanǵan',
+    'photoerr.raw_no_preview': 'Bul RAW faylda oqıy alatuǵın kórinis joq — JPEG saqlań',
     'res.warn': 'Búlıńǵır shıǵıwı múmkin',
     'res.block': 'Basıp shıǵarıw ushın júdá kishkene',
     'preview.softWarn': 'Ayırım súwretler búlıńǵır shıǵıwı múmkin — {pages}-betke qarań. Zoomdı kemeytiń yamasa kishirek ramka saylań.',
@@ -885,6 +930,15 @@ export function setLang(l) {
   lang = l;
   try { localStorage.setItem(KEY, l); } catch (e) { /* private mode */ }
   applyStatic();
+}
+
+/* Whether a key exists at all, in this language or in the English fallback.
+   `t` returns the key itself when it finds nothing, which is a fine default
+   for a key we wrote and a terrible one for a key that arrived from the
+   server — a photo that failed for a reason this build has never heard of
+   would print "photoerr.something" onto the card (A103). */
+export function has(key) {
+  return STRINGS[lang][key] !== undefined || STRINGS.en[key] !== undefined;
 }
 
 export function t(key, vars) {
