@@ -6,3 +6,6 @@ __pycache__/
 .hypothesis/
 .ruff_cache/
 dev.db
+dev.db-journal
+dev.db-wal
+dev.db-shm
