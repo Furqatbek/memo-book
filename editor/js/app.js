@@ -3,7 +3,7 @@
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
 import * as api from './api.js?v=20260826';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260922';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260924';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
@@ -570,7 +570,8 @@ function renderAll() {
 function applyLocked() {
   $('locked-banner').classList.toggle('hidden', !S.locked);
   $('btn-view-order').classList.toggle('hidden', !load('mb-order'));
-  for (const id of ['tier-select', 'btn-autofill', 'btn-add-text', 'btn-layout', 'file-input']) {
+  for (const id of ['tier-select', 'btn-autofill', 'btn-add-text', 'btn-layout',
+                    'btn-settings', 'file-input']) {
     $(id).disabled = S.locked;
   }
   $('btn-preview').disabled = false;
@@ -600,6 +601,12 @@ function updatePageLabel() {
   // and only when there is a catalogue to change it to.
   $('btn-cover-design').classList.toggle(
     'hidden', S.page !== -1 || S.locked || !S.designs.length);
+  // The settings panel is about the cover's text and colours, so it is
+  // offered on the cover and nowhere else — same rule as everything above
+  // it (A85). Closing it on the way out stops it hanging over a page it
+  // does not describe.
+  $('btn-settings').classList.toggle('hidden', S.page !== -1 || S.locked);
+  if (S.page !== -1 || S.locked) closeSettingsPop();
 }
 
 /* What is actually missing, counted the way the layout consumes photos: a
@@ -1165,14 +1172,19 @@ function renderPageTools() {
       $('page-canvas').style.background = v;
       markDirty();
     }, () => renderCanvas()));
-    box.append(colorInput(cover.title_color || (cover.photo_id ? '#ffffff' : '#1a1a1a'),
+    // Only where there is a title to colour. Offering it on a cover with no
+    // text is a button you can press that does nothing (A85); the settings
+    // panel is where you turn the title back on.
+    if (coverHasTitle(cover)) {
+      box.append(colorInput(cover.title_color || (cover.photo_id ? '#ffffff' : '#1a1a1a'),
                           t('tool.titleColor'), (v) => {
-      cover.title_color = v;
-      for (const inp of document.querySelectorAll('.cover-titles input')) {
-        inp.style.color = v;
-      }
-      markDirty();
-    }));
+        cover.title_color = v;
+        for (const inp of document.querySelectorAll('.cover-titles input')) {
+          inp.style.color = v;
+        }
+        markDirty();
+      }));
+    }
   } else {
     const page = pageDoc();
     // On the back this writes the cover's colour, which is the same sheet.
@@ -1301,6 +1313,17 @@ function applyCoverTemplate(id) {
 /* Does the title block sit on top of the photo? Pure geometry, so it stays
    right when the customer drags the title off the picture. Mirrors
    backend/app/domain/cover_templates.py:title_on_photo. */
+/* Does this cover carry a title at all?
+ *
+ * The same predicate both renderers use — `cover.py` and `preview.py` each
+ * return early when the title and subtitle are both blank — so there is no
+ * fourth opinion about it and no flag to keep in step. Deleting the text IS
+ * removing the title, which is why the settings panel's switch does exactly
+ * that and nothing else (A104). */
+function coverHasTitle(cover) {
+  return !!((cover.title || '').trim() || (cover.subtitle || '').trim());
+}
+
 function titleOnCoverPhoto(cover) {
   const r = coverPhotoRect();
   const cx = cover.title_x_mm ?? TRIM_W / 2;
@@ -1372,6 +1395,33 @@ function renderCover(canvas) {
   const rot = cover.title_rotation || 0;
   const selected = S.sel && S.sel.kind === 'cover';
 
+  const titles = buildCoverTitles(cover, scale, textColor, selected);
+
+  for (const st of cover.stickers || []) {
+    canvas.append(makeSticker(st, cover.stickers));
+  }
+  if (titles) canvas.append(titles);
+}
+
+/* The cover's title block as a detached element, or null when this cover
+ * has none. Built apart from `renderCover` so that "no title" can mean no
+ * element at all rather than an invisible one. */
+function buildCoverTitles(cover, scale, textColor, selected) {
+  const cx = cover.title_x_mm ?? TRIM_W / 2;
+  const cy = cover.title_y_mm ?? 122;
+  const rot = cover.title_rotation || 0;
+  /* A cover with no title and no subtitle has no title block — which is
+     what BOTH renderers already did, and what the editor refused to do
+     (A104). It kept two inputs on the cover showing "Add a title" and "Add
+     a subtitle" in title-sized type, so a customer who deleted the prefilled
+     title still had text sitting on their cover with no way to remove it.
+     It never printed, which made it worse rather than better: the editor was
+     showing something the book would not have.
+     While the block is SELECTED it stays regardless, or it would vanish
+     from under the caret the moment the last character went. Clicking away
+     empty is what removes it, and `select(null)` redraws. */
+  if (!coverHasTitle(cover) && !selected) return null;
+
   const titles = h('div', { class: 'cover-titles' + (selected ? ' sel' : '')
     + (cy < 28 ? ' flip' : '') });
   titles.style.left = pct(cx + BLEED, CANVAS_W);
@@ -1403,7 +1453,14 @@ function renderCover(canvas) {
   for (const input of [title, subtitle]) {
     input.addEventListener('focus', () => select({ kind: 'cover' }, true));
   }
-  titles.append(title, subtitle);
+  /* An empty line is not shown unless the block is being edited — the same
+     rule as the block itself, one level down. A cover with a title and no
+     subtitle used to print one line and show two, the second reading "Add a
+     subtitle" in grey italics with a dashed box round it. That is an
+     affordance while you are working on the text and a piece of text you
+     cannot delete the rest of the time (A104). */
+  if ((cover.title || '').trim() || selected) titles.append(title);
+  if ((cover.subtitle || '').trim() || selected) titles.append(subtitle);
 
   // Shared drag starter — used by the block body (when not typing) and by
   // the ⠿ handle (always, even while the caret is in an input).
@@ -1531,10 +1588,7 @@ function renderCover(canvas) {
     end: () => { markDirty(); renderCanvas(true); renderSelToolbar(); },
   });
 
-  for (const st of cover.stickers || []) {
-    canvas.append(makeSticker(st, cover.stickers));
-  }
-  canvas.append(titles);
+  return titles;
 }
 
 function renderPage(canvas) {
@@ -1645,9 +1699,12 @@ function layoutThumb(id) {
 }
 
 function closeLayoutPop() {
-  const open = document.querySelector('.layout-pop');
-  if (open) open.remove();
+  // ALL of them, not the first. Nothing should be able to put two on the
+  // page, but if anything did, the second was left open with the listeners
+  // already torn down — a popover nothing could dismiss (A101).
+  for (const open of document.querySelectorAll('.layout-pop')) open.remove();
   document.removeEventListener('pointerdown', outsideLayoutClose, true);
+  document.removeEventListener('keydown', escLayoutClose, true);
 }
 
 function outsideLayoutClose(e) {
@@ -1685,12 +1742,185 @@ function openLayoutPop(btn) {
   positionLayoutPop(pop, btn);
 }
 
-function positionLayoutPop(pop, btn) {
+/* ---------- book settings panel (A104) ---------- */
+
+/* Everything about the cover's text in one place, reachable without having
+ * to know that you select the title block to change its font.
+ *
+ * It exists because of the switch at the top of it. "Delete the text" was
+ * always how you removed a title — both renderers treat blank title AND
+ * blank subtitle as no title block — but nothing said so, and the editor
+ * went on showing "Add a title" in title-sized type once you had. A hint
+ * that cannot be dismissed is indistinguishable from text you are stuck
+ * with.
+ */
+function closeSettingsPop() {
+  for (const open of document.querySelectorAll('.cfg-pop')) open.remove();
+  document.removeEventListener('pointerdown', outsideSettingsClose, true);
+  document.removeEventListener('keydown', escSettingsClose, true);
+}
+
+function outsideSettingsClose(e) {
+  if (!e.target.closest('.cfg-pop, #btn-settings, .swatch-pop')) closeSettingsPop();
+}
+
+function escSettingsClose(e) {
+  if (e.key === 'Escape') closeSettingsPop();
+}
+
+function cfgRow(label, control) {
+  return h('label', { class: 'cfg-row' },
+           h('span', { class: 'cfg-label' }, label), control);
+}
+
+function openSettingsPop(btn) {
+  if (document.querySelector('.cfg-pop')) { closeSettingsPop(); return; }
+  const cover = S.book.layout.cover;
+  const pop = h('div', { class: 'cfg-pop', role: 'dialog',
+                         'aria-label': t('cfg.title') });
+
+  pop.append(h('div', { class: 'cfg-head' }, t('cfg.coverText')));
+
+  /* The switch. Off clears the text, because blank text IS the absence of a
+     title — inventing a second way to say it would give the editor and the
+     two renderers something to disagree about. What was typed is kept in
+     memory for this session only, so a mis-tap is recoverable and a reload
+     does not resurrect something the customer removed. */
+  const onOff = h('input', { type: 'checkbox', id: 'cfg-title-on' });
+  onOff.checked = coverHasTitle(cover);
+  const title = h('input', {
+    type: 'text', id: 'cfg-title', maxlength: '200', value: cover.title || '',
+    placeholder: t('cover.titlePh'),
+  });
+  const subtitle = h('input', {
+    type: 'text', id: 'cfg-subtitle', maxlength: '200',
+    value: cover.subtitle || '', placeholder: t('cover.subtitlePh'),
+  });
+
+  const body = h('div', { class: 'cfg-body' });
+  const syncEnabled = () => {
+    body.classList.toggle('off', !onOff.checked);
+    for (const el of body.querySelectorAll('input, select, button')) {
+      el.disabled = !onOff.checked;
+    }
+  };
+
+  onOff.addEventListener('change', () => {
+    if (onOff.checked) {
+      const back = S.titleStash || {};
+      // The book's OWN type, not the one picked during creation: `S.bookType`
+      // is only set while making a book, so after a reload it is null and a
+      // love story would get "Our memories" put back on it.
+      const kind = S.book.book_type || S.bookType || 'memory';
+      cover.title = back.title || t(`type.title.${kind}`);
+      cover.subtitle = back.subtitle || '';
+    } else {
+      S.titleStash = { title: cover.title, subtitle: cover.subtitle };
+      cover.title = '';
+      cover.subtitle = '';
+    }
+    title.value = cover.title;
+    subtitle.value = cover.subtitle;
+    syncEnabled();
+    markDirty();
+    renderCanvas(true);
+  });
+
+  title.addEventListener('input', () => {
+    cover.title = title.value;
+    markDirty();
+    renderCanvas(true);
+  });
+  subtitle.addEventListener('input', () => {
+    cover.subtitle = subtitle.value;
+    markDirty();
+    renderCanvas(true);
+  });
+
+  const fontSel = h('select', { id: 'cfg-font', 'aria-label': t('cfg.font') });
+  for (const f of Object.keys(FONTS)) {
+    fontSel.append(h('option', {
+      value: f, selected: fontKey(cover.title_font) === f ? '' : null,
+      style: `font-family:${FONTS[f]}`,
+    }, FONT_LABELS[f]));
+  }
+  fontSel.addEventListener('change', () => {
+    cover.title_font = fontSel.value;
+    markDirty();
+    renderCanvas(true);
+  });
+
+  const sizeSel = h('select', { id: 'cfg-size', 'aria-label': t('tool.titleSize') });
+  const sizes = [16, 20, 24, 28, 36, 48];
+  if (!sizes.includes(cover.title_size_pt)) sizes.push(cover.title_size_pt);
+  for (const v of sizes.sort((a, b) => a - b)) {
+    sizeSel.append(h('option', {
+      value: v, selected: cover.title_size_pt === v ? '' : null,
+    }, `${v} pt`));
+  }
+  sizeSel.addEventListener('change', () => {
+    cover.title_size_pt = Number(sizeSel.value);
+    markDirty();
+    renderCanvas(true);
+  });
+
+  body.append(
+    cfgRow(t('cfg.titleText'), title),
+    cfgRow(t('cfg.subtitleText'), subtitle),
+    cfgRow(t('cfg.font'), fontSel),
+    cfgRow(t('tool.titleSize'), sizeSel),
+    cfgRow(t('tool.titleColor'),
+           colorControl(cover.title_color
+                        || (cover.photo_id ? '#ffffff' : autoTitleColor(cover.bg_color)),
+                        t('tool.customColor'), (v) => {
+             cover.title_color = v;
+             markDirty();
+             renderCanvas(true);
+           })),
+  );
+
+  pop.append(h('label', { class: 'cfg-switch' }, onOff,
+                h('span', {}, t('cfg.showTitle'))), body);
+
+  pop.append(h('div', { class: 'cfg-head' }, t('cfg.coverLook')));
+  pop.append(cfgRow(t('tool.coverColor'),
+                    colorControl(cover.bg_color || '#ffffff',
+                                 t('tool.customColor'), (v) => {
+                      cover.bg_color = v;
+                      markDirty();
+                      renderCanvas(true);
+                    })));
+
+  pop.append(h('p', { class: 'cfg-note' }, t('cfg.note')));
+  syncEnabled();
+  positionPop(pop, btn, outsideSettingsClose, escSettingsClose);
+}
+
+/* Put a popover under its button and make it dismissible — immediately.
+ *
+ * The listeners are attached NOW, not on a timer. A `setTimeout(..., 0)`
+ * here leaves a window in which the popover is on screen and nothing is
+ * listening for the click that closes it; that is precisely the race that
+ * made `freeform` flaky for three sessions (A101), and this second copy of
+ * it survived that fix. There is nothing to defer against: the opening
+ * `click` has already had its `pointerdown`, and both handlers ignore
+ * presses on the button that opened them.
+ */
+function positionPop(pop, btn, outside, esc) {
   document.body.append(pop);
   const r = btn.getBoundingClientRect();
   pop.style.left = `${Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left))}px`;
   pop.style.top = `${Math.min(window.innerHeight - pop.offsetHeight - 8, r.bottom + 6)}px`;
-  setTimeout(() => document.addEventListener('pointerdown', outsideLayoutClose, true), 0);
+  document.addEventListener('pointerdown', outside, true);
+  if (esc) document.addEventListener('keydown', esc, true);
+}
+
+function escLayoutClose(e) {
+  if (e.key === 'Escape') closeLayoutPop();
+}
+
+function positionLayoutPop(pop, btn) {
+  positionPop(pop, btn, outsideLayoutClose, escLayoutClose);
 }
 
 /* ---------- centre snapping ---------- */
@@ -1954,7 +2184,8 @@ function setTrayTab(tab) {
   if (tab === 'stickers') {
     if (!stickerTab) {
       // Open on the pack that matches the occasion; travel books get flags.
-      stickerTab = { travel: 'flags', love: 'love', birthday: 'birthday' }[S.bookType]
+      stickerTab = { travel: 'flags', love: 'love', birthday: 'birthday' }[
+        S.book.book_type || S.bookType]
         || 'flags';
     }
     buildStickerPanel();
@@ -2791,16 +3022,37 @@ function renderSelToolbar() {
       markDirty();
       renderCanvas(true);
     });
-    bar.append(fontSel, size, h('button', {
+    bar.append(fontSel, size);
+    /* Two different removals used to be one button labelled "Remove" (A104).
+       Selecting the title block offered it, and it cleared `cover.photo_id`
+       — so on a cover with no photo it was a button you could press that did
+       nothing, and on a cover with one it deleted the photo when the thing
+       selected was the text. Both now say which they mean, and the photo one
+       is only there when there is a photo to remove. */
+    bar.append(h('button', {
       class: 'btn small danger',
       onclick: () => {
-        cover.photo_id = null;
+        S.titleStash = { title: cover.title, subtitle: cover.subtitle };
+        cover.title = '';
+        cover.subtitle = '';
         S.sel = null;
         markDirty();
         renderCanvas(true);
         renderFilm();
       },
-    }, t('tool.remove')));
+    }, t('tool.removeTitle')));
+    if (cover.photo_id) {
+      bar.append(h('button', {
+        class: 'btn small danger',
+        onclick: () => {
+          cover.photo_id = null;
+          S.sel = null;
+          markDirty();
+          renderCanvas(true);
+          renderFilm();
+        },
+      }, t('tool.removePhoto')));
+    }
   }
 }
 
@@ -2863,6 +3115,9 @@ function filmItem(index, photo, label, empty, artUrl) {
     ? (S.book.layout.cover.bg_color || '#ffffff')
     : (S.book.layout.pages[index].bg_color || '#ffffff');
   const item = h('button', {
+    // Named like the placements and stickers are, so a page can be found by
+    // which page it is rather than by where it sits in the strip.
+    'data-page': String(index),
     class: 'film-item' + (S.page === index ? ' active' : '') + (empty ? ' empty' : ''),
     onclick: () => { S.page = index; S.sel = null; renderCanvas(true); renderFilm(); },
     ondragover: (e) => { if (index !== -1) e.preventDefault(); },
@@ -3384,6 +3639,10 @@ function bind() {
   $('btn-layout').addEventListener('click', (e) => {
     e.stopPropagation();
     openLayoutPop(e.currentTarget);
+  });
+  $('btn-settings').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openSettingsPop(e.currentTarget);
   });
   $('tab-photos').addEventListener('click', () => setTrayTab('photos'));
   $('tab-stickers').addEventListener('click', () => setTrayTab('stickers'));

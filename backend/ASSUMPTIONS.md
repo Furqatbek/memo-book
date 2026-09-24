@@ -1961,3 +1961,69 @@ here, and the server is the one that has to be right.
 
 `checks/rawphoto.js` holds the whole thing, and it earns its place: with the
 old `_pixel_source` pasted back, it fails reporting `320×240 px`.
+
+**A104 — text on the cover that could not be removed.** Reported as
+"default text on editor is impossible to turn off or delete". It was half
+true, in the worse half.
+
+Deleting the prefilled title DID work. The layout saved an empty title,
+and both renderers already treat a blank title AND a blank subtitle as no
+title block at all — `cover.py` and `preview.py` each return early. What
+did not work was the editor: it kept two inputs sitting on the cover
+reading "Add a title" and "Add a subtitle", in title-sized type, inside a
+dashed box, with drag and rotate handles. A customer who deleted their
+title still had text on their cover and nothing that would remove it.
+
+**A hint you cannot dismiss is indistinguishable from text you are stuck
+with.** And it broke the promise this editor is built on: what you see is
+what gets printed. Here it was showing something the book would not have —
+the same contract violation as printing something the customer never saw,
+just pointing the other way.
+
+The rule is now stated once, in `coverHasTitle`, and it is deliberately the
+renderers' rule rather than a new one: a cover with no title text and no
+subtitle text has no title block. There is no `title_hidden` flag, because
+a flag would be a fourth opinion to keep in step with three existing ones,
+and the first time they disagreed a customer would get a cover that printed
+differently from the screen. Deleting the text IS removing the title. The
+block stays while it is SELECTED regardless, or it would vanish from under
+the caret as the last character went; clicking away empty is what removes
+it. An empty subtitle line follows the same rule one level down.
+
+**The settings panel** exists because that made removal possible but not
+reachable — and because the only way to change the title's font was to know
+that you select the block first. It holds the cover's text (with the switch
+that turns it off), font, size, title colour and cover colour, on the cover
+screen only: a panel of cover settings offered while looking at page 7
+would be a button that does nothing, which is the rule the rest of that
+toolbar already follows (A85). Turning the switch off keeps what was typed
+in memory for the session, so a mis-tap is recoverable, and does not
+persist it, so a reload does not resurrect something the customer removed.
+
+**Two more of the same family, found on the way.**
+
+`Remove` on the title block's toolbar cleared `cover.photo_id`. So on a
+cover with no photo it was a button you could press that did nothing, and
+on a cover with one it deleted the photo when the thing selected was the
+text. There are now two buttons that each say which they mean, and the
+photo one appears only when there is a photo. `Title colour` had the same
+shape — offered on a cover with no title — and is now shown only when there
+is text to colour.
+
+And the layout popover still attached its dismiss listeners in a
+`setTimeout(..., 0)`: the second copy of A101's race, which survived that
+fix because only the swatch popover was looked at. Both now go through
+`positionPop`, which attaches synchronously, and `closeLayoutPop` removes
+every popover rather than the first. `checks/bookcfg.js` opens the settings
+panel and dismisses it IN THE SAME TASK, which a deferred attach cannot
+survive.
+
+Restoring a removed title used `S.bookType`, which is only set while a book
+is being made — so after a reload a love story got "Our memories" put back
+on it. It reads `S.book.book_type` now, which is the server's answer and
+survives. The sticker tray opened on the wrong pack for the same reason and
+is fixed with it.
+
+`checks/bookcfg.js` earns its place: with the old rendering restored it
+fails reporting exactly what was complained about — `["Add a title", "Add a
+subtitle"]` left on a cover the customer had cleared.

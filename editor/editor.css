@@ -728,6 +728,39 @@ select {
   background: var(--bg); border-radius: 3px; overflow: hidden;
 }
 .lay-cell { position: absolute; background: var(--primary); opacity: .8; }
+/* Book settings (A104): the cover's text and colours in one panel, so
+   "turn the title off" is somewhere you can find without knowing that you
+   select the title block to reach its font. */
+.cfg-pop {
+  position: fixed; z-index: 80; background: #fff; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 12px 34px rgba(0,0,0,.18);
+  width: min(92vw, 310px); display: flex; flex-direction: column; gap: 8px;
+}
+.cfg-head {
+  font-weight: 600; font-size: .8rem; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cfg-head + .cfg-head, .cfg-body + .cfg-head { margin-top: 4px; }
+.cfg-switch {
+  display: flex; align-items: center; gap: 8px; font-size: .9rem;
+  cursor: pointer;
+}
+.cfg-switch input { width: 16px; height: 16px; accent-color: var(--primary); }
+.cfg-body { display: flex; flex-direction: column; gap: 8px; }
+/* Dimmed rather than hidden: the controls stay where they were, so turning
+   the title back on does not move everything under the finger. */
+.cfg-body.off { opacity: .45; pointer-events: none; }
+.cfg-row { display: flex; align-items: center; gap: 8px; font-size: .85rem; }
+.cfg-label { flex: 0 0 84px; color: var(--muted); }
+.cfg-row input[type=text], .cfg-row select {
+  flex: 1 1 auto; min-width: 0; padding: 5px 7px; font: inherit;
+  font-size: .85rem; border: 1px solid var(--line); border-radius: 7px;
+  background: #fff;
+}
+.cfg-row .color-tool { flex: 1 1 auto; justify-content: flex-start; }
+.cfg-note { margin: 2px 0 0; font-size: .75rem; color: var(--muted); }
+
 /* the design changer shows real artwork rather than a wireframe */
 .design-pop { max-width: min(92vw, 460px); }
 img.lay-thumb { object-fit: cover; display: block; }

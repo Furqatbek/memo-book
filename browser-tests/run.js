@@ -55,6 +55,8 @@ const NEEDS = {
     + 'check here; it guards the race that made freeform flaky (A101)',
   rawphoto: 'nothing — it uploads fixtures/prorawA.dng, whose real picture '
     + 'hides in a SubIFD behind a 320x240 thumbnail (A103)',
+  bookcfg: 'nothing — it makes a "love" book, whose prefilled cover title is '
+    + 'the text that used to be impossible to remove (A104)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',
