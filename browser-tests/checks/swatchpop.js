@@ -33,10 +33,10 @@ const popups = (page) =>
   const errs = [];
   page.on('pageerror', (e) => errs.push(String(e)));
 
-  // No photos needed. "love" rather than "memory" because since A104 the
-  // title colour control is only offered where there IS a title, and this
-  // check wants two colour tools to hammer — a love book arrives with a
-  // prefilled title, so it has both.
+  // No photos needed. A title IS needed: since A104 the title colour control
+  // is only offered where there is a title to colour, and this check wants
+  // two colour tools to hammer. No occasion prefills one any more, so it is
+  // typed in below.
   await page.goto(`${BASE}/editor/`);
   await page.evaluate(() => localStorage.clear());
   await page.goto(`${BASE}/editor/`);
@@ -48,6 +48,12 @@ const popups = (page) =>
   await page.waitForSelector('#screen-editor.active, #design-step:not(.hidden)');
   if (await page.isVisible('#design-step')) await page.click('#design-skip');
   await page.waitForSelector('#screen-editor.active');
+
+  await page.click('#btn-add-title');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
+  await page.fill('.cover-title', 'Sarlavha');
+  await page.click('#canvas-wrap', { position: { x: 20, y: 20 } });
+  await page.waitForTimeout(300);
 
   const tools = await page.$$('#page-tools .color-tool');
   check('the cover offers its colour tools', tools.length === 2, `${tools.length}`);

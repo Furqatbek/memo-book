@@ -29,17 +29,24 @@ const { chromium } = require('playwright');
   await page.waitForFunction(
     () => document.getElementById('save-state').classList.contains('saved'), undefined,
     { timeout: 30000 });
-  const title = await page.$eval('.cover-title', (el) => el.value);
+  // An occasion themes the COLOURS and nothing else. It used to prefill a
+  // title too ("Our travels"), and words nobody asked for are exactly what
+  // a customer then has to work out how to remove (A104). A book now starts
+  // with no text on its cover whichever occasion it is.
+  const titleBlocks = await page.$$('.cover-titles');
   const bg = await page.$eval('#page-canvas', (el) => el.style.background);
-  console.log('travel cover title:', JSON.stringify(title), '| bg:', bg);
-  if (title !== 'Our travels') throw new Error('themed title missing');
+  console.log('travel cover title blocks:', titleBlocks.length, '| bg:', bg);
+  if (titleBlocks.length !== 0) throw new Error('a new book must start with no text');
   if (!bg.includes('29, 77, 133')) throw new Error('themed bg missing'); // #1d4d85
   const creds = await page.evaluate(() => JSON.parse(localStorage.getItem('mb-book')));
   const book = await (await fetch(`http://127.0.0.1:8000/api/v1/books/${creds.book_id}`,
     { headers: { 'X-Edit-Token': creds.edit_token } })).json();
   console.log('server cover:', book.layout.cover.title, book.layout.cover.bg_color,
     book.layout.cover.title_color);
-  if (book.layout.cover.title !== 'Our travels' || book.layout.cover.bg_color !== '#1d4d85'
+  if (book.layout.cover.title !== '') throw new Error('server has a title nobody typed');
+  // The colour is still themed, so a title added later reads against this
+  // background from the first character.
+  if (book.layout.cover.bg_color !== '#1d4d85'
       || book.layout.cover.title_color !== '#ffffff') throw new Error('server layout not themed');
   await page.screenshot({ path: SHOTS + '/74-booktype-travel.png' });
 
@@ -52,12 +59,14 @@ const { chromium } = require('playwright');
   await page.waitForSelector('#screen-editor.active, #design-step:not(.hidden)');
   if (await page.isVisible('#design-step')) await page.click('#design-skip');
   await page.waitForSelector('#screen-editor.active');
-  // "memory" prefills nothing, and since A104 a cover with no title has no
-  // title block on it at all — a stronger form of neutral than an empty
-  // field, and the one a customer can see.
+  // "memory" applies nothing at all — not even a colour, which is what
+  // still separates it from the themed occasions now that none of them
+  // bring text.
   const title2 = await page.$$('.cover-titles');
-  console.log('memory cover title blocks:', title2.length);
+  const bg2 = await page.$eval('#page-canvas', (el) => el.style.background);
+  console.log('memory cover title blocks:', title2.length, '| bg:', bg2);
   if (title2.length !== 0) throw new Error('memory must stay neutral');
+  if (bg2.includes('29, 77, 133')) throw new Error('memory must not be themed');
   const addable = await page.evaluate(() =>
     !document.getElementById('btn-add-title').classList.contains('hidden'));
   console.log('and "+ Title" is offered:', addable);

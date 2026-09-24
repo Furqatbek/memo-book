@@ -84,6 +84,9 @@ async function seedDesigns() {
   await page.click('#filmstrip .film-item:first-child');
   await page.click('#tray-grid .ph-card:nth-child(1)');
   await page.waitForSelector('#page-canvas .cover-frame img');
+  // No occasion prefills a title any more, so ask for one (A104).
+  await page.click('#btn-add-title');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
   await page.fill('.cover-title', 'Samarkand 2026');
   await saved();
 

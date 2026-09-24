@@ -1,19 +1,21 @@
-/* A104: the cover's text can be turned off, and the editor shows what prints.
+/* A104: a cover carries no words but the customer's own.
  *
- * The complaint was "default text is impossible to turn off or delete". It
- * was half true in the worst way. Deleting the prefilled title DID work —
- * the layout saved an empty title and neither renderer drew one — but the
- * editor went on showing two inputs on the cover reading "Add a title" and
- * "Add a subtitle", in title-sized type, with a dashed box round them. So
- * the customer deleted their title and the cover still had text on it that
- * nothing would remove.
+ * The complaint was "default text is impossible to turn off or delete", and
+ * it had two halves. Deleting the prefilled title DID work — the layout
+ * saved an empty title and neither renderer drew one — but the editor went
+ * on showing two inputs on the cover reading "Add a title" and "Add a
+ * subtitle", in title-sized type, with a dashed box round them. So the
+ * customer deleted their title and the cover still had text on it that
+ * nothing would remove. That is worse than cosmetic: this editor's promise
+ * is that what you see is what gets printed, and it was showing something
+ * the book would not have.
  *
- * That is worse than a cosmetic bug. This editor's promise is that what you
- * see is what gets printed, and here it was showing something the book
- * would not have.
+ * The other half was the prefill itself, which is now gone. A book starts
+ * with nothing on its cover whichever occasion it is for, and a title
+ * exists only because somebody typed one.
  *
- * The load-bearing assertion is `nothing is left on the cover`. The rest
- * guards the panel built to make it reachable.
+ * The load-bearing assertions are `nothing is on the cover to begin with`
+ * and `nothing is left on the cover`. The rest guards the panel.
  *
  *   node checks/bookcfg.js
  */
@@ -57,7 +59,8 @@ async function savedCover(page) {
   await page.goto(`${BASE}/editor/`);
   await page.evaluate(() => localStorage.clear());
   await page.goto(`${BASE}/editor/`);
-  // "love" prefills a title; that prefill is the thing under test.
+  // "love" is a themed occasion — it colours the cover. What it must NOT
+  // do any more is put words on it.
   await page.click('.btype[data-btype="love"]');
   await page.waitForFunction(
     () => document.querySelector('[data-tier-pages]').textContent,
@@ -67,11 +70,20 @@ async function savedCover(page) {
   if (await page.isVisible('#design-step')) await page.click('#design-skip');
   await page.waitForSelector('#screen-editor.active');
 
-  console.log('THE PREFILLED TITLE IS REALLY THERE TO BEGIN WITH');
-  check('the cover starts with a title', (await coverText(page)).length > 0,
-    JSON.stringify(await coverText(page)));
+  console.log('A NEW BOOK HAS NOTHING ON ITS COVER');
+  check('nothing is on the cover to begin with',
+    (await coverText(page)).length === 0, JSON.stringify(await coverText(page)));
+  check('not even on a themed occasion', !(await savedCover(page)).title,
+    JSON.stringify((await savedCover(page)).title));
 
-  console.log('AND DELETING IT LEAVES NOTHING BEHIND');
+  console.log('AND A TITLE TYPED IN CAN BE DELETED AGAIN');
+  await page.click('#btn-add-title');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
+  await page.keyboard.type('Bizning hikoyamiz');
+  await page.waitForTimeout(300);
+  check('what was typed shows on the cover',
+    (await coverText(page)).includes('Bizning hikoyamiz'),
+    JSON.stringify(await coverText(page)));
   await page.click('.cover-title');
   await page.keyboard.press('Control+A');
   await page.keyboard.press('Delete');
@@ -105,15 +117,18 @@ async function savedCover(page) {
   check('still nothing on the cover', (await coverText(page)).length === 0,
     JSON.stringify(await coverText(page)));
 
-  console.log('THE SETTINGS PANEL PUTS IT BACK');
+  console.log('THE SETTINGS PANEL OPENS A PLACE TO TYPE');
   await page.click('#btn-settings');
   await page.waitForSelector('.cfg-pop', { timeout: 5000 });
   check('the switch reads as off', await page.isChecked('#cfg-title-on') === false);
   await page.check('#cfg-title-on');
   await page.waitForTimeout(300);
-  check('the title is back on the cover', (await coverText(page)).length > 0,
-    JSON.stringify(await coverText(page)));
-  check('and the field shows it', (await page.inputValue('#cfg-title')).length > 0);
+  check('a title block appears', (await page.$$('.cover-titles')).length === 1);
+  // EMPTY. Turning this on is a request for somewhere to type, not a
+  // request for a title — inventing words here would be the original
+  // complaint coming back through a switch.
+  check('and it is empty, not filled in for them',
+    (await page.$eval('.cover-title', (el) => el.value)) === '');
 
   console.log('AND THE PANEL ACTUALLY EDITS THE COVER');
   await page.fill('#cfg-title', 'Bizning kitobimiz');

@@ -1,20 +1,23 @@
-/* A89, then A104: the cover title can be removed, and an empty one does not
- * look like text that refuses to go away.
+/* A89, then A104: a cover carries no words but the customer's own.
  *
- * A new book arrives with a title already filled in ("Our travels"). Clearing
- * it left the editor showing a placeholder in the title's own position,
- * weight and size — indistinguishable from printed text. Nothing was wrong
- * underneath: the server stored "" and the renderer draws nothing. But the
- * screen said otherwise, and the screen is what a customer believes.
+ * A new book used to arrive with a title already filled in ("Our travels").
+ * Clearing it left the editor showing a placeholder in the title's own
+ * position, weight and size — indistinguishable from printed text. Nothing
+ * was wrong underneath: the server stored "" and the renderer draws
+ * nothing. But the screen said otherwise, and the screen is what a customer
+ * believes.
  *
  * A89 answered that by making the placeholder LOOK like a field: an
- * instruction rather than a noun, in a dashed outline, on the reasoning that
- * "an instruction plus a field outline cannot be mistaken for content".
- * A104 is here because that reasoning did not survive contact with a
- * customer, who reported the same thing again in plainer words — the default
- * text is impossible to turn off. So the empty block is now not drawn at
- * all, and `+ Title` is how you ask for one. The assertions below moved with
- * it, from "the placeholder reads as a field" to "there is nothing there".
+ * instruction rather than a noun, in a dashed outline, on the reasoning
+ * that "an instruction plus a field outline cannot be mistaken for
+ * content". That did not survive contact with a customer, who reported the
+ * same thing again in plainer words.
+ *
+ * A104 answered it twice over. The empty block is not drawn at all, and
+ * `+ Title` is how you ask for one — and then the prefill itself went, so
+ * there is nothing to delete in the first place. What is left to prove is
+ * that a title is only ever there because somebody typed it, and that once
+ * typed it can be taken away again.
  *
  *   node checks/covertitle.js
  */
@@ -46,7 +49,6 @@ function check(what, ok, detail) {
   await page.waitForSelector('#screen-editor.active, #design-step:not(.hidden)');
   if (await page.isVisible('#design-step')) await page.click('#design-skip');
   await page.waitForSelector('#screen-editor.active');
-  await page.waitForSelector('.cover-title', { timeout: 30000 });
 
   const creds = await page.evaluate(() => JSON.parse(localStorage.getItem('mb-book')));
   const stored = () => page.evaluate(async (c) => {
@@ -61,9 +63,23 @@ function check(what, ok, detail) {
     [...document.querySelectorAll('.cover-titles input')]
       .map((i) => (i.value || i.placeholder || '').trim()).filter(Boolean));
 
-  console.log('A PREFILLED TITLE');
-  const initial = await shown();
-  check('a new book starts with one', initial.length > 0, JSON.stringify(initial));
+  console.log('A NEW BOOK HAS NO TITLE AT ALL');
+  check('nothing is on the cover to begin with', (await onCover()).length === 0,
+    JSON.stringify(await onCover()));
+  check('and the server has none either', (await stored()) === '',
+    JSON.stringify(await stored()));
+
+  console.log('ONE APPEARS ONLY WHEN SOMEBODY TYPES IT');
+  await page.click('#btn-add-title');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
+  await page.keyboard.type('Sayohatimiz');
+  await page.waitForFunction(
+    () => document.getElementById('save-state').classList.contains('saved'),
+    undefined, { timeout: 30000 });
+  check('what was typed is on the cover', (await shown()) === 'Sayohatimiz',
+    JSON.stringify(await shown()));
+  check('and reached the server', (await stored()) === 'Sayohatimiz',
+    JSON.stringify(await stored()));
 
   console.log('CLEARING IT');
   await page.click('.cover-title');

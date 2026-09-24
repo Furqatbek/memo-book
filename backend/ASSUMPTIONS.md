@@ -2051,3 +2051,35 @@ And typing a title did not make `Title colour` appear, nor did deleting one
 make `+ Title` come back, until something else happened to redraw the
 canvas — editing in place deliberately does not. Both toolbar buttons now
 follow the text as it is typed.
+
+**A104, finally — no text at all until somebody types it.** The prefill
+itself is gone. Picking an occasion used to put "Our love story" or "Our
+travels" on the cover, and the customer's own words for what was wrong with
+that were the clearest statement of it: make it by default no text unless
+the user types it in the editor.
+
+What an occasion brings now is COLOUR and nothing else — the background and
+the title colour, so that a title added later reads against that background
+from its first character. "memory" still applies nothing at all, which is
+what continues to separate it from the themed occasions now that none of
+them carry words.
+
+The switch in the settings panel follows the same rule. Turning it on
+restores what the customer typed earlier in the session if there is
+anything to restore, and otherwise opens an EMPTY block with the caret in
+it — inventing words there would be the original complaint coming back
+through a different control.
+
+The four `type.title.*` strings went with it, in all five languages. A
+string nothing reads is a trap: the next person to find `type.title.love`
+will assume something uses it.
+
+**The whole arc is worth reading as one thing.** A89 saw text on the cover
+that looked like content and made it look more like a field. A104's first
+cut stopped drawing it. A104's second cut added `+ Title`, because not
+drawing it had removed the only way to put one there by hand. And this,
+the third, removed the reason any of it was on screen in the first place.
+The fix that held was the one that deleted the feature rather than the one
+that improved it — and the signal was there from the start, in a customer
+saying twice that they could not get rid of something we had decided they
+wanted.

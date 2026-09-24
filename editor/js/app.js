@@ -505,7 +505,11 @@ async function startNewBook(tier, design = null) {
     const cover = S.book.layout.cover;
     const theme = BOOK_TYPES[S.bookType];
     if (theme && theme.bg) {
-      if (!cover.title) cover.title = t(`type.title.${S.bookType}`);
+      // Colours only. A book starts with NO text on its cover: the occasion
+      // used to prefill a title like "Our love story", and words nobody
+      // asked for are exactly what a customer then has to work out how to
+      // remove (A104). The title colour is still set, so that a title added
+      // later reads against this background from the first character.
       cover.bg_color = theme.bg;
       cover.title_color = theme.titleColor;
       markDirty();
@@ -1828,13 +1832,18 @@ function openSettingsPop(btn) {
 
   onOff.addEventListener('change', () => {
     if (onOff.checked) {
+      // Back to what THEY typed, or to an empty field — never to words we
+      // chose for them. Turning this on is a request for somewhere to type,
+      // not a request for a title (A104).
       const back = S.titleStash || {};
-      // The book's OWN type, not the one picked during creation: `S.bookType`
-      // is only set while making a book, so after a reload it is null and a
-      // love story would get "Our memories" put back on it.
-      const kind = S.book.book_type || S.bookType || 'memory';
-      cover.title = back.title || t(`type.title.${kind}`);
+      cover.title = back.title || '';
       cover.subtitle = back.subtitle || '';
+      if (!coverHasTitle(cover)) {
+        // Nothing to show yet, so show the empty block and put the caret in
+        // it — the same thing `+ Title` does.
+        renderCanvas(true);
+        addCoverTitle();
+      }
     } else {
       S.titleStash = { title: cover.title, subtitle: cover.subtitle };
       cover.title = '';
