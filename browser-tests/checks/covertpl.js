@@ -60,6 +60,15 @@ const same = (a, b) => a && b
   await page.waitForSelector('#page-canvas .cover-frame img');
   console.log('2. one tap put the photo on the cover: true');
 
+  // A title of its own. Step 5 asserts that cycling the compositions does
+  // not eat the customer's words, and no occasion prefills any since A104 —
+  // so they have to be typed, or that assertion would be testing nothing.
+  await page.click('#btn-add-title');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
+  await page.fill('.cover-title', 'Samarqand');
+  await page.click('#canvas-wrap', { position: { x: 20, y: 20 } });
+  await page.waitForTimeout(300);
+
   const creds = await page.evaluate(() => JSON.parse(localStorage.getItem('mb-book')));
   const load = async () => (await fetch(`${BASE}/api/v1/books/${creds.book_id}`,
     { headers: { 'X-Edit-Token': creds.edit_token } })).json();
@@ -108,7 +117,9 @@ const same = (a, b) => a && b
   const after = (await load()).layout.cover;
   console.log('5. survived:', JSON.stringify({
     title: after.title, photo: !!after.photo_id, bg: after.bg_color }));
-  if (!after.title || !after.photo_id) throw new Error('a composition ate the content');
+  if (after.title !== 'Samarqand' || !after.photo_id) {
+    throw new Error(`a composition ate the content: ${JSON.stringify(after.title)}`);
+  }
   if (after.bg_color !== '#1d4d85') {
     throw new Error('a composition changed the occasion colour');
   }
