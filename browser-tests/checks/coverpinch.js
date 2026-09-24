@@ -19,6 +19,10 @@ const saved = (page) => page.waitForFunction(
   await page.waitForSelector('#screen-editor.active');
 
   // type the title
+  // A memory book starts with no title, so ask for one first (A104).
+  await page.click('#btn-add-title');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
+  await page.fill('.cover-title', 'Sarlavha');
   await page.click('.cover-title');
   await page.keyboard.type('Sayohat');
   await saved(page);

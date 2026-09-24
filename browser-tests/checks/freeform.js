@@ -105,6 +105,9 @@ async function setColor(page, container, index, value) {
   // --- cover: photo + colours + title ---
   await page.click('#filmstrip .film-item:first-child');
   await page.click('#tray-grid .ph-card:nth-child(2)');
+  // A memory book starts with no title block; `+ Title` adds one (A104).
+  await page.click('#btn-add-title');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
   await page.fill('.cover-title', 'Bizning Sayohat');
   await waitSaved(page);
   const coverTools = await page.$$('#page-tools .color-tool');

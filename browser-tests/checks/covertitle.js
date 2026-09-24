@@ -1,11 +1,20 @@
-/* A89: the cover title can be removed, and an empty one does not look like
- * text that refuses to go away.
+/* A89, then A104: the cover title can be removed, and an empty one does not
+ * look like text that refuses to go away.
  *
  * A new book arrives with a title already filled in ("Our travels"). Clearing
  * it left the editor showing a placeholder in the title's own position,
  * weight and size — indistinguishable from printed text. Nothing was wrong
  * underneath: the server stored "" and the renderer draws nothing. But the
  * screen said otherwise, and the screen is what a customer believes.
+ *
+ * A89 answered that by making the placeholder LOOK like a field: an
+ * instruction rather than a noun, in a dashed outline, on the reasoning that
+ * "an instruction plus a field outline cannot be mistaken for content".
+ * A104 is here because that reasoning did not survive contact with a
+ * customer, who reported the same thing again in plainer words — the default
+ * text is impossible to turn off. So the empty block is now not drawn at
+ * all, and `+ Title` is how you ask for one. The assertions below moved with
+ * it, from "the placeholder reads as a field" to "there is nothing there".
  *
  *   node checks/covertitle.js
  */
@@ -46,6 +55,11 @@ function check(what, ok, detail) {
     return r.ok ? (await r.json()).layout.cover.title : `HTTP ${r.status}`;
   }, creds);
   const shown = () => page.$eval('.cover-title', (el) => el.value);
+  // What a customer can read where the title goes — placeholders included,
+  // because a placeholder is text to the eye whatever the DOM calls it.
+  const onCover = () => page.evaluate(() =>
+    [...document.querySelectorAll('.cover-titles input')]
+      .map((i) => (i.value || i.placeholder || '').trim()).filter(Boolean));
 
   console.log('A PREFILLED TITLE');
   const initial = await shown();
@@ -58,7 +72,13 @@ function check(what, ok, detail) {
   await page.waitForFunction(
     () => document.getElementById('save-state').classList.contains('saved'),
     undefined, { timeout: 30000 });
-  check('the field is empty', (await shown()) === '');
+  // Click away first. While the block is SELECTED it stays on screen with
+  // its placeholders, which is right — you are typing in it. What must not
+  // survive is leaving it empty, and that is what this asserts.
+  await page.click('#canvas-wrap', { position: { x: 20, y: 20 } });
+  await page.waitForTimeout(300);
+  check('nothing is left where the title was', (await onCover()).length === 0,
+    JSON.stringify(await onCover()));
   check('and the server agrees', (await stored()) === '',
     JSON.stringify(await stored()));
 
@@ -70,28 +90,40 @@ function check(what, ok, detail) {
   await page.waitForSelector('#screen-editor.active', { timeout: 30000 });
   await page.waitForSelector('#filmstrip .film-item', { timeout: 30000 });
   await page.click('#filmstrip .film-item:first-child');
-  await page.waitForSelector('.cover-title', { timeout: 30000 });
-  check('a full reload does not put it back', (await shown()) === '',
-    JSON.stringify(await shown()));
+  await page.waitForTimeout(400);
+  check('a full reload does not put it back', (await onCover()).length === 0,
+    JSON.stringify(await onCover()));
   check('nor does the server', (await stored()) === '');
 
-  console.log('AN EMPTY TITLE LOOKS EMPTY');
-  const ph = await page.$eval('.cover-title', (el) => el.placeholder);
-  check('the placeholder is translated, not a raw key',
-    ph.length > 0 && !ph.includes('.'), JSON.stringify(ph));
-  // The bug: a bare noun in the title's own style reads as the title itself.
-  // An instruction plus a field outline cannot be mistaken for content.
-  check('it asks for a title rather than naming one',
-    ph.trim().split(/\s+/).length > 1, JSON.stringify(ph));
-  const style = await page.$eval('.cover-title', (el) => {
-    const s = getComputedStyle(el);
-    return { outline: s.outlineStyle, width: s.outlineWidth };
-  });
-  check('and the empty field is outlined as a field',
-    style.outline === 'dashed' && parseFloat(style.width) > 0,
-    JSON.stringify(style));
-
+  console.log('AN EMPTY TITLE SHOWS NOTHING AT ALL (A104)');
+  // Stronger than A89's "the placeholder reads as a field": there is no
+  // placeholder, because there is no block. The cover shows what prints.
+  check('no title block is drawn',
+    (await page.$$('.cover-titles')).length === 0);
+  check('and the title colour control is not offered either',
+    !(await page.$eval('#page-tools', (el) => el.textContent)).match(/colour.*colour/i));
   await page.screenshot({ path: `${SHOTS}/89-cover-no-title.png` });
+
+  console.log('AND `+ TITLE` IS HOW YOU ASK FOR ONE BACK');
+  check('the button is offered once there is no title',
+    !(await page.evaluate(() =>
+      document.getElementById('btn-add-title').classList.contains('hidden'))));
+  await page.click('#btn-add-title');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
+  check('it opens an empty field, not a prefilled one', (await shown()) === '',
+    JSON.stringify(await shown()));
+  await page.keyboard.type('Sayohatimiz');
+  await page.waitForFunction(
+    () => document.getElementById('save-state').classList.contains('saved'),
+    undefined, { timeout: 30000 });
+  check('and what is typed there is kept', (await stored()) === 'Sayohatimiz',
+    JSON.stringify(await stored()));
+  // Back to none, so the rest of the check sees the state it expects.
+  await page.click('.cover-title');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.press('Delete');
+  await page.click('#canvas-wrap', { position: { x: 20, y: 20 } });
+  await page.waitForTimeout(300);
 
   console.log('NO BUTTON THAT DOES NOTHING (A92)');
   // `+ Text` writes into `page.texts`, which the cover has no room for:
@@ -117,7 +149,11 @@ function check(what, ok, detail) {
   check('and pressing it actually adds one',
     (await page.$$eval('.textbox', (els) => els.length)) === before + 1);
   await page.click('#filmstrip .film-item:first-child');
-  await page.waitForSelector('.cover-title', { timeout: 10000 });
+  // Back to the cover — which by now has no title, so wait for the COVER
+  // rather than for a title block that is deliberately absent.
+  await page.waitForFunction(
+    () => !document.getElementById('page-canvas').classList.contains('page-mode'),
+    undefined, { timeout: 10000 });
 
   console.log('AND NOTHING PRINTS');
   await page.click('#btn-preview');

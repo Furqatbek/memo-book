@@ -52,9 +52,16 @@ const { chromium } = require('playwright');
   await page.waitForSelector('#screen-editor.active, #design-step:not(.hidden)');
   if (await page.isVisible('#design-step')) await page.click('#design-skip');
   await page.waitForSelector('#screen-editor.active');
-  const title2 = await page.$eval('.cover-title', (el) => el.value);
-  console.log('memory cover title:', JSON.stringify(title2));
-  if (title2 !== '') throw new Error('memory must stay neutral');
+  // "memory" prefills nothing, and since A104 a cover with no title has no
+  // title block on it at all — a stronger form of neutral than an empty
+  // field, and the one a customer can see.
+  const title2 = await page.$$('.cover-titles');
+  console.log('memory cover title blocks:', title2.length);
+  if (title2.length !== 0) throw new Error('memory must stay neutral');
+  const addable = await page.evaluate(() =>
+    !document.getElementById('btn-add-title').classList.contains('hidden'));
+  console.log('and "+ Title" is offered:', addable);
+  if (!addable) throw new Error('no way to add a title to a neutral cover');
 
   console.log('errors:', errors.length ? errors : 'none');
   await browser.close();

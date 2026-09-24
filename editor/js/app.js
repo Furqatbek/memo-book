@@ -607,6 +607,13 @@ function updatePageLabel() {
   // does not describe.
   $('btn-settings').classList.toggle('hidden', S.page !== -1 || S.locked);
   if (S.page !== -1 || S.locked) closeSettingsPop();
+  /* `+ Title` is the way back. A cover with no title now shows nothing at
+     all where the title would be (A104), which is honest but would have
+     left no way to add one by hand — you could only reach it through the
+     settings panel. This is the cover's version of `+ Text`, and it appears
+     for exactly as long as there is no title to add. */
+  $('btn-add-title').classList.toggle(
+    'hidden', S.page !== -1 || S.locked || coverHasTitle(S.book.layout.cover));
 }
 
 /* What is actually missing, counted the way the layout consumes photos: a
@@ -1435,9 +1442,21 @@ function buildCoverTitles(cover, scale, textColor, selected) {
   title.style.fontSize = `${cover.title_size_pt * PT_MM * scale}px`;
   title.style.fontFamily = fontStack(cover.title_font);
   title.style.color = textColor;
+  /* Typing the first character, or deleting the last, changes what the
+     toolbar should offer: `+ Title` stops applying and `Title colour` starts
+     (A104). Neither was noticing, because editing in place does not redraw
+     the canvas — so a customer typed a title and the colour control for it
+     stayed missing until something else happened to re-render. */
+  const syncAffordances = (before) => {
+    if (before === coverHasTitle(cover)) return;
+    updatePageLabel();
+    renderPageTools();
+  };
   title.addEventListener('input', () => {
+    const before = coverHasTitle(cover);
     cover.title = title.value;
     markDirty();
+    syncAffordances(before);
   });
   const subtitle = h('input', {
     class: 'cover-subtitle', value: cover.subtitle, maxlength: '200',
@@ -1447,8 +1466,10 @@ function buildCoverTitles(cover, scale, textColor, selected) {
   subtitle.style.fontFamily = fontStack(cover.title_font);
   subtitle.style.color = textColor;
   subtitle.addEventListener('input', () => {
+    const before = coverHasTitle(cover);
     cover.subtitle = subtitle.value;
     markDirty();
+    syncAffordances(before);
   });
   for (const input of [title, subtitle]) {
     input.addEventListener('focus', () => select({ kind: 'cover' }, true));
@@ -3056,6 +3077,20 @@ function renderSelToolbar() {
   }
 }
 
+/* Put an empty title block on the cover and start typing in it.
+ *
+ * Empty, not prefilled: putting words there that the customer did not ask
+ * for is what this whole change is about. The block survives because it is
+ * selected, and clicking away without typing removes it again — which is
+ * the same rule as everywhere else and means pressing this by accident
+ * costs nothing. */
+function addCoverTitle() {
+  if (S.locked || S.page !== -1) return;
+  select({ kind: 'cover' });
+  const el = document.querySelector('.cover-title');
+  if (el) el.focus();
+}
+
 function addTextBox() {
   addTextBoxAt(TRIM_W / 2, 177);   // classic caption spot near the bottom
 }
@@ -3644,6 +3679,7 @@ function bind() {
     e.stopPropagation();
     openSettingsPop(e.currentTarget);
   });
+  $('btn-add-title').addEventListener('click', addCoverTitle);
   $('tab-photos').addEventListener('click', () => setTrayTab('photos'));
   $('tab-stickers').addEventListener('click', () => setTrayTab('stickers'));
   $('btn-autofill').addEventListener('click', autoFill);

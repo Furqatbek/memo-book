@@ -61,6 +61,9 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   // 5. Set a cover photo + title
   await page.click('#filmstrip .film-item:first-child');
   await page.click('#tray-grid .ph-card:first-child');
+  // A memory book starts with no title block; `+ Title` adds one (A104).
+  await page.click('#btn-add-title');
+  await page.waitForSelector('.cover-title', { timeout: 10000 });
   await page.fill('.cover-title', 'Our Trip');
   await page.fill('.cover-subtitle', 'Uzbekistan 2026');
   await page.waitForFunction(

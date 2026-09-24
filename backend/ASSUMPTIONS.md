@@ -2027,3 +2027,27 @@ is fixed with it.
 `checks/bookcfg.js` earns its place: with the old rendering restored it
 fails reporting exactly what was complained about — `["Add a title", "Add a
 subtitle"]` left on a cover the customer had cleared.
+
+**A104, continued — the first cut broke six checks, and they were right.**
+Hiding the empty block removed the only way to ADD a title by hand: you
+could reach it through the settings panel and nowhere else. `+ Title` is
+the answer — the cover's version of `+ Text`, offered for exactly as long
+as there is no title. It opens an EMPTY field rather than a prefilled one,
+since putting words there that nobody asked for is the complaint this
+whole change came from, and an empty block that is clicked away without
+typing removes itself, so pressing it by accident costs nothing.
+
+Two things fell out of fixing those checks.
+
+`covertitle.js` is **A89 attempting this same repair already**: it made the
+placeholder look like a field — an instruction rather than a noun, in a
+dashed outline — on the reasoning that "an instruction plus a field outline
+cannot be mistaken for content". A customer reported the same problem again
+in plainer words. Worth keeping: when a hint has to be *styled* out of
+being mistaken for content, that is evidence the hint should not be there,
+and the second attempt should not be a better style.
+
+And typing a title did not make `Title colour` appear, nor did deleting one
+make `+ Title` come back, until something else happened to redraw the
+canvas — editing in place deliberately does not. Both toolbar buttons now
+follow the text as it is typed.

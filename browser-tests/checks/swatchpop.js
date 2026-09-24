@@ -33,11 +33,14 @@ const popups = (page) =>
   const errs = [];
   page.on('pageerror', (e) => errs.push(String(e)));
 
-  // No photos needed: the cover carries its two colour tools from the start.
+  // No photos needed. "love" rather than "memory" because since A104 the
+  // title colour control is only offered where there IS a title, and this
+  // check wants two colour tools to hammer — a love book arrives with a
+  // prefilled title, so it has both.
   await page.goto(`${BASE}/editor/`);
   await page.evaluate(() => localStorage.clear());
   await page.goto(`${BASE}/editor/`);
-  await page.click('.btype[data-btype="memory"]');
+  await page.click('.btype[data-btype="love"]');
   await page.waitForFunction(
     () => document.querySelector('[data-tier-pages]').textContent,
     undefined, { timeout: 30000 });
