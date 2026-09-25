@@ -2279,3 +2279,43 @@ that only knew the English one would have found a fifth of the problem —
 which is the same lesson A104's i18n work taught from the other direction.
 
 **Delete the check on the day the feature ships**, and not before.
+
+**P1-1 — two promises the business could not keep as written.**
+
+**"What you see in the editor is what we print."** True of the layout and
+impossible for the colour. A screen emits light and paper reflects it, so
+deep blues, bright greens and neon tones shift no matter what anyone does,
+and no two phone screens agree with each other, let alone with a press.
+Every photo-print business receives "the colours are different"; that
+sentence made it our fault by contract. The rewrite promises the half we
+control — same pages, same order, same text — and names the reason the
+other half moves.
+
+**We had just made it worse.** P0-3, an hour earlier, ended its honest
+replacement with "what you see in the preview is what we print". In context
+that meant "we do not alter your photos", and read on its own it was
+exactly this claim. It now says the photos are printed as they were
+uploaded, which is what it was always for. Worth remembering: a sentence
+that is true about one thing is not safe to reuse as a slogan about
+everything.
+
+**"Printing defect? We reprint it free."** The right promise with no
+boundary. A customer whose own 600px photo printed soft calls that a
+printing defect, and until now there was nothing to point at. The policy
+names what is covered — binding, banding, misregistration, trim, transit
+damage — and what is not: low-resolution photos the editor warned about
+before the order, design choices the customer made, and screen-versus-print
+colour. Fourteen days from delivery, with photographs of the whole book and
+of the fault.
+
+**It lives under the promise, not on a page of its own.** A boundary a
+customer finds only after the argument has started is not a boundary. Every
+place that offers a free reprint links to it — the perk, the FAQ answer and
+the footer on all five pages, and the editor's start screen, which makes
+the same promise and now carries the same link.
+
+At current margins one avoidable reprint erases roughly twenty sales, so
+this is a financial control rather than legalese, and `checks/promises.js`
+treats it as one: it fails if the policy loses either half of its list, if
+any language drops below three links to it, or if the old unqualified
+sentence returns in any of the five languages it was translated into.

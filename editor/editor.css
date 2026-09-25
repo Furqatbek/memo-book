@@ -469,6 +469,14 @@ select {
   display: -webkit-box; -webkit-box-orient: vertical;
   -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
 }
+/* The reprint policy link under the "checked before shipping" perk: the
+   editor repeats the site's free-reprint promise, so it carries the same
+   boundary (P1-1). */
+.perk-policy {
+  display: inline-block; margin-top: 2px; font-size: .74rem;
+  color: var(--primary); text-decoration: underline;
+}
+
 .badge {
   position: absolute; top: 4px; left: 4px; background: rgba(22,24,29,.78); color: #fff;
   font-size: .6rem; border-radius: 5px; padding: 2px 5px; max-width: calc(100% - 8px);
