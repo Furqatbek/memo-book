@@ -3016,3 +3016,65 @@ the editor's upload call from a PUT to a multipart form, so it is a
 deliberate piece of work rather than something to slip in beside a feature
 — but until it is done, an oversized body still reaches the bucket and is
 only refused on the way out of it.
+
+**CR-003 Phase 1 — share links, production updates, gift mode.**
+
+**CR-003-1, the share link, is a THIRD secret and that is the design.**
+`edit_token` is everything, `telegram_token` attaches a chat, and
+`share_token` shows pages. A share link is forwarded, screenshotted and
+pasted into group chats, so it has to be incapable of doing anything else
+and losing it must cost nothing but the showing. Revoking it deletes the
+rendered images too, because clearing a column while the pictures sit in
+storage is not what the owner thinks "revoke" means.
+
+Share pages render at **144 DPI (~1190px)** — above the 72 DPI preview
+because this image *is* the advertisement and gets looked at on a phone,
+and below the CR's 1200px ceiling so a forwarded link can never yield
+print-quality copies of a family's photographs. The renderers are the
+preview's own, with the scale as a parameter, so the book being shown off
+cannot drift from the book that was approved; the preview's 115 render
+tests confirm its own output is byte-identical.
+
+**The share page is server-rendered, unlike every other page on this
+site,** for one reason: the Open Graph card has to carry *this book's*
+cover. The link is going into Telegram and that card is the whole
+advertisement. `X-Robots-Tag: noindex` and `Referrer-Policy: no-referrer`
+on everything a token reaches — customers' photographs must never appear
+in a search result.
+
+**CR-003-2 adds three stages to the order state machine** — printing,
+binding, quality_check — and **allows forward skips**. An operator who has
+to click through every stage to record reality will stop recording it, and
+a status nobody updates is worse than one with gaps. Only three stages
+reach the customer; a bot that narrates every internal step gets muted,
+and then the message that mattered is muted too.
+
+Idempotency per `(order, status)` is decided from the order's own audit
+trail rather than a new table — the fact is already recorded there, and
+the operator is one person on a phone who will press the same button
+twice.
+
+**CR-003-3's one rule is structural, not a check.** Production messages go
+to the buyer because the only channels that exist are the buyer's: the
+book's Telegram chat, which the buyer linked, and the order's email, which
+is the buyer's. The recipient's details live in a separate table that only
+the operator's notification reads. A present someone was told about in
+advance is not a present, and the way to keep that true is to have no path
+that could send them anything.
+
+The operator's Telegram notification puts the gift block **above the print
+files**, because every line of it changes what the person packing the box
+does: a different address, a card to write by hand, a date not to ship
+before, and no price in the box.
+
+**CR-003-4 is a printing job and a spreadsheet,** written up in
+`docs/referral-card.md` rather than built. At 40 books a month a referral
+system is a table nobody reads. The one thing the write-up insists on is
+the column people forget: the promise is *two* discounts, and a programme
+that quietly honours only the friend's cheats the customer who liked you
+enough to recommend you.
+
+**CR-003-8 is deliberately NOT built.** Its own condition is "only if
+capacity is genuinely constrained", and 40+ books a month against current
+volume is not a constraint. A scarcity counter that counts nothing real is
+exactly the practice this project rated a competitor down for.

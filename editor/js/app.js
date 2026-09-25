@@ -2,8 +2,8 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260925j';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925j';
+import * as api from './api.js?v=20260925m';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925m';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
@@ -3283,6 +3283,31 @@ function autoFillMessage(r) {
   return how + fits;
 }
 
+/* "Share preview" (CR-003-1).
+ *
+ * Copies the link rather than opening it: the owner wants to paste it into
+ * a chat, and sending them to their own share page first is a detour. The
+ * link is read-only and revocable, and minting it twice returns the same
+ * one so a second press cannot invalidate what they already sent.
+ */
+async function shareBook() {
+  const btn = $('btn-share');
+  btn.disabled = true;
+  try {
+    const r = await api.createShare(S.creds);
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(r.share_url);
+      copied = true;
+    } catch (e) { /* no clipboard permission: fall through to showing it */ }
+    toast(copied ? t('share.copied') : r.share_url);
+  } catch (e) {
+    await handleActionError(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function autoFill() {
   if (!(await flushSave())) return;
   try {
@@ -3433,6 +3458,20 @@ async function submitCheckout(e) {
     confirmed_preview: true,
   };
   if (data.email && data.email.trim()) body.email = data.email.trim();
+  /* Gift mode (CR-003-3). Only sent when the toggle is on, so an ordinary
+     order carries no empty recipient block for the server to puzzle over. */
+  if ($('co-gift').checked) {
+    body.gift = {
+      recipient_name: (data.recipient_name || '').trim(),
+      recipient_phone: (data.recipient_phone || '').trim(),
+      recipient_address: (data.recipient_address || '').trim(),
+      hide_price: !!data.hide_price,
+    };
+    const msg = (data.gift_message || '').trim();
+    if (msg) body.gift.gift_message = msg;
+    const after = (data.deliver_after || '').trim();
+    if (after) body.gift.deliver_after = after;
+  }
   try {
     const r = await api.checkout(S.creds, body);
     S.order = {
@@ -3771,6 +3810,7 @@ function bind() {
   $('tab-photos').addEventListener('click', () => setTrayTab('photos'));
   $('tab-stickers').addEventListener('click', () => setTrayTab('stickers'));
   $('btn-autofill').addEventListener('click', autoFill);
+  $('btn-share').addEventListener('click', shareBook);
   $('btn-preview').addEventListener('click', openPreview);
   $('tier-select').addEventListener('change', (e) => changeTier(Number(e.target.value)));
   $('btn-view-order').addEventListener('click', () => {
@@ -3840,6 +3880,9 @@ function bind() {
     }
   });
 
+  $('co-gift').addEventListener('change', (e) => {
+    $('co-gift-fields').classList.toggle('hidden', !e.target.checked);
+  });
   $('co-back').addEventListener('click', () => openPreview());
   $('co-form').addEventListener('submit', submitCheckout);
 

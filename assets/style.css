@@ -657,3 +657,24 @@ a { color: var(--primary); }
   .brand { font-size: 0; gap: 0; }
   .brand .brand-mark { width: 30px; height: 30px; }
 }
+
+/* The shared book page (CR-003-1). A stranger's first sight of this
+   product, opened on a phone in a group chat — one column, big pictures,
+   one thing to press. */
+.share-body { background: var(--bg-soft); }
+.share-wrap { max-width: 640px; margin: 0 auto; padding: 0 16px 56px; }
+.share-head { padding: 18px 0; }
+.share-title { font-size: clamp(1.6rem, 5vw, 2.2rem); margin-bottom: 2px; }
+.share-sub { color: var(--muted); margin-bottom: 22px; }
+.share-pages { display: flex; flex-direction: column; gap: 16px; }
+.share-page { margin: 0; }
+.share-page img {
+  width: 100%; height: auto; display: block; border-radius: var(--radius);
+  box-shadow: var(--sh-sm); background: #fff;
+}
+.share-note { color: var(--muted); padding: 28px 0; }
+.share-cta {
+  margin-top: 34px; padding: 22px; border-radius: var(--radius-lg);
+  background: #fff; border: 1px solid var(--line); text-align: center;
+}
+.share-cta p { color: var(--muted); margin-bottom: 14px; }

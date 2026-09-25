@@ -107,7 +107,7 @@ def _require_complete_pages(book: Book, usable_photo_ids: set[str]) -> None:
 
 async def checkout(session: AsyncSession, book_id: uuid.UUID, edit_token: str, *,
                    name: str, phone: str, address: str, email: str | None,
-                   confirmed_preview: bool) -> Order:
+                   confirmed_preview: bool, gift: dict | None = None) -> Order:
     # Asked before anything else, and before the book is even looked up: if
     # the shop is not open, every check below is work done to reach a refusal.
     # There is nothing to leak — it is the same answer for everybody (A74).
@@ -178,11 +178,48 @@ async def checkout(session: AsyncSession, book_id: uuid.UUID, edit_token: str, *
                           "an active order already exists for this book",
                           {"order_status": existing.status})
 
+    # A gift (CR-003-3). The BUYER stays the order's customer — they pay,
+    # they are told what is happening, and they are who we contact if
+    # anything is wrong. The recipient is where the box goes and nothing
+    # else; they never hear from us, because a present they were told
+    # about in advance is not a present.
+    if gift:
+        await _save_gift(session, order, gift)
+
     transition_book(BookStatus(book.status), BookStatus.LOCKED)
     book.status = BookStatus.LOCKED.value
     await session.commit()
     await session.refresh(order)
     return order
+
+
+async def _save_gift(session: AsyncSession, order: Order, gift: dict) -> None:
+    from app.models.gift import GiftDetails
+
+    existing = (await session.execute(
+        select(GiftDetails).where(GiftDetails.order_id == order.id)
+    )).scalar_one_or_none()
+    if existing is not None:
+        await session.delete(existing)       # re-checkout replaces it
+        await session.flush()
+    session.add(GiftDetails(
+        order_id=order.id,
+        recipient_name=gift["recipient_name"],
+        recipient_phone=gift["recipient_phone"],
+        recipient_address=gift["recipient_address"],
+        gift_message=(gift.get("gift_message") or None),
+        deliver_after=gift.get("deliver_after"),
+        hide_price=bool(gift.get("hide_price", True)),
+        created_at=_now(),
+    ))
+
+
+async def gift_for(session: AsyncSession, order_id: uuid.UUID):
+    from app.models.gift import GiftDetails
+
+    return (await session.execute(
+        select(GiftDetails).where(GiftDetails.order_id == order_id)
+    )).scalar_one_or_none()
 
 
 async def _unique_ref(session: AsyncSession) -> str:

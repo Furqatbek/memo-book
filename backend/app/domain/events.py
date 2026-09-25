@@ -32,6 +32,11 @@ class EventType(str, Enum):
     BOOK_ABANDONED = "book_abandoned"              # by job, 72h without activity
     REMINDER_SENT = "reminder_sent"                # {channel, day}
     REMINDER_CLICKED = "reminder_clicked"          # {day}
+    # CR-003 growth mechanics.
+    SHARE_LINK_CREATED = "share_link_created"
+    SHARE_LINK_VIEWED = "share_link_viewed"        # {referrer}
+    SHARE_CTA_CLICKED = "share_cta_clicked"
+    GIFT_MODE_ENABLED = "gift_mode_enabled"
 
 
 # Events that may legitimately happen more than once for the same book.
@@ -42,6 +47,10 @@ REPEATABLE = frozenset({
     EventType.EDITOR_OPENED,
     EventType.REMINDER_SENT,
     EventType.REMINDER_CLICKED,
+    # A share link is created once; it is then viewed by as many people as
+    # the owner sends it to, and that count is the entire point of it.
+    EventType.SHARE_LINK_VIEWED,
+    EventType.SHARE_CTA_CLICKED,
 })
 
 ONCE_PER_BOOK = frozenset(EventType) - REPEATABLE
@@ -62,6 +71,10 @@ CLIENT_REPORTABLE = frozenset({
     EventType.EDITOR_OPENED,
     EventType.CHECKOUT_OPENED,
     EventType.REMINDER_CLICKED,
+    # Pressed on a page that belongs to somebody else's book, by somebody
+    # holding no token at all. The server cannot see a button being
+    # pressed, and there is nothing here worth forging.
+    EventType.SHARE_CTA_CLICKED,
 })
 
 # The funnel, in order, for the report. Every step is server-observed

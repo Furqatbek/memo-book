@@ -13,6 +13,7 @@ from app.api.errors import register_error_handlers
 from app.api.events import router as events_router
 from app.api.funnel import router as funnel_router
 from app.api.health import router as health_router
+from app.api.share import router as share_router
 from app.api.orders import router as orders_router
 from app.api.payments import router as payments_router
 from app.api.photos import router as photos_router
@@ -102,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(events_router)
     app.include_router(funnel_router)
+    app.include_router(share_router)
     app.include_router(books_router)
     app.include_router(photos_router)
     app.include_router(preview_router)

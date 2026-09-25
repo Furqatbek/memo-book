@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex">
   <title>RS Pixel — Book editor</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='22' height='24' rx='3' fill='%232456d6'/%3E%3Crect x='9' y='9' width='14' height='9' rx='1.5' fill='white' opacity='.92'/%3E%3Crect x='9' y='21' width='10' height='2.5' rx='1.25' fill='white' opacity='.7'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="editor.css?v=20260925h">
+  <link rel="stylesheet" href="editor.css?v=20260925m">
   <script src="config.js?v=20260826"></script>
 </head>
 <body>
@@ -135,6 +135,9 @@
            at, and replaced by a quiet confirmation once linked. -->
       <a id="btn-tg-remind" class="btn small hidden" target="_blank"
          rel="noopener" data-i18n="tg.remind"></a>
+      <!-- CR-003-1. Every share goes to somebody who is IN the
+           photographs — the warmest audience there is, at no cost. -->
+      <button id="btn-share" class="btn small" data-i18n="share.button"></button>
       <span id="tg-linked" class="save-state hidden" data-i18n="tg.linked"></span>
       <span class="spacer"></span>
       <select id="tier-select" aria-label="Pages">
@@ -265,6 +268,30 @@
         <small class="field-hint" data-i18n="co.deliveryHint"></small></label>
       <label><span data-i18n="co.email"></span>
         <input name="email" type="email" maxlength="200" autocomplete="email"></label>
+      <!-- Gift mode (CR-003-3). Checkout assumed buyer = recipient, and the
+           next campaign is entirely gifting: without this every gift buyer
+           either abandons or writes to ask. -->
+      <label class="co-gift-toggle">
+        <input type="checkbox" id="co-gift" name="is_gift">
+        <span data-i18n="gift.toggle"></span>
+      </label>
+      <div id="co-gift-fields" class="co-gift-fields hidden">
+        <p class="field-hint" data-i18n="gift.note"></p>
+        <label><span data-i18n="gift.name"></span>
+          <input name="recipient_name" maxlength="200"></label>
+        <label><span data-i18n="gift.phone"></span>
+          <input name="recipient_phone" inputmode="tel" maxlength="32"></label>
+        <label><span data-i18n="gift.address"></span>
+          <textarea name="recipient_address" maxlength="500" rows="3"></textarea></label>
+        <label><span data-i18n="gift.message"></span>
+          <textarea name="gift_message" maxlength="200" rows="2"></textarea></label>
+        <label><span data-i18n="gift.after"></span>
+          <input name="deliver_after" type="date"></label>
+        <label class="co-gift-toggle">
+          <input type="checkbox" name="hide_price" checked>
+          <span data-i18n="gift.hidePrice"></span>
+        </label>
+      </div>
       <p class="pay-hint" data-i18n="co.payHint"></p>
       <button type="submit" class="btn primary" data-i18n="co.submit"></button>
     </form>
@@ -338,6 +365,6 @@
     </div>
   </section>
 
-  <script type="module" src="js/app.js?v=20260925k"></script>
+  <script type="module" src="js/app.js?v=20260925m"></script>
 </body>
 </html>

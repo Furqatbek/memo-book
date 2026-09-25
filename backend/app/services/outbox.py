@@ -36,6 +36,10 @@ TOPIC_BOOK_REMINDER_TG = "book.reminder.telegram"
 # Telegram outage must not make the webhook throw, and a confirmation that
 # was not delivered has to be retried rather than lost.
 TOPIC_TELEGRAM_REPLY = "telegram.reply"
+# A production update by email, for customers who never linked Telegram
+# (CR-003-2). The Telegram ones reuse the reminder topic — it is the same
+# act: a message with a picture to one chat.
+TOPIC_ORDER_PROGRESS = "order.progress"
 
 
 def _send_telegram_message(payload: dict) -> None:
@@ -56,6 +60,14 @@ def _send_telegram_message(payload: dict) -> None:
         telegram.send_photo_to(payload["chat_id"], url, payload["text"])
         return
     telegram.send_to(payload["chat_id"], payload["text"])
+
+
+def _send_progress_email(payload: dict) -> None:
+    from app.services.email import send_email
+
+    send_email(payload["email"],
+               f"Your photo book {payload['human_ref']}",
+               payload["text"])
 
 
 def _send_reminder(payload: dict) -> None:
@@ -79,6 +91,7 @@ HANDLERS: dict[str, Callable[[dict], None]] = {
     TOPIC_BOOK_REMINDER: _send_reminder,
     TOPIC_BOOK_REMINDER_TG: _send_telegram_message,
     TOPIC_TELEGRAM_REPLY: _send_telegram_message,
+    TOPIC_ORDER_PROGRESS: _send_progress_email,
     TOPIC_ORDER_ATTENTION: send_attention_alert,
     TOPIC_ORDER_RECEIPT: send_receipt_notification,
 }
@@ -175,8 +188,21 @@ def receipt_payload(order) -> dict:
 
 
 def rendered_payload(order, book, interior_key: str, cover_key: str,
-                     soft: list[dict] | None = None) -> dict:
+                     soft: list[dict] | None = None,
+                     gift=None) -> dict:
     return {
+        # Everything the person packing the box needs to do it differently
+        # (CR-003-3). Flattened into the payload rather than looked up at
+        # delivery, so a message that waited out an outage still carries it.
+        "gift": None if gift is None else {
+            "recipient_name": gift.recipient_name,
+            "recipient_phone": gift.recipient_phone,
+            "recipient_address": gift.recipient_address,
+            "gift_message": gift.gift_message,
+            "deliver_after": (gift.deliver_after.isoformat()
+                              if gift.deliver_after else None),
+            "hide_price": gift.hide_price,
+        },
         # Pages that will print soft (A79). The printer sees this before the
         # ink goes on, which is the last cheap moment to stop a reprint.
         "soft_pages": soft or [],

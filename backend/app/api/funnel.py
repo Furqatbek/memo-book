@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,6 +75,30 @@ def _rates(counts: dict) -> dict:
         rates[f"{event.value}_of_site_visit"] = round(n / top, 4) if top else None
         previous = (event.value, n)
     return rates
+
+
+class StatusIn(BaseModel):
+    status: str = Field(max_length=24)
+    # A storage KEY, not a URL: the outbox presigns at delivery time, so a
+    # message that waited out an outage still opens (the same rule the
+    # print-file links follow). An operator pastes the key the console
+    # shows them after uploading the photo.
+    photo_url: str | None = Field(default=None, max_length=255)
+    note: str | None = Field(default=None, max_length=280)
+    eta: str | None = Field(default=None, max_length=40)
+
+
+@router.patch("/orders/{human_ref}/status", dependencies=[Admin])
+async def set_order_status(human_ref: str, body: StatusIn,
+                           session: Session) -> dict:
+    """Move an order, and tell the customer if this is a stage they hear
+    about (CR-003-2). No UI in scope — one operator, a phone and curl."""
+    from app.services import admin_orders
+
+    return await admin_orders.set_status(
+        session, human_ref, body.status, note="operator",
+        photo_key=body.photo_url, eta=body.eta,
+        customer_note=body.note)
 
 
 @router.get("/funnel", dependencies=[Admin])

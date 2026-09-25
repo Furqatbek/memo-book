@@ -1,5 +1,6 @@
 """Checkout + public order status (spec Part 5)."""
 import uuid
+from datetime import date
 from typing import Annotated
 
 from fastapi import (APIRouter, Depends, File, Form, Header, Query, Request,
@@ -22,6 +23,17 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 EditToken = Annotated[str, Header(alias="X-Edit-Token")]
 
 
+class GiftRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    recipient_name: str = Field(min_length=1, max_length=200)
+    recipient_phone: str = Field(min_length=5, max_length=32)
+    recipient_address: str = Field(min_length=5, max_length=2000)
+    # 200 is what fits on the card the operator writes by hand.
+    gift_message: str | None = Field(default=None, max_length=200)
+    deliver_after: date | None = None
+    hide_price: bool = True
+
+
 class CheckoutRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=200)
@@ -29,6 +41,7 @@ class CheckoutRequest(BaseModel):
     address: str = Field(min_length=5, max_length=2000)
     email: EmailStr | None = None
     confirmed_preview: bool
+    gift: GiftRequest | None = None
 
 
 @router.post("/books/{book_id}/checkout", status_code=201)
@@ -38,12 +51,19 @@ async def checkout(book_id: uuid.UUID, body: CheckoutRequest, request: Request,
         session, book_id, x_edit_token,
         name=body.name, phone=body.phone, address=body.address,
         email=body.email, confirmed_preview=body.confirmed_preview,
+        gift=body.gift.model_dump() if body.gift else None,
     )
     # The order exists and has a reference; whether it is ever paid is a
     # separate event. A contact detail arriving here counts too — for many
     # customers this is the first time we learn how to reach them.
     await record(request, session, EventType.CHECKOUT_SUBMITTED,
                  book_id=book_id)
+    if body.gift:
+        # The gift share of orders shapes the next two campaigns, so it is
+        # worth its own event rather than a column somebody has to go and
+        # count (CR-003-3).
+        await record(request, session, EventType.GIFT_MODE_ENABLED,
+                     book_id=book_id)
     if body.email:
         await record(request, session, EventType.CONTACT_CAPTURED,
                      book_id=book_id, properties={"channel": "email"})

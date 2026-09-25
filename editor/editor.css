@@ -1307,3 +1307,14 @@ a.brand:hover { color: var(--primary); }
                align-items: flex-start; }
 .receipt-pick { cursor: pointer; }
 .receipt-done { color: #1c7a45; font-weight: 600; font-size: .92rem; }
+
+/* Gift mode (CR-003-3). The toggle reads as a question, and the fields
+   only exist once the answer is yes — a checkout that shows eight extra
+   boxes to every buyer costs more orders than gifting wins. */
+.co-gift-toggle {
+  flex-direction: row !important; align-items: center; gap: 10px;
+  font-weight: 500; color: var(--ink);
+}
+.co-gift-toggle input { width: 18px; height: 18px; flex: none; }
+.co-gift-fields { display: flex; flex-direction: column; gap: 16px; }
+.co-gift-fields.hidden { display: none; }

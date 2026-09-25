@@ -70,13 +70,16 @@ async def _notify_production(session: AsyncSession, order: Order,
     """Hand the printer the finished files. Enqueued in the render's own
     transaction: a Telegram outage can neither roll back a completed render
     nor lose the message announcing it."""
+    from app.services import orders as orders_svc
     from app.services import outbox
 
+    gift = await orders_svc.gift_for(session, order.id)
     outbox.enqueue(session, outbox.TOPIC_ORDER_RENDERED,
                    outbox.rendered_payload(order, context["book"],
                                            context["interior_key"],
                                            context["cover_key"],
-                                           context.get("soft_pages")))
+                                           context.get("soft_pages"),
+                                           gift=gift))
 
 
 async def _alert_operator(session: AsyncSession, order: Order,

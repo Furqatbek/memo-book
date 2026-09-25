@@ -47,6 +47,11 @@ UNVERIFIED_STATUSES = (
 # becoming paid does more than change a status.
 OPERATOR_TARGETS = frozenset({
     OrderStatus.SENT_TO_PRODUCTION.value,
+    # The three the customer hears about (CR-003-2). Operator actions like
+    # the rest: they only write a row and queue a message.
+    OrderStatus.PRINTING.value,
+    OrderStatus.BINDING.value,
+    OrderStatus.QUALITY_CHECK.value,
     OrderStatus.SHIPPED.value,
     OrderStatus.DELIVERED.value,
     OrderStatus.CANCELLED.value,
@@ -241,7 +246,10 @@ async def confirm_payment(session: AsyncSession, human_ref: str,
 
 
 async def set_status(session: AsyncSession, human_ref: str, target: str,
-                     note: str | None = None) -> dict:
+                     note: str | None = None, *,
+                     photo_key: str | None = None,
+                     eta: str | None = None,
+                     customer_note: str | None = None) -> dict:
     """Advance an order. Refuses anything the state machine forbids, and
     anything whose side effects this path cannot honour — a status that
     should enqueue a render or alert somebody must not be reachable by
@@ -270,6 +278,14 @@ async def set_status(session: AsyncSession, human_ref: str, target: str,
 
     apply_transition(session, order, OrderStatus(target),
                      note=note or "admin console")
+    # The customer's own message for this stage (CR-003-2). Queued inside
+    # the same transaction as the transition, so a status that was recorded
+    # and a message that was not cannot happen; and idempotent per
+    # (order, status), so an operator pressing the same button twice on a
+    # phone does not send it twice.
+    await production_updates.notify(session, order, target,
+                                    photo_url=photo_key, note=customer_note,
+                                    eta=eta)
     await session.commit()
     return await order_detail(session, human_ref)
 
@@ -299,9 +315,13 @@ async def resend_to_printer(session: AsyncSession, human_ref: str) -> dict:
         raise DomainError(ErrorCode.ILLEGAL_TRANSITION,
                           "the print files for this order are missing",
                           {"have": sorted(keys)})
+    from app.services import orders as orders_svc
+
     outbox.enqueue(session, outbox.TOPIC_ORDER_RENDERED,
                    outbox.rendered_payload(order, book, keys["interior"],
-                                           keys["cover"]))
+                                           keys["cover"],
+                                           gift=await orders_svc.gift_for(
+                                               session, order.id)))
     await session.commit()
     if queue.eager():
         await outbox.deliver_pending(session)

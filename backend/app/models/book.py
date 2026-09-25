@@ -42,6 +42,20 @@ class Book(Base):
     telegram_token_expires_at: Mapped[datetime | None] = mapped_column(
         sa.DateTime(timezone=True), nullable=True)
 
+    # A read-only link to show the book off (CR-003-1). A THIRD secret,
+    # separate from edit_token and telegram_token: shared links get
+    # forwarded and screenshotted, so this one must never grant edit
+    # access, and revoking it must not disturb the other two.
+    share_token: Mapped[str | None] = mapped_column(
+        sa.String(64), nullable=True, unique=True, index=True)
+    share_created_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True)
+    share_view_count: Mapped[int] = mapped_column(sa.Integer, default=0)
+    # Which layout the stored share images were rendered from, so a book
+    # edited since last shared can be re-rendered rather than shown stale.
+    share_layout_version: Mapped[int | None] = mapped_column(
+        sa.Integer, nullable=True)
+
     reminder_3d_sent: Mapped[bool] = mapped_column(sa.Boolean, default=False)
     reminder_14d_sent: Mapped[bool] = mapped_column(sa.Boolean, default=False)
     # Day 25: the last reminder that can still be acted on (Change 4).

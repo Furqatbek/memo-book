@@ -32,6 +32,9 @@ STATUS_LABELS = {
     "render_failed": "Render failed",
     "rendered": "Ready for print",
     "sent_to_production": "At the printer",
+    "printing": "On the press",
+    "binding": "Being bound",
+    "quality_check": "Quality check",
     "shipped": "Shipped",
     "delivered": "Delivered",
     "refunded": "Refunded",
@@ -133,6 +136,24 @@ def build_production_message(payload: dict) -> str:
     if payload.get("customer_email"):
         lines.append(f"Email: {payload['customer_email']}")
     lines.append(f"Amount: {amount} {payload.get('currency', 'UZS')}")
+    # A GIFT (CR-003-3). Loud, and above the files, because every line of
+    # it changes what the person packing the box does: a different address,
+    # a card to write by hand, a date not to ship before, and no price in
+    # the box.
+    gift = payload.get("gift")
+    if gift:
+        lines.append("")
+        lines.append("🎁 THIS IS A GIFT — do not contact the recipient")
+        lines.append(f"Deliver to: {gift['recipient_name']}, "
+                     f"{gift['recipient_phone']}")
+        lines.append(f"Recipient address: {gift['recipient_address']}")
+        if gift.get("deliver_after"):
+            lines.append(f"⏳ NOT before: {gift['deliver_after']}")
+        if gift.get("gift_message"):
+            lines.append(f"Card to write: “{gift['gift_message']}”")
+        if gift.get("hide_price", True):
+            lines.append("No price anywhere in the box.")
+        lines.append("")
     soft = payload.get("soft_pages") or []
     if soft:
         # Above the links on purpose: it is the one thing worth reading

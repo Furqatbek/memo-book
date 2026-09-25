@@ -19,6 +19,13 @@ class OrderStatus(StrEnum):
     RENDER_FAILED = "render_failed"
     RENDERED = "rendered"
     SENT_TO_PRODUCTION = "sent_to_production"
+    # The three stages the customer actually hears about (CR-003-2). The
+    # 30-day wait was silent, and silence produces support messages,
+    # anxiety and cancellation requests; these turn dead time into
+    # anticipation, and cost the operator three taps.
+    PRINTING = "printing"
+    BINDING = "binding"
+    QUALITY_CHECK = "quality_check"
     SHIPPED = "shipped"
     DELIVERED = "delivered"
     REFUNDED = "refunded"
@@ -43,7 +50,19 @@ ORDER_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
                                           OrderStatus.CANCELLED}),
     OrderStatus.RENDERED: frozenset({OrderStatus.SENT_TO_PRODUCTION,
                                      OrderStatus.CANCELLED}),
-    OrderStatus.SENT_TO_PRODUCTION: frozenset({OrderStatus.SHIPPED}),
+    # Forward skips are allowed on purpose. An operator who has to click
+    # through every stage to record reality will stop recording it, and a
+    # status nobody updates is worse than one with gaps.
+    OrderStatus.SENT_TO_PRODUCTION: frozenset({OrderStatus.PRINTING,
+                                               OrderStatus.BINDING,
+                                               OrderStatus.QUALITY_CHECK,
+                                               OrderStatus.SHIPPED}),
+    OrderStatus.PRINTING: frozenset({OrderStatus.BINDING,
+                                     OrderStatus.QUALITY_CHECK,
+                                     OrderStatus.SHIPPED}),
+    OrderStatus.BINDING: frozenset({OrderStatus.QUALITY_CHECK,
+                                    OrderStatus.SHIPPED}),
+    OrderStatus.QUALITY_CHECK: frozenset({OrderStatus.SHIPPED}),
     OrderStatus.SHIPPED: frozenset({OrderStatus.DELIVERED, OrderStatus.REFUNDED}),
     OrderStatus.DELIVERED: frozenset({OrderStatus.REFUNDED}),
     OrderStatus.REFUNDED: frozenset(),

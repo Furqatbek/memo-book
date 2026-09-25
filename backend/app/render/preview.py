@@ -13,6 +13,15 @@ from app.render.compose import compose_page
 
 PREVIEW_DPI = 72
 PREVIEW_SCALE = PREVIEW_DPI / 300  # compose_page scale factor
+
+# The share view (CR-003-1). Bigger than the preview because this image IS
+# the advertisement — it gets pasted into Telegram and looked at on a phone
+# — and still far below print: 144 DPI puts a 210mm page at ~1190px, inside
+# the 1200px ceiling the CR sets so a forwarded link can never yield
+# print-quality copies of somebody's family photographs.
+SHARE_DPI = 144
+SHARE_SCALE = SHARE_DPI / 300
+SHARE_JPEG_QUALITY = 82
 PREVIEW_JPEG_QUALITY = 72
 
 FONT_PATH = Path(__file__).parent / "fonts" / "DejaVuSans-Bold.ttf"
@@ -243,3 +252,31 @@ def render_preview_cover(cover: dict, photo_bytes: bytes | None,
     out = io.BytesIO()
     img.save(out, format="JPEG", quality=PREVIEW_JPEG_QUALITY)
     return out.getvalue()
+
+
+def render_share_page(page: dict, photo_bytes: dict[str, bytes],
+                      bg_image_bytes: bytes | None = None) -> bytes:
+    """One page for the share view: no watermark, 144 DPI (CR-003-1).
+
+    Same composition, same text and sticker drawing as the preview — the
+    scale is a parameter precisely so this cannot drift from what the
+    customer confirmed. The watermark is absent on purpose: this is the
+    book being shown off, not the proof being approved.
+    """
+    page_jpeg = compose_page(page, photo_bytes, scale=SHARE_SCALE,
+                             bg_image_bytes=bg_image_bytes)
+    img = Image.open(io.BytesIO(page_jpeg))
+    img.load()
+    _draw_stickers(img, page.get("stickers", []), scale=SHARE_SCALE)
+    _draw_texts(img, page, scale=SHARE_SCALE)
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=SHARE_JPEG_QUALITY)
+    return out.getvalue()
+
+
+def render_share_cover(cover: dict, photo_bytes: bytes | None,
+                       artwork_bytes: bytes | None = None) -> bytes:
+    """The cover for the share view — and the og:image of the share page,
+    which makes it the first thing anybody sees of this product."""
+    return render_preview_cover(cover, photo_bytes, artwork_bytes,
+                                scale=SHARE_SCALE, watermark=False)

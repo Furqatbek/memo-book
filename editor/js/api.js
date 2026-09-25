@@ -139,6 +139,14 @@ export const recordEvent = (type, extra) => {
 export const telegramLink = (c) =>
   request('GET', `${V}/books/${c.book_id}/telegram-link`, { token: c.edit_token });
 
+/* The read-only share link (CR-003-1). Minting it is behind the edit
+   token; what it produces is not, which is the whole point. */
+export const createShare = (c) =>
+  request('POST', `${V}/books/${c.book_id}/share`, { token: c.edit_token });
+
+export const revokeShare = (c) =>
+  request('DELETE', `${V}/books/${c.book_id}/share`, { token: c.edit_token });
+
 export const listPhotos = (c) =>
   request('GET', `${V}/books/${c.book_id}/photos`, { token: c.edit_token });
 

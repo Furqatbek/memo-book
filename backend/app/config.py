@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     # notices. Generous, because dropping a real event silently skews a
     # metric and that is the failure this instrumentation exists to avoid.
     rate_limit_events_per_min: int = 120
+    # Shared book pages (CR-003-1). Unauthenticated by design — the token
+    # is the credential — so this is the limit that makes enumeration
+    # pointless as well as hopeless. Generous because a family group chat
+    # opening the same link is a burst of real traffic.
+    rate_limit_share_per_min: int = 90
 
     # --- Admin console (A72) ---
     # The shared secret the console signs in with. EMPTY DISABLES THE ADMIN
