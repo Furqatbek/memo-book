@@ -92,6 +92,9 @@ EXEMPT = {
     # The same public shop window for everybody; nothing to guess at.
     "GET /api/v1/prices": "public, identical for everyone",
     "GET /api/v1/cover-designs": "public, identical for everyone",
+    # The campaign countdown (CR-003-7). The same shop window for everybody,
+    # two integers and a label, and nothing behind it to guess at.
+    "GET /api/v1/campaign": "public, identical for everyone",
     # Dev-only, and 404 outside dev environments.
     "GET /api/v1/payments/dev/config": "dev environments only",
 }

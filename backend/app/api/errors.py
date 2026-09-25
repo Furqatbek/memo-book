@@ -30,6 +30,10 @@ STATUS_BY_CODE: dict[ErrorCode, int] = {
     ErrorCode.PRICES_NOT_CONFIRMED: 503,
     ErrorCode.NOT_FOUND: 404,
     ErrorCode.RATE_LIMITED: 429,
+    # 409, not 503: the shop is open and this book is fine — what has run
+    # out is the month's production, which is a conflict with the world
+    # rather than a fault at our end.
+    ErrorCode.CAMPAIGN_FULL: 409,
 }
 
 

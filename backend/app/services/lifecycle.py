@@ -124,14 +124,20 @@ def _reminder_body(kind: str, days_left: int) -> str:
             f"photographs are deleted.")
 
 
-def _reminder_text(url: str, kind: str = "waiting", days_left: int = 0) -> str:
+def _reminder_text(url: str, kind: str = "waiting", days_left: int = 0,
+                   seasonal: str = "") -> str:
     """Short, because it arrives in a chat rather than an inbox.
 
     The seasonal note is APPENDED rather than woven in, so that turning it
     off at the end of a campaign cannot leave half a sentence behind.
+
+    `seasonal` is passed in rather than read here so that the COMPUTED
+    campaign line can take precedence over the hand-written one (CR-003-7).
+    A hand-written note cannot count down, and on the 26th it will still be
+    saying "order by 25 November".
     """
     parts = [_reminder_body(kind, days_left)]
-    note = (get_settings().reminder_seasonal_note or "").strip()
+    note = (seasonal or get_settings().reminder_seasonal_note or "").strip()
     if note:
         parts.append(note)
     if url:
@@ -147,8 +153,14 @@ def _reminder_url(book_id: uuid.UUID, day: int) -> str:
 
 async def queue_reminders(session: AsyncSession,
                           now: datetime | None = None) -> int:
+    from app.services import campaign
+
     now = now or datetime.now(UTC)
     queued = 0
+    # Computed once for the whole pass: every reminder sent tonight is
+    # sent on the same day, so the countdown is the same for all of them
+    # (CR-003-7). An empty string falls back to the hand-written note.
+    seasonal = await campaign.seasonal_note(session, now)
 
     for flag, delta, kind in REMINDER_SCHEDULE:
         # Either channel will do. Telegram is preferred where we have it
@@ -183,7 +195,8 @@ async def queue_reminders(session: AsyncSession,
                     "book_id": str(book.id),
                     "chat_id": book.telegram_chat_id,
                     "days_since_edit": delta.days,
-                    "text": _reminder_text(absolute, kind, days_left),
+                    "text": _reminder_text(absolute, kind, days_left,
+                                           seasonal),
                     # Their own photograph, presigned AT DELIVERY so a
                     # message that waited out an outage still opens.
                     "photo_key": thumb,
@@ -197,7 +210,7 @@ async def queue_reminders(session: AsyncSession,
                     "days_left": days_left,
                     "text": _reminder_text(
                         absolute or _reminder_url(book.id, delta.days),
-                        kind, days_left),
+                        kind, days_left, seasonal),
                     "photo_key": thumb,
                     "edit_url": absolute or _reminder_url(book.id, delta.days),
                 })
@@ -257,7 +270,13 @@ async def run_nightly(session: AsyncSession,
     expired = await expire_drafts(session, now=now)
     reminders = await queue_reminders(session, now=now)
     stalled = await reap_stalled_renders(session, now=now)
+    # One review request, seven days after delivery, never a second
+    # (CR-003-9). After the reminders, because it is the least urgent
+    # thing here and a failure in it must not cost anybody a reminder.
+    from app.services.reviews import run_requests
+
+    review_requests = await run_requests(session, now=now)
     delivered = await outbox.deliver_pending(session)
     return {"expired": expired, "reminders_queued": reminders,
-            "abandoned": abandoned,
+            "abandoned": abandoned, "review_requests": review_requests,
             "stalled_renders_reaped": stalled, "outbox_delivered": delivered}

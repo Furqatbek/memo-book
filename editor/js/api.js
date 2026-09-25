@@ -70,6 +70,11 @@ const V = '/api/v1';
 
 export const prices = () => request('GET', `${V}/prices`, {});
 
+/* The campaign window (CR-003-7, CR-003-8). Public and identical for
+   everybody. `{campaign: null}` when there is none, so there is one shape
+   to render and one branch to take. */
+export const campaign = () => request('GET', `${V}/campaign`, {});
+
 // Ready-made covers for this occasion. Public and bookless: the customer
 // chooses one before the book exists, and the filtering is the server's
 // job so adding a design needs no frontend deploy (A71).

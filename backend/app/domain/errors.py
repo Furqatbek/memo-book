@@ -26,6 +26,10 @@ class ErrorCode(StrEnum):
     PRICES_NOT_CONFIRMED = "PRICES_NOT_CONFIRMED"
     NOT_FOUND = "NOT_FOUND"
     RATE_LIMITED = "RATE_LIMITED"
+    # The campaign's places are gone (CR-003-8). A counter that reaches
+    # zero and keeps selling is a lie told slowly, so this is a real
+    # refusal and not just a changed banner.
+    CAMPAIGN_FULL = "CAMPAIGN_FULL"
 
 
 class DomainError(Exception):

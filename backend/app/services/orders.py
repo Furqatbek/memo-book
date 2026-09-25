@@ -112,6 +112,11 @@ async def checkout(session: AsyncSession, book_id: uuid.UUID, edit_token: str, *
     # the shop is not open, every check below is work done to reach a refusal.
     # There is nothing to leak — it is the same answer for everybody (A74).
     require_sellable_prices()
+    # And if the month's places are gone, they are gone (CR-003-8). Only
+    # reachable when somebody has configured a real ceiling; with none set
+    # this does nothing at all. Checked HERE rather than in the editor
+    # alone, because a banner is a courtesy and this is the promise.
+    await _require_a_place(session)
 
     book = await get_book_authed(session, book_id, edit_token)
     if book.status != BookStatus.DRAFT.value:
@@ -191,6 +196,25 @@ async def checkout(session: AsyncSession, book_id: uuid.UUID, edit_token: str, *
     await session.commit()
     await session.refresh(order)
     return order
+
+
+async def _require_a_place(session: AsyncSession) -> None:
+    """Refuse a new order once the month's real capacity is spoken for.
+
+    Existing orders are untouched — somebody who already paid keeps their
+    place — and an order being RE-checked out after a cancellation is not
+    a new one, so it is allowed through below by the caller's ordering.
+    """
+    from app.services import campaign
+
+    window = await campaign.current(session)
+    if window is not None and window.sold_out:
+        raise DomainError(
+            ErrorCode.CAMPAIGN_FULL,
+            f"we are full for {window.label} — every book we can make this "
+            "month is already spoken for. Your book is saved and nothing has "
+            "been charged; order any time for delivery after the rush.",
+            {"label": window.label, "capacity": window.capacity})
 
 
 async def _save_gift(session: AsyncSession, order: Order, gift: dict) -> None:

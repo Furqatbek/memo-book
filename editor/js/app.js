@@ -55,6 +55,10 @@ const S = {
   // Ready-made covers: the gallery for this occasion, plus a lookup so
   // a resumed book can draw the artwork it was made with (A71).
   pendingPages: null, designs: [], designById: {},
+  // The campaign window as the SERVER computed it (CR-003-7). Null means
+  // there is no campaign, which is also what a failed request leaves it
+  // as — silence rather than a guess.
+  campaign: null,
 };
 
 /* Occasion picked before the page-count step. Everything here is only a
@@ -561,6 +565,9 @@ function enterEditor() {
   renderAll();
   schedulePhotoPoll();
   refreshTelegramOffer();
+  // Not awaited: the countdown is worth having and is never worth making
+  // somebody wait for their own book (CR-003-7).
+  loadCampaign();
 }
 
 /* "Remind me in Telegram" (Change 2).
@@ -679,6 +686,49 @@ function updateEligibility() {
   el.classList.toggle('hidden', empty === 0);
   if (shortfall > 0) el.textContent = t('elig.need', { n: shortfall });
   else if (empty > 0) el.textContent = t('elig.place', { n: empty });
+}
+
+/* ---------- the campaign countdown (CR-003-7, CR-003-8) ---------- */
+
+/* Fetched once per editor session and rendered from the SERVER's numbers.
+ * Nothing here computes a date: "order within 6 days" is a promise about a
+ * printer's schedule, and a browser's clock belongs to the browser.
+ *
+ * Silence is the default. No campaign configured, or a request that fails,
+ * and the banner simply does not appear — it is never filled with a guess.
+ */
+async function loadCampaign() {
+  let body;
+  try {
+    body = await api.campaign();
+  } catch (e) {
+    return;                       /* no banner rather than a wrong one */
+  }
+  S.campaign = body && body.campaign;
+  renderCampaign();
+}
+
+function renderCampaign() {
+  const el = $('campaign-banner');
+  const c = S.campaign;
+  if (!c) { el.classList.add('hidden'); return; }
+
+  const parts = [];
+  if (c.days_left === 0) parts.push(t('campaign.lastDay', { label: c.label }));
+  else parts.push(t('campaign.days', { n: c.days_left, label: c.label }));
+
+  /* Places remaining appears ONLY when the server sent a number. It is
+     real paid orders against a ceiling somebody set after speaking to the
+     printer; if there is no ceiling there is no number, and inventing one
+     here would be the exact practice this product refuses. */
+  if (typeof c.places_left === 'number') {
+    parts.push(c.places_left > 0
+      ? t('campaign.places', { n: c.places_left, of: c.capacity })
+      : t('campaign.full', { label: c.label }));
+  }
+  el.textContent = parts.join(' · ');
+  el.classList.toggle('warn', c.sold_out || c.days_left <= 2);
+  el.classList.remove('hidden');
 }
 
 /* ---------- tray ---------- */
@@ -3535,6 +3585,12 @@ async function submitCheckout(e) {
       // failure. The book is saved either way.
       S.pricesConfirmed = false;
       toast(err.message || t('start.pricesDraftHint'), 'warn');
+    } else if (err.code === 'CAMPAIGN_FULL') {
+      // The month's real capacity is gone (CR-003-8). The server's message
+      // says so in the customer's terms and is shown as written; the
+      // banner is refreshed so the screen stops contradicting the refusal.
+      toast(err.message || t('err.generic'), 'warn');
+      loadCampaign();
     } else if (err.code === 'BOOK_LOCKED') {
       const saved = load('mb-order');
       if (saved) { S.order = saved; showOrder(); } else toast(t('err.locked'), 'warn');

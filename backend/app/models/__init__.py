@@ -8,6 +8,7 @@ from app.models.order import Order, OrderEvent
 from app.models.outbox import OutboxMessage
 from app.models.payment import PaymentEvent, PdfArtifact
 from app.models.photo import Photo
+from app.models.review import ReviewRequest
 from app.models.telegram import (TelegramLinkCode, TelegramOperator,
                                  TelegramUpdate)
 
@@ -15,5 +16,6 @@ __all__ = ["Book", "ContributorLink", "CoverDesign", "FlipVideo",
            "FunnelEvent", "GiftDetails",
            "Order", "OrderEvent",
            "OutboxMessage",
-           "PaymentEvent", "PdfArtifact", "Photo", "TelegramLinkCode",
+           "PaymentEvent", "PdfArtifact", "Photo", "ReviewRequest",
+           "TelegramLinkCode",
            "TelegramOperator", "TelegramUpdate"]

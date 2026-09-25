@@ -83,6 +83,26 @@ class Settings(BaseSettings):
     # turn off from an env file at three in the morning.
     contributor_links_enabled: bool = True
 
+    # --- The campaign window (CR-003-7, CR-003-8) ---
+    # The date a book must ARRIVE by, as YYYY-MM-DD. Empty means there is
+    # no campaign: no banner, no countdown, nothing. A date that cannot be
+    # parsed switches it off rather than guessing, because the banner makes
+    # a promise about a printer's schedule.
+    campaign_deadline: str = ""
+    # What the deadline is called, in the sentence "…before New Year".
+    campaign_label: str = ""
+    # How long production actually takes. The date to ORDER by is the
+    # deadline minus this, and it is the number the countdown uses — so it
+    # must be the printer's real figure, not a hopeful one.
+    production_days: int = 14
+    # How many books can be made in the deadline's month. ZERO MEANS NO
+    # NUMBER IS SHOWN: no "places remaining", no closure, nothing. This is
+    # not a marketing dial. Setting it is a statement by somebody who has
+    # spoken to the printer, and what customers then see is real paid
+    # orders counted against it. A fabricated scarcity counter is the one
+    # thing this product refuses to do.
+    monthly_capacity: int = 0
+
     # --- Admin console (A72) ---
     # The shared secret the console signs in with. EMPTY DISABLES THE ADMIN
     # API ENTIRELY, deliberately: a deploy that forgets to set it must fail

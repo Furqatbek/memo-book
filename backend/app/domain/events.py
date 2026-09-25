@@ -42,6 +42,8 @@ class EventType(str, Enum):
     CONTRIBUTOR_LINK_CREATED = "contributor_link_created"
     CONTRIBUTOR_UPLOAD = "contributor_upload"       # {contributor}
     CONTRIBUTOR_CTA_CLICKED = "contributor_cta_clicked"
+    REVIEW_REQUESTED = "review_requested"           # {channel}
+    REVIEW_SUBMITTED = "review_submitted"           # {may_publish}
 
 
 # Events that may legitimately happen more than once for the same book.

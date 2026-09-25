@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.admin import router as admin_router
 from app.api.books import router as books_router
+from app.api.campaign import router as campaign_router
 from app.api.contribute import router as contribute_router
 from app.api.cover_designs import router as cover_designs_router
 from app.api.errors import register_error_handlers
@@ -20,6 +21,7 @@ from app.api.orders import router as orders_router
 from app.api.payments import router as payments_router
 from app.api.photos import router as photos_router
 from app.api.preview import router as preview_router
+from app.api.reviews import router as reviews_router
 from app.api.pricing import router as pricing_router
 from app.api.telegram import router as telegram_router
 from app.api.tracking import FunnelSessionMiddleware
@@ -108,6 +110,8 @@ def create_app() -> FastAPI:
     app.include_router(share_router)
     app.include_router(flip_router)
     app.include_router(contribute_router)
+    app.include_router(campaign_router)
+    app.include_router(reviews_router)
     app.include_router(books_router)
     app.include_router(photos_router)
     app.include_router(preview_router)

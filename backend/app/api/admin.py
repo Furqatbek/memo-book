@@ -404,6 +404,50 @@ def _clip(value, limit: int) -> str | None:
     return text[:limit] or None
 
 
+@router.get("/reviews", dependencies=[Admin])
+async def admin_reviews(session: AsyncSession = Session) -> dict:
+    """What customers have written back (CR-003-9).
+
+    A reading list, not a publishing queue. There is deliberately no
+    "publish" button: the site's review section is a hand-curated list in
+    `assets/reviews.js`, and somebody copies an approved review into it
+    WORD FOR WORD. Three rules make that the right shape —
+
+        never publish without the permission box;
+        never edit a review's wording;
+        never invent one.
+
+    — and each of them is easier to keep when the last step is a person who
+    has read the row.
+    """
+    from sqlalchemy import select as _select
+
+    from app.models.order import Order as _Order
+    from app.models.review import ReviewRequest
+
+    rows = (await session.execute(
+        _select(ReviewRequest, _Order.human_ref)
+        .join(_Order, _Order.id == ReviewRequest.order_id)
+        .where(ReviewRequest.submitted_at.is_not(None))
+        .order_by(ReviewRequest.submitted_at.desc())
+    )).all()
+    return {"reviews": [{
+        "human_ref": ref,
+        "submitted_at": r.submitted_at,
+        # As written. Not trimmed, not tidied, not translated.
+        "text": r.text,
+        "display_name": r.display_name,
+        "city": r.city,
+        "lang": r.lang,
+        "may_publish": r.may_publish,
+        "photo_url": (storage.presign_get(r.photo_key) if r.photo_key
+                      else None),
+    } for r, ref in rows],
+        "publishing": "copy an approved review into assets/reviews.js by "
+                      "hand, word for word. Never publish one without "
+                      "may_publish."}
+
+
 @router.post("/orders/{human_ref}/resend", dependencies=[Admin])
 async def admin_resend(human_ref: str,
                        session: AsyncSession = Session) -> dict:

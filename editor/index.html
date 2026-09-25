@@ -151,6 +151,12 @@
       <button id="btn-autofill" class="btn" data-i18n="tool.autofill"></button>
       <button id="btn-preview" class="btn primary" data-i18n="tool.preview"></button>
     </header>
+    <!-- The campaign countdown (CR-003-7). Every number in it is computed
+         on the server: a countdown driven by the browser's clock is a
+         promise made by a machine whose owner can set it to any date. It
+         renders only when /api/v1/campaign says there is a campaign, and
+         disappears on its own once the order-by date has passed. -->
+    <div id="campaign-banner" class="notice slim hidden"></div>
     <div id="elig-banner" class="notice warn slim hidden"></div>
     <div id="locked-banner" class="notice warn slim hidden">
       <span data-i18n="lock.banner"></span>
