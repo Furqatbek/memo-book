@@ -31,6 +31,9 @@ const STATUS_LABEL = {
   render_failed: 'Print files failed',
   rendered: 'Ready to print',
   sent_to_production: 'At the printer',
+  printing: 'On the press',
+  binding: 'Being bound',
+  quality_check: 'Being checked',
   shipped: 'Shipped',
   delivered: 'Delivered',
   cancelled: 'Cancelled',
@@ -39,8 +42,22 @@ const STATUS_LABEL = {
 
 /* What a button says, and whether it deserves a confirmation. Anything that
    moves someone's money or is hard to walk back asks first. */
+/* The three stages the customer hears about (CR-003-2). This list must stay
+   in step with CUSTOMER_STAGES in the backend's production_updates.py: a
+   stage that is here and not there shows the operator a composer for a
+   message nobody sends, which is the worse of the two failures. */
+const CUSTOMER_STAGES = {
+  printing: 'Your book is on the press. Here’s the first page coming off.',
+  binding: 'Being bound now — this is the lay-flat spine that lets every '
+    + 'spread open completely.',
+  shipped: 'Packed and on its way.',
+};
+
 const ACTION = {
   sent_to_production: { label: 'Sent to the printer' },
+  printing: { label: 'On the press' },
+  binding: { label: 'Being bound' },
+  quality_check: { label: 'Checking it' },
   shipped: { label: 'Shipped' },
   delivered: { label: 'Delivered' },
   rendering: { label: 'Try the print files again' },
@@ -327,6 +344,8 @@ function renderActions(deps) {
       'Nothing to do — this order is finished.'));
   }
 
+  renderCustomerComposer(o);
+
   // An action in flight keeps the whole set disabled, because `act` rebuilds
   // these buttons half way through its own run: it calls `renderDetail` as
   // soon as the transition returns, but is still busy for two more round
@@ -340,6 +359,29 @@ function renderActions(deps) {
 
 function setActionsDisabled(disabled) {
   for (const b of $('od-actions').querySelectorAll('button')) b.disabled = disabled;
+}
+
+/* Show the composer only when one of the next moves is a stage the customer
+   hears about, and say which message it belongs to. Without the preview the
+   operator is typing an addition to a sentence they cannot see, and the
+   commonest result is a note that repeats what the message already said. */
+function renderCustomerComposer(o) {
+  const box = $('od-customer');
+  const next = (o.next_statuses || []).filter((s) => CUSTOMER_STAGES[s]);
+  box.hidden = next.length === 0;
+  if (box.hidden) return clearCustomerFields();
+  $('od-customer-preview').textContent = next
+    .map((s) => `${STATUS_LABEL[s] || s}: “${CUSTOMER_STAGES[s]}”`)
+    .join('  ·  ');
+  // An ETA only means anything on the shipping message; the backend ignores
+  // it everywhere else, so offering the field elsewhere would be a lie.
+  $('od-eta-row').hidden = !next.includes('shipped');
+}
+
+function clearCustomerFields() {
+  $('od-customer-note').value = '';
+  $('od-eta').value = '';
+  $('od-customer-photo').value = '';
 }
 
 async function act(deps, what, spec) {
@@ -357,8 +399,26 @@ async function act(deps, what, spec) {
         ? `${ref} was already paid — nothing changed.`
         : `${ref} marked paid. Print files are being made.`);
     } else {
-      S.current = await api.setOrderStatus(ref, what, note);
-      deps.toast(`${ref}: ${STATUS_LABEL[what] || what}.`);
+      // The customer's message, if this is a stage they hear about. The
+      // photo is uploaded FIRST and separately: it comes back as a storage
+      // key, and the status call carries the key rather than a link, so a
+      // message that waits out a Telegram outage still opens when it
+      // finally goes (CR-003-2).
+      const extra = {};
+      if (CUSTOMER_STAGES[what]) {
+        const file = $('od-customer-photo').files[0];
+        if (file) {
+          deps.toast('Uploading the photo…');
+          extra.photo_key = (await api.uploadProgressPhoto(ref, file)).photo_key;
+        }
+        extra.customer_note = $('od-customer-note').value.trim() || null;
+        if (what === 'shipped') extra.eta = $('od-eta').value.trim() || null;
+      }
+      S.current = await api.setOrderStatus(ref, what, note, extra);
+      deps.toast(CUSTOMER_STAGES[what]
+        ? `${ref}: ${STATUS_LABEL[what] || what}. The customer has been told.`
+        : `${ref}: ${STATUS_LABEL[what] || what}.`);
+      clearCustomerFields();
     }
     $('od-note').value = '';
     renderDetail(deps);

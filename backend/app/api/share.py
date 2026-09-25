@@ -41,6 +41,13 @@ NOINDEX = {"X-Robots-Tag": "noindex, nofollow",
 # not be an oracle for which tokens exist.
 _GONE = HTTPException(status_code=404, detail="Not Found")
 
+# Where a book made from a shared link came from. The same three values go
+# on the page's own CTA link, so a viewer who arrives with an attribution
+# already stored and one who does not are counted the same way.
+SHARE_ATTRIBUTION = {"source": "share", "medium": "share",
+                     "campaign": "share"}
+SHARE_QUERY = "&".join(f"utm_{k}={v}" for k, v in SHARE_ATTRIBUTION.items())
+
 
 @router.post("/api/v1/books/{book_id}/share")
 async def create_share(book_id: uuid.UUID, request: Request, session: Session,
@@ -128,7 +135,7 @@ def _page(book, token: str, cover_url: str) -> str:
   <div id="share-pages" class="share-pages" aria-live="polite"></div>
   <div class="share-cta">
     <p>Made with RS Pixel — design your own photo book and we print it.</p>
-    <a class="btn btn-primary" id="share-cta" href="{base}/editor/?utm_source=share">
+    <a class="btn btn-primary" id="share-cta" href="{base}/editor/?{SHARE_QUERY}">
       Make one of your own
     </a>
   </div>
@@ -142,10 +149,17 @@ def _page(book, token: str, cover_url: str) -> str:
 @router.get("/s/{share_token}", response_class=HTMLResponse,
             dependencies=[rate_limit("share",
                                      lambda s: s.rate_limit_share_per_min)])
-async def share_page(share_token: str, session: Session) -> HTMLResponse:
+async def share_page(share_token: str, request: Request,
+                     session: Session) -> HTMLResponse:
     book = await svc.find(session, share_token)
     if book is None:
         raise _GONE
+    # This visit IS the landing, and we know exactly what it was — better
+    # than the referrer, which arrives as `t.me` or as nothing at all. Only
+    # honoured for a visitor with no attribution already stored. The token
+    # itself never goes near this: it is a secret, and a report is not a
+    # place to keep one.
+    request.state.funnel_landing = dict(SHARE_ATTRIBUTION)
     if svc.is_stale(book):
         await svc.render(session, book)
     from app import storage

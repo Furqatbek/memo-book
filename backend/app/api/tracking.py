@@ -107,6 +107,17 @@ class FunnelSessionMiddleware(BaseHTTPMiddleware):
 
         response: Response = await call_next(request)
 
+        # A route may know better than the query string what this landing
+        # was. The share page is the case that forced it: a viewer arriving
+        # from a group chat carries either no referrer or `t.me`, and
+        # recording that would file every shared book under our own Telegram
+        # channel — the one channel it definitely was not. Only consulted
+        # when nothing was stored, so first-landing-wins still holds.
+        override = getattr(request.state, "funnel_landing", None)
+        if override and not attribution:
+            landing = override
+            request.state.funnel_attribution = landing
+
         opts = dict(max_age=MAX_AGE_S, httponly=True, samesite="lax",
                     secure=self.secure, path="/")
         if fresh:

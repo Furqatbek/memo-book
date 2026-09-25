@@ -67,14 +67,16 @@ class TestTheVocabularyIsClosed:
         import importlib.util
         import pathlib
 
+        # The LATEST migration to touch the predicate. 0012 created it;
+        # 0017 widened it when share views arrived.
         path = (pathlib.Path(__file__).resolve().parents[1]
-                / "alembic" / "versions" / "0012_funnel_events.py")
+                / "alembic" / "versions" / "0017_share_events_repeatable.py")
         # Loaded by path: a module name starting with a digit cannot be
         # imported the ordinary way.
-        spec = importlib.util.spec_from_file_location("mig0012", path)
+        spec = importlib.util.spec_from_file_location("migpred", path)
         mig = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mig)
-        assert set(mig.REPEATABLE) == {e.value for e in REPEATABLE}
+        assert set(mig.NEW) == {e.value for e in REPEATABLE}
 
 
 class TestItNeverBreaksTheRequest:

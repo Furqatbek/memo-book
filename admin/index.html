@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>RS Pixel — admin</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='4' width='24' height='24' rx='4' fill='%2316181d'/%3E%3Cpath d='M11 20V12h4a3 3 0 010 6h-4l6 2' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="admin.css?v=20260920">
+  <link rel="stylesheet" href="admin.css?v=20260925">
   <script src="../editor/config.js"></script>
 </head>
 <body>
@@ -130,6 +130,30 @@
               <span class="muted small">Note for the record (optional)</span>
               <input id="od-note" placeholder="e.g. transfer seen 12:04, or who collected it">
             </label>
+
+            <!-- The customer's own message (CR-003-2). Separate from the note
+                 above on purpose: that one is internal shorthand, this one is
+                 read by the person who bought the book. Shown only for the
+                 three stages they hear about; hidden the rest of the time so
+                 nobody types a message that is never sent. -->
+            <div id="od-customer" class="od-customer" hidden>
+              <b class="small">Message to the customer</b>
+              <p id="od-customer-preview" class="muted small"></p>
+              <label class="od-note">
+                <span class="muted small">Add a line (optional)</span>
+                <input id="od-customer-note" maxlength="280"
+                       placeholder="e.g. your cover stock arrived this morning">
+              </label>
+              <label class="od-note" id="od-eta-row" hidden>
+                <span class="muted small">Expected arrival (optional)</span>
+                <input id="od-eta" maxlength="40" placeholder="e.g. Thursday">
+              </label>
+              <label class="od-note">
+                <span class="muted small">Photo (optional) — this is what makes
+                  the message worth sending</span>
+                <input id="od-customer-photo" type="file" accept="image/*">
+              </label>
+            </div>
           </section>
 
           <section class="od-card">
@@ -353,6 +377,6 @@
     </main>
   </section>
 
-  <script type="module" src="js/app.js?v=20260920"></script>
+  <script type="module" src="js/app.js?v=20260925"></script>
 </body>
 </html>

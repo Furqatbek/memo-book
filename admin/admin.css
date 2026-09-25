@@ -179,6 +179,18 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .od-note input {
   border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
 }
+/* The customer-facing composer (CR-003-2). Set apart from the internal note
+   above it, because the whole risk with these two fields sitting together is
+   typing the operator's shorthand into the customer's message. */
+.od-customer {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-top: 12px; padding: 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-soft, #fafaf8);
+}
+.od-customer[hidden] { display: none; }
+.od-customer input[type="file"] { font-size: .85rem; }
+
 .od-events { display: flex; flex-direction: column; gap: 5px;
              list-style: none; font-size: .9rem; }
 .od-events li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }

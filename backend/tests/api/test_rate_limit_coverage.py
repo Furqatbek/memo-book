@@ -76,6 +76,13 @@ EXEMPT = {
     # calling this in a loop returns the same string rather than leaving a
     # trail of live secrets behind (Change 2).
     "GET /api/v1/books/{book_id}/telegram-link": "edit token",
+    # Edit token again (CR-003-1). Minting is idempotent — the same token
+    # comes back — and the render behind it only runs when the book has
+    # actually changed since the last one, which is the same bargain
+    # POST /preview already makes. The PUBLIC side of sharing, the two
+    # routes a stranger's token reaches, IS throttled.
+    "POST /api/v1/books/{book_id}/share": "edit token",
+    "DELETE /api/v1/books/{book_id}/share": "edit token",
     # The same public shop window for everybody; nothing to guess at.
     "GET /api/v1/prices": "public, identical for everyone",
     "GET /api/v1/cover-designs": "public, identical for everyone",

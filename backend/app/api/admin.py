@@ -355,12 +355,53 @@ async def admin_confirm_payment(human_ref: str, body: dict | None = None,
         session, human_ref, (body or {}).get("note"))
 
 
+@router.post("/orders/{human_ref}/progress-photo", dependencies=[Admin],
+             status_code=201)
+async def admin_progress_photo(human_ref: str,
+                               photo: UploadFile = File(...),
+                               session: AsyncSession = Session) -> dict:
+    """Take the operator's phone photo of the press and put it where the
+    customer's message can reach it (CR-003-2).
+
+    Returns a KEY, not a URL. The status call carries the key, the outbox
+    presigns it at delivery time, and a message that waited out a Telegram
+    outage still opens — the same rule the print files follow.
+
+    Resized on the way in: a modern phone produces 4-8 MB per frame, and
+    Telegram refuses a photo over 10 MB outright. An operator standing in a
+    print shop must not have to find that out.
+    """
+    from app.services.progress_photos import ProgressPhotoError, store
+
+    # Confirms the order exists (and 404s the same way everything else here
+    # does) before a byte is read.
+    await admin_orders_svc.order_detail(session, human_ref)
+    raw = await photo.read()
+    try:
+        key = await store(human_ref, raw)
+    except ProgressPhotoError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"photo_key": key}
+
+
 @router.post("/orders/{human_ref}/status", dependencies=[Admin])
 async def admin_set_status(human_ref: str, body: dict,
                            session: AsyncSession = Session) -> dict:
     target = str(body.get("target") or "")
-    return await admin_orders_svc.set_status(session, human_ref, target,
-                                             body.get("note"))
+    # `note` is the operator's own audit line; `customer_note`, `photo_key`
+    # and `eta` are the customer's message (CR-003-2). Two different
+    # audiences, and conflating them would put internal shorthand — "Bek
+    # says Tuesday, chase him" — in front of the person who bought the book.
+    return await admin_orders_svc.set_status(
+        session, human_ref, target, body.get("note"),
+        photo_key=_clip(body.get("photo_key"), 255),
+        eta=_clip(body.get("eta"), 40),
+        customer_note=_clip(body.get("customer_note"), 280))
+
+
+def _clip(value, limit: int) -> str | None:
+    text = (str(value) if value is not None else "").strip()
+    return text[:limit] or None
 
 
 @router.post("/orders/{human_ref}/resend", dependencies=[Admin])

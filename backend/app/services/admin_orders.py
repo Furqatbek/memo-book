@@ -276,6 +276,8 @@ async def set_status(session: AsyncSession, human_ref: str, target: str,
             f"entering {target} needs effects the console cannot run",
             {"effects": [e.value for e in unhandled]})
 
+    from app.services import production_updates
+
     apply_transition(session, order, OrderStatus(target),
                      note=note or "admin console")
     # The customer's own message for this stage (CR-003-2). Queued inside

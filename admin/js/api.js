@@ -117,9 +117,20 @@ export const confirmPayment = (ref, note) =>
   request('POST', `${V}/orders/${encodeURIComponent(ref)}/confirm-payment`,
           { body: { note: note || null } });
 
-export const setOrderStatus = (ref, target, note) =>
+export const setOrderStatus = (ref, target, note, extra = {}) =>
   request('POST', `${V}/orders/${encodeURIComponent(ref)}/status`,
-          { body: { target, note: note || null } });
+          { body: { target, note: note || null, ...extra } });
+
+/* The operator's photo of the press (CR-003-2). Returns a storage KEY; the
+   status call carries that, not a link, so the outbox can sign a fresh URL
+   whenever the message actually goes out. */
+export const uploadProgressPhoto = (ref, file) => {
+  const form = new FormData();
+  form.append('photo', file);
+  return request('POST',
+                 `${V}/orders/${encodeURIComponent(ref)}/progress-photo`,
+                 { form });
+};
 
 export const resendToPrinter = (ref) =>
   request('POST', `${V}/orders/${encodeURIComponent(ref)}/resend`);
