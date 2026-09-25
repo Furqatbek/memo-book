@@ -446,16 +446,33 @@ class TestOrderClaim:
         assert not finding.ok and not finding.blocking
 
 
+# Split by slug, not slash count: "new-year/index.html" is as shallow as
+# "ru/index.html". Module level because a class body cannot see its own
+# names from inside a comprehension.
+LANDING_PAGES = [p for p in lc.SITE_PAGES
+                 if any(f"{s}/" in p for s in lc.LANDING_SLUGS)]
+MAIN_PAGES = [p for p in lc.SITE_PAGES if p not in LANDING_PAGES]
+
+
 class TestDeliveryClaim:
     """P1-6: a buyer outside Tashkent asks "do you even reach me?" first.
 
-    It has to be in the FAQ, where somebody looking for it looks, AND in
-    the footer, where somebody who never thought to ask still passes it —
-    so each place is checked separately rather than "appears on the page".
+    Every page must say it in the footer. A page that HAS an FAQ must say it
+    there too, where somebody looking for it goes to look — but a campaign
+    landing page sends its FAQ traffic to the main page, so it is held to
+    the footer alone rather than failing for a section it deliberately does
+    not have.
     """
 
-    def _tree(self, tmp_path, monkeypatch, edits: dict[str, callable]):
-        for page in lc.DELIVERY_CLAIM:
+    FOOTER_LINE = re.compile(
+        r"\n\s*<p>[^<]*(?:deliver anywhere in Uzbekistan"
+        r"|любую точку Узбекистана|istalgan nuqtasiga yetkazib"
+        r"|исталган нуқтасига етказиб|qálegen jerine jetkerip)[^<]*</p>", re.I)
+    IN_FAQ = re.compile(r"deliver anywhere|любую точку|istalgan nuqtasiga"
+                        r"|исталган нуқтасига|qálegen jerine", re.I)
+
+    def _tree(self, tmp_path, monkeypatch, edits):
+        for page in lc.SITE_PAGES:
             dest = tmp_path / page
             dest.parent.mkdir(parents=True, exist_ok=True)
             text = (lc.REPO / page).read_text(encoding="utf-8")
@@ -464,62 +481,74 @@ class TestDeliveryClaim:
             dest.write_text(text, encoding="utf-8")
         monkeypatch.setattr(lc, "REPO", tmp_path)
 
-    @staticmethod
-    def _drop_faq(text):
-        """Remove the whole <details> block that carries the claim."""
+    @classmethod
+    def _drop_faq(cls, text):
         head, sep, foot = text.partition("<footer")
         for block in re.findall(r"      <details>.*?</details>\n", head, re.S):
-            if re.search(r"deliver anywhere|любую точку|istalgan nuqtasiga"
-                         r"|исталган нуқтасига|qálegen jerine", block, re.I):
+            if cls.IN_FAQ.search(block):
                 head = head.replace(block, "", 1)
                 break
         return head + sep + foot
 
-    @staticmethod
-    def _drop_footer(text):
+    @classmethod
+    def _drop_footer(cls, text):
         head, sep, foot = text.partition("<footer")
-        foot = re.sub(r"\n\s*<p>[^<]*(?:deliver anywhere in Uzbekistan"
-                      r"|любую точку Узбекистана|istalgan nuqtasiga yetkazib"
-                      r"|исталган нуқтасига етказиб|qálegen jerine jetkerip)"
-                      r"[^<]*</p>", "", foot, count=1, flags=re.I)
-        return head + sep + foot
+        return head + sep + cls.FOOTER_LINE.sub("", foot, count=1)
 
-    def test_the_real_pages_say_it_in_both_places(self):
+    LANDING = LANDING_PAGES
+    MAIN = MAIN_PAGES
+
+    def test_the_real_pages_all_state_it(self):
         assert lc.check_delivery_claim().ok
 
-    @pytest.mark.parametrize("page", list(lc.DELIVERY_CLAIM))
+    def test_every_page_is_covered_not_just_the_main_five(self):
+        assert len(self.MAIN) == 5
+        assert len(self.LANDING) == 10
+
+    @pytest.mark.parametrize("page", MAIN)
     def test_a_missing_faq_entry_fires(self, tmp_path, monkeypatch, page):
         self._tree(tmp_path, monkeypatch, {page: self._drop_faq})
         finding = lc.check_delivery_claim()
         assert not finding.ok
         assert page in finding.detail and "not in the FAQ" in finding.detail
 
-    @pytest.mark.parametrize("page", list(lc.DELIVERY_CLAIM))
+    @pytest.mark.parametrize("page", MAIN + LANDING)
     def test_a_missing_footer_line_fires(self, tmp_path, monkeypatch, page):
-        """The footer is the half most likely to be forgotten — it is the
-        same five lines in five files and no one reads it on purpose."""
+        """The footer is the half likeliest to be forgotten — the same line
+        in fifteen files, and nobody reads it on purpose."""
         self._tree(tmp_path, monkeypatch, {page: self._drop_footer})
         finding = lc.check_delivery_claim()
         assert not finding.ok
         assert page in finding.detail and "not in the footer" in finding.detail
 
-    def test_it_names_both_when_a_page_says_it_nowhere(self, tmp_path, monkeypatch):
+    def test_a_landing_page_is_not_asked_for_an_FAQ_it_does_not_have(self):
+        """It would otherwise be impossible to satisfy without bolting an
+        FAQ onto a page whose whole point is to be short."""
+        for page in self.LANDING:
+            assert 'class="faq-list"' not in (lc.REPO / page).read_text(
+                encoding="utf-8"), page
+        assert lc.check_delivery_claim().ok
+
+    def test_it_names_both_when_a_main_page_says_it_nowhere(self, tmp_path,
+                                                            monkeypatch):
         self._tree(tmp_path, monkeypatch, {
             "kaa/index.html": lambda t: self._drop_footer(self._drop_faq(t))})
         detail = lc.check_delivery_claim().detail
         assert "not in the FAQ and not in the footer" in detail
 
-    def test_the_karakalpak_page_is_covered(self, tmp_path, monkeypatch):
+    def test_the_karakalpak_pages_are_covered(self, tmp_path, monkeypatch):
         """The brief singled it out: its readers are furthest from the print
         shop and likeliest to assume the answer is no."""
-        assert "kaa/index.html" in lc.DELIVERY_CLAIM
-        self._tree(tmp_path, monkeypatch, {"kaa/index.html": self._drop_faq})
+        kaa = [p for p in lc.SITE_PAGES if p.startswith("kaa/")]
+        assert len(kaa) == 3
+        self._tree(tmp_path, monkeypatch, {"kaa/new-year/index.html": self._drop_footer})
         assert not lc.check_delivery_claim().ok
 
     def test_it_warns_rather_than_blocks(self, tmp_path, monkeypatch):
         self._tree(tmp_path, monkeypatch,
-                   {p: self._drop_faq for p in lc.DELIVERY_CLAIM})
-        assert not lc.check_delivery_claim().blocking
+                   {p: self._drop_footer for p in lc.SITE_PAGES})
+        finding = lc.check_delivery_claim()
+        assert not finding.ok and not finding.blocking
 
 
 class TestTheReportItself:

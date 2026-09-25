@@ -159,8 +159,14 @@ def check_env_is_production(env: dict) -> Finding:
         fix="ENV=prod in deploy/.env")
 
 
-SITE_PAGES = ["index.html", "ru/index.html", "uz/index.html",
-              "uz-cyrl/index.html", "kaa/index.html"]
+LANG_DIRS = ["", "ru/", "uz/", "uz-cyrl/", "kaa/"]
+# The campaign landing pages (P2-1). Ads point straight at these, so they
+# are the pages a stranger is likeliest to see FIRST — every honesty check
+# that covers the main pages has to cover them too, and a link preview
+# matters more here than anywhere else on the site.
+LANDING_SLUGS = ["new-year", "family"]
+SITE_PAGES = ([f"{d}index.html" for d in LANG_DIRS]
+              + [f"{d}{s}/index.html" for s in LANDING_SLUGS for d in LANG_DIRS])
 PLACEHOLDER_CONTACT = re.compile(r"XXXXXXXX|example\.com|\+998XXX")
 # Every way the site offers to be contacted. Absolute targets, so they are
 # the same string on all five pages — which is what makes them comparable.
@@ -360,26 +366,39 @@ def check_order_claim() -> Finding:
 # It matters most on the Karakalpak page, whose readers are furthest from
 # the print shop and likeliest to assume the answer is no.
 DELIVERY_CLAIM = {
-    "index.html": r"deliver anywhere in Uzbekistan",
-    "ru/index.html": r"любую точку Узбекистана",
-    "uz/index.html": r"istalgan nuqtasiga yetkazib",
-    "uz-cyrl/index.html": r"исталган нуқтасига етказиб",
-    "kaa/index.html": r"qálegen jerine jetkerip",
+    "": r"deliver anywhere in Uzbekistan",
+    "ru/": r"любую точку Узбекистана",
+    "uz/": r"istalgan nuqtasiga yetkazib",
+    "uz-cyrl/": r"исталган нуқтасига етказиб",
+    "kaa/": r"qálegen jerine jetkerip",
 }
 
 
+def _lang_of(page: str) -> str:
+    """The language directory a site page lives under ("" for English)."""
+    head = page.split("/")[0]
+    return f"{head}/" if f"{head}/" in DELIVERY_CLAIM and head else ""
+
+
 def check_delivery_claim() -> Finding:
-    """Stated in both places, on all five pages."""
+    """Every page says it in the footer; every page with an FAQ says it there.
+
+    The FAQ requirement applies where there is an FAQ to put it in rather
+    than to a fixed list, so a campaign landing page — which sends its FAQ
+    traffic to the main page — is held to the footer alone instead of
+    failing for a section it deliberately does not have.
+    """
     silent: dict[str, str] = {}
-    for page, claim in DELIVERY_CLAIM.items():
+    for page in SITE_PAGES:
         path = REPO / page
         if not path.exists():
             continue
+        claim = DELIVERY_CLAIM[_lang_of(page)]
         head, sep, foot = path.read_text(encoding="utf-8").partition("<footer")
         missing = []
-        # In an FAQ answer, not merely somewhere above the footer.
-        if not any(re.search(claim, d, re.IGNORECASE) for d in
-                   re.findall(r"<details>(.*?)</details>", head, re.S)):
+        if 'class="faq-list"' in head and not any(
+                re.search(claim, d, re.IGNORECASE) for d in
+                re.findall(r"<details>(.*?)</details>", head, re.S)):
             missing.append("not in the FAQ")
         if not (sep and re.search(claim, foot, re.IGNORECASE)):
             missing.append("not in the footer")
@@ -388,7 +407,8 @@ def check_delivery_claim() -> Finding:
     return Finding(
         ok=not silent, blocking=False,
         what="Delivery coverage is stated",
-        detail=("FAQ and footer, all five languages" if not silent else
+        detail=(f"footer on all {len(SITE_PAGES)} pages, and in every FAQ"
+                if not silent else
                 "; ".join(f"{p}: {why}" for p, why in silent.items())),
         fix="say that we deliver anywhere in Uzbekistan — a buyer in Nukus "
             "who cannot find that out closes the tab, and nobody ever hears "

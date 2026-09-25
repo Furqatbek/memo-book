@@ -10,6 +10,11 @@
   if (!script) return;
   var pageLang = (script.getAttribute('data-page-lang') || 'en').toLowerCase();
   var root = script.getAttribute('data-root') || '';
+  /* Which page below the language root this is, e.g. "new-year/". The
+     redirect has to land on the SAME page in the other language: a visitor
+     who clicked a New Year ad and gets sent to the Russian home page has
+     been given the mismatch the landing page existed to prevent (P2-1). */
+  var page = script.getAttribute('data-page') || '';
   var PATHS = { en: '', ru: 'ru/', uz: 'uz/', 'uz-cyrl': 'uz-cyrl/', kaa: 'kaa/' };
   var KEY = 'sb-lang';
 
@@ -47,5 +52,5 @@
     if (sessionStorage.getItem('sb-autoredir')) return;
     sessionStorage.setItem('sb-autoredir', '1');
   } catch (err) { return; }
-  location.replace(root + PATHS[target]);
+  location.replace(root + PATHS[target] + page);
 })();

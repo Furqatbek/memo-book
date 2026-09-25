@@ -2603,3 +2603,60 @@ Translation is covered without driving the flow five times:
 `test_i18n_complete` requires the key in every language, and
 `checks/editorlang.js` already proves `applyStatic` retranslates the
 chrome when the language changes.
+
+**P2-1 — the positioning was travel-locked.** "Your trip. Your photos.
+Your book." frames the whole page as a travel book, and the next campaign
+is New Year gifting: family, year-in-review, children. A visitor who
+clicks a New Year ad and lands on "Your trip" has been told in the first
+second that they are in the wrong place.
+
+**Option 1, as recommended: the travel page is untouched.** It is good
+*because* it is specific, and broadening it would have traded a page that
+converts for a page that offends nobody. `/new-year` and `/family` now
+exist in all five languages with matched headline, matched samples and
+the same CTA, and a test asserts the main page still leads with "Your
+trip." — the option not taken, said out loud.
+
+**Ten pages are generated, not written.** `scripts/build_landings.py`
+holds the copy and one template; `tests/test_landing_pages.py` fails if
+the committed HTML and the script have drifted. Written by hand these
+would be ten more files for every future copy fix to reach — P1-1, P1-5
+and P1-6 each had to touch five, and this would have made it fifteen.
+Nothing about the shipped site changes: it is still static HTML with no
+build step in front of it. Regenerate with
+`cd backend && .venv/bin/python scripts/build_landings.py`.
+
+**The campaign has to survive a language change.** Sending a Russian
+speaker from the New Year page to the Russian *home* page is the P2-1
+mismatch again, one level down. Both language menus link to the same slug,
+and `assets/lang.js` takes a `data-page` so the automatic
+device-language redirect carries the campaign too. Deleting that one
+addition was confirmed to drop a Russian-speaking visitor on `/ru/`, and
+to turn exactly one assertion red.
+
+**`/new-year` resolves without its trailing slash** — 307 to `/new-year/`
+— because that is the form that goes in an ad, and a 404 there wastes the
+whole spend. Checked in the browser rather than assumed from the mount
+configuration.
+
+**All ten pages joined `SITE_PAGES`,** so the contacts, unshipped-claim,
+review-honesty and link-preview guards cover them. These are the pages a
+stranger sees *first*, so a link preview matters more here than anywhere
+else on the site. `check_delivery_claim` now asks every page for the
+footer line and asks for the FAQ line only where there is an FAQ, so a
+landing page is not failed for a section it deliberately does not have.
+
+**The samples are drawings, badged "Sample", and there are no `<img>`
+tags on these pages at all** — the same rule as P1-3 and P1-4. No book
+has been printed, so there is no photograph of one to show.
+
+**The one promise on these pages that is not a fact** is the New Year
+cutoff. It is derived from the site's own "about 30 days from payment to
+delivery" with roughly a week of slack, lives in a single
+`NEW_YEAR_ORDER_BY` table, and **must be checked against the printer's
+December load before any money is spent pointing ads at these pages** — a
+December queue is not a November queue. The page also states what happens
+if you order later, because a deadline with no consequence attached reads
+as a suggestion; a test asserts both, and asserts the family page carries
+no seasonal date at all, since it runs all year and a December date on it
+would go stale in January with nobody noticing.

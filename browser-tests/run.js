@@ -69,6 +69,11 @@ const NEEDS = {
   resumebanner: 'the dev server serving the site at `/`, which it now does '
     + 'by default — the front page reads the editor\'s localStorage, so the '
     + 'two have to be one origin (A105)',
+  landings: 'the dev server serving the site at `/` — it opens all ten '
+    + 'campaign landing pages, checks /new-year resolves without its '
+    + 'trailing slash (the form that goes in an ad), and that switching '
+    + 'language stays on the campaign rather than dropping the visitor on '
+    + 'the home page (P2-1)',
   delivery: 'the dev server serving the site at `/` — it opens the delivery '
     + 'FAQ entry on all five pages and reads the answer after expanding it, '
     + 'because a <details> that opens onto nothing looks fine in the source '
