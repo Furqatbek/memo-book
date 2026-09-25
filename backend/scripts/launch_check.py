@@ -208,6 +208,56 @@ def check_site_contacts() -> Finding:
         fix="replace the tel:, t.me/ and mailto: targets in all five pages")
 
 
+# Claims the product cannot keep. AI enhancement is the one that was
+# actually on the site: the FAQ promised we would "improve blurry or muddy
+# photos before printing", in all five languages, and nothing in the system
+# so much as sharpens a pixel. A customer reads that, uploads their blurry
+# photos, gets a blurry book and asks for a free reprint — and is right to.
+#
+# The words are listed per language because the claim was translated. A
+# check that only knew the English one would have found a fifth of it.
+#
+# EVERY WORD HERE MUST BE WRONG IN ANY SENTENCE. A pattern match cannot read
+# a negation, and the first draft of this included "retouch": it then fired
+# on the honest replacement copy, which says we do NOT retouch photos. A
+# checklist that goes red at a true sentence is a checklist people learn to
+# skip. These terms have no innocent use on this site while the feature does
+# not exist — even "we don't use AI" would be a sentence worth stopping for,
+# because it invites the question the FAQ should simply not raise.
+UNSHIPPED_CLAIM = re.compile(
+    r"\bAI\b|\bнейросет|искусственн\w+ интеллект"
+    r"|sun.?iy intellekt|сунъий интеллект|jasalma intellekt"
+    r"|\bupscal",
+    re.IGNORECASE)
+
+
+def check_unshipped_claims() -> Finding:
+    """The site must not sell a feature that does not exist.
+
+    Delete this check on the day AI enhancement ships — and not before,
+    because until then every sentence it catches is one the product cannot
+    honour.
+    """
+    guilty: dict[str, int] = {}
+    for page in SITE_PAGES:
+        path = REPO / page
+        if not path.exists():
+            continue
+        hits = UNSHIPPED_CLAIM.findall(path.read_text(encoding="utf-8"))
+        if hits:
+            guilty[page] = len(hits)
+    return Finding(
+        ok=not guilty, blocking=True,
+        what="Only features that exist are advertised",
+        detail=("no unshipped claims" if not guilty else
+                "the site promises AI enhancement, which is not in the "
+                "product. A customer who relies on it gets a blurry book "
+                f"and a reprint we cannot absorb ({sum(guilty.values())} "
+                f"across {len(guilty)} pages)"),
+        fix="describe the resolution warning the editor really shows, or "
+            "ship the feature")
+
+
 def check_test_book() -> Finding:
     """Not machine-checkable, and too important to leave off the list."""
     marker = REPO / "docs" / ".test-book-printed"
@@ -227,6 +277,7 @@ def main() -> int:
     findings = [
         check_prices(env), check_spines(env), check_admin_token(env),
         check_telegram(env), check_pay_card(env), check_site_contacts(),
+        check_unshipped_claims(),
         check_env_is_production(env), check_backups(env), check_test_book(),
     ]
 

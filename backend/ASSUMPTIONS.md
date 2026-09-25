@@ -2241,3 +2241,41 @@ It also submits an unknown reference, so the form is proved to ask the
 server rather than merely to exist. And `e2e`, which buys a real order
 anyway, clears `mb-order` and finds that order again from the reference and
 the phone alone: the other-device path, end to end.
+
+**P0-3 — the site sold a feature that does not exist.** The FAQ answered
+"Some of my photos are blurry. Can you fix them?" with "Yes — we use AI
+enhancement to improve blurry or muddy photos before printing", in all five
+languages. Nothing in this system so much as sharpens a pixel. A customer
+reads that, uploads their blurry photos, receives a blurry book and asks
+for a free reprint — and is right to.
+
+The replacement describes what the product really does: the editor
+classifies every placement's resolution at the size it is used and at its
+zoom (A68), the tray badges it on upload, and the preview names the pages
+that will print soft before the customer confirms (A79). That is a better
+answer as well as a true one — it prevents the disappointment rather than
+promising a rescue from it.
+
+**Two words were dropped from the founder's draft.** It offered "too small
+or too low-quality to print sharply", and we do not measure quality. A
+large, out-of-focus photograph passes every check we have, so a customer
+reading "you'll see a warning" about blurry photos would be owed one we
+would never give. The copy says resolution, and adds the sentence that
+closes the expectation the old question opened: we do not sharpen or
+retouch, and what is in the preview is what gets printed. That is the same
+promise the whole product is built on.
+
+**The check that guards it caught itself first.** `check_unshipped_claims`
+went red immediately — on the honest replacement, because its first draft
+matched the word "retouch" and the new copy says we do NOT retouch. A
+pattern match cannot read a negation. So the rule is that every term in
+that pattern must be wrong in ANY sentence: `AI`, `нейросет`, `sunʼiy
+intellekt` and their siblings qualify, and `retouch` does not. A checklist
+that goes red at a true sentence is one people learn to skip, and that is
+worse than not having it.
+
+The terms are listed per language because the claim was translated. A check
+that only knew the English one would have found a fifth of the problem —
+which is the same lesson A104's i18n work taught from the other direction.
+
+**Delete the check on the day the feature ships**, and not before.

@@ -207,6 +207,60 @@ class TestTheSite:
         assert lc.check_site_contacts().ok
 
 
+class TestUnshippedClaims:
+    """P0-3: the site sold AI enhancement, which does not exist. A customer
+    who believed it would have uploaded blurry photos, received a blurry
+    book, and asked for a reprint the margins cannot absorb."""
+
+    def _page(self, tmp_path, monkeypatch, body: str):
+        (tmp_path / "index.html").write_text(body, encoding="utf-8")
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+        monkeypatch.setattr(lc, "SITE_PAGES", ["index.html"])
+
+    @pytest.mark.parametrize("claim", [
+        "<p>we use AI enhancement to improve blurry photos</p>",
+        "<p>улучшаем фотографии с помощью нейросетей</p>",
+        "<p>sunʼiy intellekt yordamida yaxshilaymiz</p>",
+        "<p>сунъий интеллект ёрдамида яхшилаймиз</p>",
+        "<p>jasalma intellekt járdeminde jaqsılaymız</p>",
+        "<p>every photo is upscaled before printing</p>",
+    ])
+    def test_it_fires_in_every_language(self, tmp_path, monkeypatch, claim):
+        """The claim was translated, so a check that only knew the English
+        one would have found a fifth of it."""
+        self._page(tmp_path, monkeypatch, claim)
+        assert not lc.check_unshipped_claims().ok
+
+    def test_it_is_quiet_on_the_honest_answer(self, tmp_path, monkeypatch):
+        """The replacement describes the resolution warning the editor
+        really shows."""
+        self._page(tmp_path, monkeypatch,
+                   "<p>The editor checks the resolution of every photo as "
+                   "you place it. If an image is too small to print sharply "
+                   "you will see a warning before you order.</p>")
+        assert lc.check_unshipped_claims().ok
+
+    def test_it_does_not_fire_on_a_denial(self, tmp_path, monkeypatch):
+        """The trap this check fell into on its first draft. A pattern match
+        cannot read a negation, so a word that appears in an honest denial —
+        "we do NOT retouch photos" — must not be in the pattern at all. A
+        checklist that goes red at a true sentence is one people learn to
+        skip."""
+        self._page(tmp_path, monkeypatch,
+                   "<p>We do not sharpen or retouch photos: what you see in "
+                   "the preview is what we print.</p>"
+                   "<p>Мы не повышаем резкость и не ретушируем фотографии.</p>")
+        assert lc.check_unshipped_claims().ok
+
+    def test_the_real_site_is_clean(self):
+        assert lc.check_unshipped_claims().ok
+
+    def test_it_blocks_rather_than_warns(self, tmp_path, monkeypatch):
+        """Selling something that does not exist is not a tidiness problem."""
+        self._page(tmp_path, monkeypatch, "<p>AI enhancement</p>")
+        assert lc.check_unshipped_claims().blocking
+
+
 class TestTheReportItself:
     def test_it_exits_non_zero_while_anything_blocks(self, capsys):
         assert lc.main() == 1
