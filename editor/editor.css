@@ -89,6 +89,9 @@ select {
   padding: 7px 8px; background: #fff;
 }
 .lang-select { margin-left: auto; }
+/* In the editor bar the spacer does the pushing, so this one sits with the
+   left-hand cluster instead of fighting it for the right edge. */
+.ed-bar .lang-select { margin-left: 0; }
 
 .card {
   background: #fff; border: 1px solid var(--line); border-radius: var(--radius);

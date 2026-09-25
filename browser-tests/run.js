@@ -69,6 +69,9 @@ const NEEDS = {
   resumebanner: 'the dev server serving the site at `/`, which it now does '
     + 'by default — the front page reads the editor\'s localStorage, so the '
     + 'two have to be one origin (A105)',
+  editorlang: 'nothing — it switches language three uploads into a book and '
+    + 'checks the book survives it, which is why the control was worth '
+    + 'adding to the editor bar rather than leaving on the start screen',
   ordertoast: 'nothing — it strips the EXIF out of the jpg fixtures itself, '
     + 'which is what Telegram and WhatsApp do to a photo on the way through, '
     + 'and that book is placed in upload order (P1-5)',

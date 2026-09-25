@@ -3636,17 +3636,31 @@ async function submitLookup(e) {
 
 /* ---------- wiring ---------- */
 
-function buildLangSelect() {
-  const sel = $('lang-select');
-  sel.innerHTML = '';
-  for (const [code, name] of Object.entries(LANG_NAMES)) {
-    sel.append(h('option', { value: code, selected: code === lang ? '' : null }, name));
+/* Every language selector on the page, kept in step.
+ *
+ * There used to be one, on the start screen, which meant the language was
+ * a decision the customer had to get right before they had seen anything —
+ * and once the editor was open the only way to change it was to abandon
+ * the book. Now the editor bar carries one too, so this builds all of them
+ * and mirrors the choice across them: two selects disagreeing about the
+ * current language is its own small bug.
+ */
+function buildLangSelects() {
+  const sels = [...document.querySelectorAll('.lang-select')];
+  for (const sel of sels) {
+    sel.innerHTML = '';
+    for (const [code, name] of Object.entries(LANG_NAMES)) {
+      sel.append(h('option', { value: code, selected: code === lang ? '' : null }, name));
+    }
+    sel.addEventListener('change', () => {
+      setLang(sel.value);
+      for (const other of sels) other.value = lang;
+      // A settings panel built in the old language would sit there in it.
+      closeSettingsPop();
+      renderPrices();
+      if (S.book) renderAll();
+    });
   }
-  sel.addEventListener('change', () => {
-    setLang(sel.value);
-    renderPrices();
-    if (S.book) renderAll();
-  });
 }
 
 function bind() {
@@ -3828,7 +3842,7 @@ function bind() {
 
 async function init() {
   initLang();
-  buildLangSelect();
+  buildLangSelects();
   applyStatic();
   bind();
   const order = load('mb-order');

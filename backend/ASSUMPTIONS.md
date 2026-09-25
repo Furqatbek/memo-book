@@ -2516,3 +2516,37 @@ test for the same reason** — and it is a common enough letter
 («объектив», «подъезд») that the subset should be rebuilt from upstream
 EB Garamond the next time the fonts are touched, rather than each string
 being worded around it.
+
+**A107 — the language can be changed from inside the editor.** It lived
+only on the start screen, which put the choice before the customer had
+seen anything, and once the editor was open there was no way back to it:
+picking the wrong language and noticing two uploads later meant
+abandoning the book. The cost of a mis-tap was the whole session.
+
+The editor bar now carries a second selector. `buildLangSelects` builds
+every `.lang-select` on the page and mirrors the choice across them,
+because two selects disagreeing about the current language is its own
+small bug — and the one on the start screen is what the customer sees
+again the moment they press Back.
+
+**The start-screen select keeps its id.** `homecheck` and `pricegate`
+both drive `#lang-select` by id; the new one is `#ed-lang-select` and
+shares only the class, so those checks still address the control they
+meant. In the editor bar the `.spacer` does the pushing, so the
+`margin-left: auto` that positions the start-screen one is turned off
+there rather than fighting it for the right edge.
+
+**Switching closes the settings panel,** which is built with `t()` at open
+time and would otherwise sit there in the previous language.
+
+**What `checks/editorlang.js` actually asserts** is not that a select
+exists. It switches language *three uploads into a book* and checks the
+photos are still there and the editor is still the active screen — a
+language switch that cleared the book would be worse than no switch at
+all. It also checks the bar still fits a phone now that it carries one
+more control, and that the start screen agrees afterwards.
+
+That last one is checked twice on purpose. A fresh visit agreeing proves
+only that `setLang` wrote to localStorage; the same-session Back is what
+covers the mirroring. Removing the one line that mirrors them was
+confirmed to turn that assertion red, and only that one.
