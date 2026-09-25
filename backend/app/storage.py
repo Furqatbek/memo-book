@@ -85,6 +85,27 @@ def presign_get(key: str, expires_in: int = DISPLAY_URL_EXPIRY_S) -> str:
     )
 
 
+def head_size(key: str) -> int | None:
+    """How many bytes are actually in storage, or None if nothing is.
+
+    A presigned PUT signs the bucket, key and content type — NOT the
+    length. The size a client declared when it asked for the URL is
+    therefore decorative: it can declare 1 MB and upload 5 GB. This is how
+    the size is found out before anything reads the object into memory.
+    """
+    try:
+        return int(client().head_object(Bucket=bucket(), Key=key)["ContentLength"])
+    except Exception:  # noqa: BLE001 — a missing object is an ordinary answer
+        return None
+
+
+def delete_key(key: str) -> None:
+    try:
+        client().delete_object(Bucket=bucket(), Key=key)
+    except Exception:  # noqa: BLE001 — best effort; the reaper catches the rest
+        pass
+
+
 def get_bytes(key: str) -> bytes:
     return client().get_object(Bucket=bucket(), Key=key)["Body"].read()
 

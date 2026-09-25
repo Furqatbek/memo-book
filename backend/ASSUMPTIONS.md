@@ -2981,3 +2981,38 @@ seasonal line, so email and Telegram cannot drift into telling the same
 customer two different stories. `build_reminder` keeps a fallback for
 messages queued by an older build and still sitting in the outbox across
 a deploy — delivered rather than dropped.
+
+**CR-003 groundwork — the upload path had no back wall.**
+
+Before building the anonymous contributor upload the CR asks for, a second
+opinion on that endpoint's controls turned up something more important:
+the door it would be a second copy of was already open. Three findings,
+each verified in the code rather than taken on trust:
+
+* **A presigned PUT does not sign the length.** `storage.presign_put`
+  signs bucket, key and content type only, so the `size_bytes` a client
+  declares when it asks for a URL is decorative — declare 1 MB, upload
+  5 GB. The server validated the declaration and nothing validated the
+  upload.
+* **`ingest_photo` read the whole object into memory before any check.**
+  `get_bytes` first, `process_image` second. A 5 GB body against a 1 MB
+  declaration did not fail the upload, it killed the worker.
+* **No per-book photo cap at all,** so "100 photos per contributor link"
+  would have been a fence with nothing behind it.
+
+Fixed on the shared path, which is what both doors use: ingest now asks
+storage how big the object actually is (`head_size`) BEFORE reading it,
+refuses anything over the limit, records the real size rather than the
+declared one, and deletes the original when ingest refuses it — otherwise
+a rejected file sits in the bucket for the book's whole 30-day life, which
+is a month of free storage for whatever was pushed at us. A book now has a
+ceiling of 600 photographs: generous for a 96-page book, and the wall
+behind every other limit.
+
+**The structural fix is still open.** The right answer is a presigned
+POST with a `content-length-range` policy, so the cap is enforced by
+storage before a byte lands rather than by us after it has. That changes
+the editor's upload call from a PUT to a multipart form, so it is a
+deliberate piece of work rather than something to slip in beside a feature
+— but until it is done, an oversized body still reaches the bucket and is
+only refused on the way out of it.

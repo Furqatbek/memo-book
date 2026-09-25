@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 
 import anyio
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import storage
@@ -40,6 +40,12 @@ ALLOWED_MIMES = {"image/jpeg", "image/png", "image/heic", "image/heif",
 # this; the ceiling only has to accommodate the untouched-original fallback
 # (HEIC on browsers that cannot decode it) and block abuse.
 MAX_UPLOAD_BYTES = 60 * 1024 * 1024
+# How many photographs one book may hold. A 96-page book uses at most a few
+# hundred; this is generous for any real customer and is the back wall
+# behind every other upload limit — without it, "100 photos per contributor
+# link" is a fence with nothing behind it, and the owner path itself is
+# unbounded (CR-003).
+MAX_PHOTOS_PER_BOOK = 600
 
 
 def _now() -> datetime:
@@ -72,6 +78,14 @@ async def issue_upload_url(session: AsyncSession, book_id: uuid.UUID, edit_token
         raise DomainError(ErrorCode.VALIDATION_ERROR,
                           f"file size must be 1..{MAX_UPLOAD_BYTES} bytes",
                           {"bytes": size_bytes, "max": MAX_UPLOAD_BYTES})
+
+    held = (await session.execute(
+        select(func.count()).select_from(Photo).where(Photo.book_id == book.id)
+    )).scalar() or 0
+    if held >= MAX_PHOTOS_PER_BOOK:
+        raise DomainError(ErrorCode.VALIDATION_ERROR,
+                          f"this book already holds {held} photos",
+                          {"max": MAX_PHOTOS_PER_BOOK})
 
     photo_id = uuid.uuid4()
     photo = Photo(
@@ -126,6 +140,24 @@ async def ingest_photo(session: AsyncSession, photo_id: uuid.UUID) -> Photo:
     photo = result.scalar_one()
 
     try:
+        # What is ACTUALLY there, before anything reads it into memory.
+        #
+        # A presigned PUT signs bucket, key and content type — not length —
+        # so `bytes_original` is only what the client SAID it would upload.
+        # Without this check a 5 GB body against a 1 MB declaration is read
+        # straight into the worker's RAM, and the way that ends is the
+        # worker dying rather than the upload being refused.
+        actual = await anyio.to_thread.run_sync(
+            storage.head_size, photo.original_key)
+        if actual is None:
+            raise IngestError("upload_missing", "no object at the upload key")
+        if actual > MAX_UPLOAD_BYTES:
+            # Deleted by the IngestError handler below, which is the one
+            # place that cleans up a refused upload.
+            raise IngestError(
+                "too_large",
+                f"uploaded {actual} bytes, over the {MAX_UPLOAD_BYTES} limit")
+        photo.bytes_original = actual
         data = await anyio.to_thread.run_sync(storage.get_bytes, photo.original_key)
         processed = await anyio.to_thread.run_sync(process_image, data)
 
@@ -168,6 +200,11 @@ async def ingest_photo(session: AsyncSession, photo_id: uuid.UUID) -> Photo:
                  status=photo.status, width=photo.orig_width, height=photo.orig_height,
                  taken_at=str(photo.taken_at))
     except IngestError as exc:
+        # The original is no use to anyone now, and leaving it until the
+        # book expires is a month of free storage for whatever was pushed
+        # at us. Derivatives were never written, so there is nothing else
+        # to clean up.
+        await anyio.to_thread.run_sync(storage.delete_key, photo.original_key)
         photo.status = PhotoStatus.FAILED.value
         # The CODE, not the prose. This column is read by the editor, which
         # has to say what went wrong in one of five languages; the English
