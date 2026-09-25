@@ -18,6 +18,18 @@
 </head>
 <body>
 
+<!-- Shown by assets/resume.js only when this browser holds a book that is
+     still editable, and only after the server has confirmed it (A105). -->
+<div id="resume-banner" class="resume-banner" role="region" aria-label="У вас есть незавершённая книга" hidden>
+  <div class="wrap resume-row">
+    <p class="resume-text">
+      <b>Ваша книга на месте.</b>
+      <span id="resume-info" class="resume-info" data-info="Книга на {pages} стр., сохранена в этом браузере."></span>
+    </p>
+    <a id="resume-link" class="btn btn-primary btn-small" href="../editor/">Продолжить</a>
+  </div>
+</div>
+
 <header class="site-header">
   <div class="wrap header-row">
     <a class="brand" href="#top">
@@ -421,5 +433,6 @@
   <div class="wrap f-bottom">© RS Pixel · Сделано в Узбекистане</div>
 </footer>
 
+<script src="../assets/resume.js" data-editor="../editor/"></script>
 </body>
 </html>

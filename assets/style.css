@@ -86,6 +86,30 @@ a { color: var(--primary); }
 
 .btn-small { padding: 10px 20px; font-size: 0.92rem; }
 
+/* --- "You already have a book" banner (A105) ---------------------------
+   Above the header on purpose: somebody coming back to finish a book should
+   not have to find this among the things written for a first-time visitor.
+   `[hidden]` is the default and the script removes it, so a browser with no
+   book — or no JavaScript — sees the page exactly as before. */
+.resume-banner {
+  background: #eef2fd;
+  border-bottom: 1px solid var(--line);
+}
+.resume-banner[hidden] { display: none; }
+.resume-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap;
+}
+.resume-text { font-size: 0.95rem; line-height: 1.45; }
+.resume-text b { color: var(--ink); }
+.resume-info { color: var(--muted); }
+.resume-info:not(:empty)::before { content: " "; }
+
+@media (max-width: 560px) {
+  .resume-row { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .resume-banner .btn { width: 100%; text-align: center; }
+}
+
 /* --- Header ------------------------------------------------------------ */
 .site-header {
   position: sticky;

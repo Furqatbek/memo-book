@@ -41,6 +41,14 @@ def main() -> None:
     os.environ.setdefault("S3_SECRET_KEY", "test")
     os.environ.setdefault("EDITOR_DIR", str(EDITOR))
     os.environ.setdefault("ADMIN_DIR", str(BACKEND.parent / "admin"))
+    # The marketing site at `/`, which is where production serves it — Caddy
+    # puts the site, the editor and the API on one hostname. Dev left this
+    # unset, so `/` was a 404 here and the site had to be served separately
+    # on another port. That made the two DIFFERENT ORIGINS, which is a
+    # material difference: the front page reads the editor's localStorage to
+    # know whether you have a book on the go (A105), and cross-origin it
+    # never could.
+    os.environ.setdefault("SITE_DIR", str(BACKEND.parent))
     # A local console needs a token; production sets its own in .env.
     os.environ.setdefault("ADMIN_TOKEN", "dev-admin")
     # Telegram order control needs a webhook secret to exist at all

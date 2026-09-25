@@ -2083,3 +2083,47 @@ The fix that held was the one that deleted the feature rather than the one
 that improved it — and the signal was there from the start, in a customer
 saying twice that they could not get rid of something we had decided they
 wanted.
+
+**A105 — the front page now says you already have a book.** Asked plainly:
+if we know the customer has an unfinished album, why not say so when they
+arrive?
+
+The editor had a resume card from early on, but on its own start screen —
+you only saw it after deciding to open the editor. Somebody who left a book
+half-finished and came back to the site was met by "Create your book" and
+nothing else, the same page a first-time visitor sees. Their book was safe
+in this browser's localStorage and the site gave them no reason to believe
+it.
+
+The banner sits above the header, before anything written for a first-time
+visitor, and it is careful about three things:
+
+* **It asks the server before promising anything.** Books expire and the
+  credentials outlive them, so a banner offering to continue something that
+  is gone would be worse than no banner. A clean 404 also clears the dead
+  credentials, exactly as the editor's own resume card does — and ONLY a
+  404 does, because being offline is not evidence that a book is gone.
+* **It only offers to continue what can still be edited.** Past `draft` the
+  book is locked behind an order, and "continue where you left off" would
+  lead to a screen that no longer takes changes.
+* **It says where the book is.** Nothing here is an account: the book lives
+  in this browser, and the same person on their phone will find nothing.
+  Better to say so in the banner than to let them discover it.
+
+It is progressive enhancement — `hidden` in the markup, shown by a script —
+so a browser with no book, and a browser with no JavaScript, see the page
+exactly as before.
+
+**This only works because the site and the editor are one origin**, which
+they are in production: Caddy serves the site at `/`, the editor at
+`/editor` and the API under the same hostname. Dev did not match — the dev
+server never set `SITE_DIR`, so `/` was a 404 and the site had to be served
+separately on another port, which made them two origins. That was a
+difference that could hide this feature working or not working, so the dev
+server now serves the site at `/` as production does.
+
+**Found on the way:** the editor's Russian resume card read "Книга на
+{pages} страниц" for every book. Russian numerals govern the noun's case,
+and the page counts are 32, 64, 96 and 192 — so that wording is right for
+96 and wrong for the other three. Both it and the new banner use "стр.",
+which does not decline and is what a Russian book's own front matter uses.

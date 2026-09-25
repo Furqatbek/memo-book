@@ -57,6 +57,9 @@ const NEEDS = {
     + 'hides in a SubIFD behind a 320x240 thumbnail (A103)',
   bookcfg: 'nothing — it makes a "love" book, whose prefilled cover title is '
     + 'the text that used to be impossible to remove (A104)',
+  resumebanner: 'the dev server serving the site at `/`, which it now does '
+    + 'by default — the front page reads the editor\'s localStorage, so the '
+    + 'two have to be one origin (A105)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',
