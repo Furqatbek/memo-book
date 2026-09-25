@@ -3807,11 +3807,34 @@ async function init() {
   const order = load('mb-order');
   if (order) S.order = order;
   enterStart();
-  /* `#order` opens the order screen directly. The front page offers to
-     track an order (A105), and without this that offer landed on the start
-     screen where the customer had to find "View order" and press it again —
-     two clicks for one intention, the second of them a search. */
-  if (location.hash === '#order' && order) showOrder();
+  applyHashRoute();
+  // Back and forward through these, and a hash typed into a loaded page.
+  window.addEventListener('hashchange', applyHashRoute);
+}
+
+/* Deep links into the order side of the editor.
+ *
+ * `#track` is the one the site's Support column points at. It used to point
+ * at the editor itself, which meant somebody chasing a paid order landed on
+ * "What kind of book are you making?" with the way to their order a scroll
+ * below the fold. The lookup existed and worked the whole time; nothing
+ * linked to it (P0-2).
+ *
+ * `#order` opens the stored order, and falls back to the SAME LOOKUP when
+ * there is nothing stored — which is not an edge case but the ordinary one:
+ * the customer who ordered on their phone and is now looking on a laptop
+ * has no `mb-order` here, and the lookup is exactly what they need.
+ */
+function applyHashRoute() {
+  const hash = location.hash;
+  if (hash !== '#order' && hash !== '#track') return;
+  const saved = load('mb-order');
+  if (hash === '#order' && saved) {
+    S.order = saved;
+    showOrder();
+    return;
+  }
+  showOrderLookup();
 }
 
 init();

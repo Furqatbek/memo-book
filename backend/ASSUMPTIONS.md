@@ -2207,3 +2207,37 @@ while the business owns `rspixel.uz`; a forwarding alias like
 person. And `@Eurohand1` carries no relation to the RS Pixel name, so a
 customer who finds it has no way to tell they have reached the right place.
 Both were used exactly as given.
+
+**P0-2 — "Track an order" did not track an order.** The site's Support
+column linked to `editor/`, so a customer chasing an order they had already
+paid for arrived at "What kind of book are you making?", with the way to
+their order a scroll below the fold on a screen that reads as the wrong
+page entirely. After payment, that is the moment a calm customer stops
+being one.
+
+**The lookup was not missing.** It existed, it worked, it asked for a
+reference and a phone and it showed the order — and nothing linked to it.
+That is the part worth keeping: a feature nobody can reach is
+indistinguishable from a feature nobody built, and it is the more expensive
+of the two, because from the inside it looks finished. The report offered
+"build a real lookup page, or remove the link" and the answer was neither:
+the page was there, the routing was not.
+
+`#track` opens it directly and every language's Support column points at
+it. `#order` — the front-page banner's target (A105) — now falls back to
+the same lookup when there is nothing stored, which is not an edge case but
+the ordinary one: the customer who ordered on their phone and is looking on
+a laptop has no `mb-order` there, and the lookup is exactly what they need.
+Sending them to the book picker would have been this same bug in a second
+place.
+
+Both are routed through one `applyHashRoute`, and `hashchange` is listened
+to as well as read at boot, so the back button works.
+
+**What the check asserts is the landing, not the link.** `trackorder.js`
+follows the Support link from all five pages and requires a reference-and-
+phone form on screen — landing in the editor at all is what the bug did.
+It also submits an unknown reference, so the form is proved to ask the
+server rather than merely to exist. And `e2e`, which buys a real order
+anyway, clears `mb-order` and finds that order again from the reference and
+the phone alone: the other-device path, end to end.

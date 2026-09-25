@@ -130,6 +130,20 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   await page.waitForSelector('#screen-order.active', { timeout: 20000 });
   console.log('tracking button opened the order screen: true');
 
+  // 8c. And a customer on a DIFFERENT DEVICE finds the same order with
+  //     nothing but the reference and their phone (P0-2). The stored order
+  //     is cleared first, because that is what another browser looks like.
+  await page.evaluate(() => localStorage.removeItem('mb-order'));
+  await page.goto('http://127.0.0.1:8000/editor/#track');
+  await page.waitForSelector('#or-lookup:not(.hidden)', { timeout: 15000 });
+  await page.fill('#or-lookup [name=ref]', ref);
+  await page.fill('#or-lookup [name=phone]', '+998 90 123 45 67');
+  await page.click('#or-lookup button[type=submit]');
+  await page.waitForSelector('#or-details:not(.hidden)', { timeout: 20000 });
+  const looked = (await page.textContent('#or-details')).replace(/\s+/g, ' ');
+  console.log('looked up by reference + phone:', looked.includes(ref));
+  if (!looked.includes(ref)) throw new Error('the lookup did not find the order');
+
   // 9. Reload -> resume flow shows the stored book/locked state
   await page.goto(BASE);
   await page.waitForSelector('#resume-card:not(.hidden)', { timeout: 10000 });
