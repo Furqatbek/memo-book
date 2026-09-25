@@ -2,8 +2,8 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260925i';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925h';
+import * as api from './api.js?v=20260925j';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925j';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
@@ -560,7 +560,45 @@ function enterEditor() {
   $('tier-select').value = String(S.book.page_count);
   renderAll();
   schedulePhotoPoll();
+  refreshTelegramOffer();
 }
+
+/* "Remind me in Telegram" (Change 2).
+ *
+ * The server decides whether there is anything to offer: with no bot
+ * username configured it answers `available: false` and the button stays
+ * hidden, because a recovery link that lands nowhere is worse than no
+ * recovery link — the customer learns the product is broken at the exact
+ * moment they were deciding whether to come back.
+ *
+ * Failure here is silent on purpose. This is an extra; an editor that
+ * showed an error because an optional convenience could not be offered
+ * would be trading a working book for a broken one.
+ */
+async function refreshTelegramOffer() {
+  const btn = $('btn-tg-remind');
+  const done = $('tg-linked');
+  btn.classList.add('hidden');
+  done.classList.add('hidden');
+  if (!S.creds) return;
+  try {
+    const r = await api.telegramLink(S.creds);
+    if (!r.available) return;
+    if (r.linked) { done.classList.remove('hidden'); return; }
+    btn.href = r.deep_link;
+    btn.classList.remove('hidden');
+  } catch (e) { /* an optional convenience never breaks the editor */ }
+}
+
+/* The customer taps the button, leaves for Telegram, presses Start, and
+   comes BACK to this tab. Without this they return to a button still
+   offering what they have just done — so the editor re-asks whenever the
+   tab regains focus, which is exactly when the answer may have changed. */
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && $('screen-editor').classList.contains('active')) {
+    refreshTelegramOffer();
+  }
+});
 
 function renderAll() {
   applyLocked();

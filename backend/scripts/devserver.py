@@ -55,6 +55,13 @@ def main() -> None:
     # (A97). A dev default lets the browser check drive the real
     # linking flow; production sets its own or stays switched off.
     os.environ.setdefault("TELEGRAM_WEBHOOK_SECRET", "dev-telegram-secret")
+    # The customer-facing recovery link (Change 2) needs a bot to point at
+    # and an absolute base to link back to. Dev values so the browser check
+    # can drive the real deep-link flow; production sets its own or leaves
+    # the offer switched off, which the editor handles by hiding it.
+    os.environ.setdefault("TELEGRAM_BOT_USERNAME", "rspixel_dev_bot")
+    os.environ.setdefault("TELEGRAM_BOT_TOKEN", "dev-bot-token")
+    os.environ.setdefault("PUBLIC_BASE_URL", "http://127.0.0.1:8000")
     # 60/min is right in production — it exists to make guessing the token
     # expensive, and one operator never comes close. The browser checks drive
     # the console far faster than a person can, and three admin checks in the

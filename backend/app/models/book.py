@@ -25,6 +25,23 @@ class Book(Base):
     layout: Mapped[dict] = mapped_column(JSONDoc)
     layout_version: Mapped[int] = mapped_column(sa.Integer, default=1)
     email: Mapped[str | None] = mapped_column(sa.String(320), nullable=True)
+
+    # Telegram as a recovery channel (Change 2). Deliberately NOT unique:
+    # one person may make several books, and a unique chat id would make
+    # the second link silently fail.
+    telegram_chat_id: Mapped[int | None] = mapped_column(
+        sa.BigInteger, nullable=True, index=True)
+    telegram_linked_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True)
+    # The deep-link secret, and NOT `edit_token`: a deep link travels
+    # through Telegram, sits in a chat list and gets forwarded, while the
+    # edit token is all that stands between a stranger and these
+    # photographs. This one can only attach a chat to a book, and expires.
+    telegram_token: Mapped[str | None] = mapped_column(
+        sa.String(64), nullable=True, unique=True, index=True)
+    telegram_token_expires_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True)
+
     reminder_3d_sent: Mapped[bool] = mapped_column(sa.Boolean, default=False)
     reminder_14d_sent: Mapped[bool] = mapped_column(sa.Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))

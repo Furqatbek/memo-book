@@ -69,6 +69,9 @@ const NEEDS = {
   resumebanner: 'the dev server serving the site at `/`, which it now does '
     + 'by default — the front page reads the editor\'s localStorage, so the '
     + 'two have to be one origin (A105)',
+  tgremind: 'TELEGRAM_BOT_USERNAME + TELEGRAM_WEBHOOK_SECRET (the dev '
+    + 'server sets both) — it takes the deep link out of the editor bar '
+    + 'and drives the real /start and /stop through the webhook (Change 2)',
   funnel: 'ADMIN_TOKEN=dev-admin (the dev server sets it) — it clicks an '
     + 'advert link with a campaign on it and builds a book in ONE browser '
     + 'context, then reads the funnel report back to prove the whole '

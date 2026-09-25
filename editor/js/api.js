@@ -133,6 +133,12 @@ export const recordEvent = (type, extra) => {
   } catch (e) { /* never the customer's problem */ }
 };
 
+/* The deep link that turns this book into a Telegram conversation. Behind
+   the edit token, because minting a recovery secret for somebody else's
+   book is exactly what an open endpoint would be used for. */
+export const telegramLink = (c) =>
+  request('GET', `${V}/books/${c.book_id}/telegram-link`, { token: c.edit_token });
+
 export const listPhotos = (c) =>
   request('GET', `${V}/books/${c.book_id}/photos`, { token: c.edit_token });
 

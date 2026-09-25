@@ -59,3 +59,19 @@ class TelegramLinkCode(Base):
     used_at: Mapped[datetime | None] = mapped_column(
         sa.DateTime(timezone=True), nullable=True)
     used_by_user_id: Mapped[int | None] = mapped_column(sa.BigInteger, nullable=True)
+
+
+class TelegramUpdate(Base):
+    """One row per update Telegram has delivered (Change 2).
+
+    Telegram retries an update until it gets a 200, so the same `/start` or
+    the same button press can arrive several times. The primary key is the
+    de-duplication: an insert that collides means we have acted on this
+    already. Nothing else in the row is worth reading — it exists to be
+    unique.
+    """
+
+    __tablename__ = "telegram_updates"
+
+    update_id: Mapped[int] = mapped_column(sa.BigInteger, primary_key=True)
+    received_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))

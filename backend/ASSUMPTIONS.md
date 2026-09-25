@@ -2854,3 +2854,69 @@ advertising trackers at all.
 is enough for now. `half_designed` and `design_completed` are computed on
 every layout save, which is cheap but means a book completed by an
 operator action rather than a customer save would not record them.
+
+**Change 2 — Telegram as a recovery channel.** A customer taps "Remind me
+in Telegram" in the editor, presses Start in the bot, and their reminders
+arrive somewhere they actually read.
+
+**The finding that changes how important this is: email never worked.**
+`queue_reminders` required `Book.email`, and **nothing has ever set it** —
+the editor has no email capture and never calls `PATCH /books/{id}/email`,
+and checkout does not write it back to the book either. The email branch
+of the reminder job could not fire for a real customer. Telegram is not a
+second recovery channel here; it is the first one.
+
+**The deep-link token is NOT the edit token, and that is the security
+design of the whole feature.** A deep link travels through Telegram's
+servers, sits in a chat list and gets forwarded. The edit token is the
+only thing between a stranger and somebody's family photographs. So a book
+gets a second, single-purpose, expiring secret whose only power is to
+attach a chat id, and which is spent on use. Leaking it costs the customer
+unwanted reminders, not their book. A test asserts the two differ.
+
+**404, not the 401 the brief asked for.** A96 already decided this and the
+reasoning holds: a wrong secret must learn nothing a right one would, so
+the webhook is never an oracle for whether an RS Pixel bot lives at this
+host, and a deployment that never configured it has no extra surface at
+all. The requirement — reject anything without the secret — is met, and
+more strictly. Flagged rather than silently changed.
+
+**`/start` had to be routed in front of the operator gate.** As it stood,
+`/start` required the sender to be a linked operator, so every customer
+arriving from a deep link would have been told "you are not linked" —
+the flow would have been dead on arrival. Operators redeem codes with
+`/link`, customers arrive with `/start <token>`, so the two do not collide.
+
+**A requirement I broke and then fixed.** The first cut sent the
+confirmation inline with `telegram.send_to` from the webhook handler,
+which the brief explicitly forbids — and the dev run showed exactly why:
+the link succeeded, the inline call to a fake bot token threw, and the
+whole update came back `{"ignored": "error"}` with the confirmation lost
+and no retry. Every customer-facing message now goes through
+`OutboxMessage` on the `telegram.reply` topic, with the same
+at-least-once delivery and backoff as every other notification, and a
+test asserts nothing is sent synchronously.
+
+**De-duplication is a table, not a guess.** Telegram retries until it gets
+a 200, and the visible half of that bug is a customer receiving the same
+confirmation twice. `telegram_updates` has one column that matters and the
+primary key does the work — inside a SAVEPOINT, because the first version
+called `session.add` *outside* it and a duplicate poisoned the caller's
+transaction, which is the very failure the savepoint pattern exists to
+prevent.
+
+**One chat, several books,** modelled as a nullable indexed column rather
+than a unique constraint: somebody who makes one book for their mother and
+another for a wedding is one chat and two books, and a unique chat id
+would make the second link silently fail. `/stop` therefore clears *every*
+book for that chat — a partial stop is what gets a bot reported.
+
+**The editor re-asks when the tab regains focus.** The customer taps the
+button, leaves for Telegram, presses Start and comes back; without this
+they return to a button still offering what they have just done.
+
+**Also fixed on the way:** reminder links were relative (`/editor/abc`),
+which is not clickable in an email and is not a link at all in a chat
+message. `PUBLIC_BASE_URL` makes them absolute for both channels, and the
+Telegram message is sent without a link rather than with a broken one when
+it is unset.

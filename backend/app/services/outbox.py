@@ -27,6 +27,26 @@ TOPIC_ORDER_RENDERED = "order.rendered"
 TOPIC_BOOK_REMINDER = "book.reminder"
 TOPIC_ORDER_ATTENTION = "order.attention"
 TOPIC_ORDER_RECEIPT = "order.receipt"
+# The same reminder, down the channel people in this market actually read
+# (Change 2). A separate topic rather than a flag in the payload so the
+# dispatch table stays the place you look to see what can be sent.
+TOPIC_BOOK_REMINDER_TG = "book.reminder.telegram"
+# Anything the bot says to a CUSTOMER — the confirmation after linking, the
+# acknowledgement of /stop. Through the outbox like everything else: a
+# Telegram outage must not make the webhook throw, and a confirmation that
+# was not delivered has to be retried rather than lost.
+TOPIC_TELEGRAM_REPLY = "telegram.reply"
+
+
+def _send_telegram_message(payload: dict) -> None:
+    """Never called inline from a request handler — this is the outbox
+    worker, with the same at-least-once delivery and backoff every other
+    notification gets. A customer who blocked the bot makes Telegram answer
+    403, `send_to` raises, and the message retries and then gives up like
+    any other failure."""
+    from app.services import telegram
+
+    telegram.send_to(payload["chat_id"], payload["text"])
 
 
 def _send_reminder(payload: dict) -> None:
@@ -44,6 +64,8 @@ MAX_ATTEMPTS = 8
 HANDLERS: dict[str, Callable[[dict], None]] = {
     TOPIC_ORDER_RENDERED: send_production_notification,
     TOPIC_BOOK_REMINDER: _send_reminder,
+    TOPIC_BOOK_REMINDER_TG: _send_telegram_message,
+    TOPIC_TELEGRAM_REPLY: _send_telegram_message,
     TOPIC_ORDER_ATTENTION: send_attention_alert,
     TOPIC_ORDER_RECEIPT: send_receipt_notification,
 }

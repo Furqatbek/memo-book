@@ -29,7 +29,9 @@ statuses and amounts — the operator opens the console for a name.
 import structlog
 
 from app.domain.errors import DomainError
-from app.services import admin_orders, telegram, telegram_link
+from app.domain.events import EventType
+from app.services import (admin_orders, funnel, outbox, telegram,
+                          telegram_link, telegram_recovery)
 
 log = structlog.get_logger()
 
@@ -75,6 +77,12 @@ async def handle_update(session, update: dict) -> dict:
     """One Telegram update. Always returns a dict and never raises: Telegram
     retries anything that is not a 200, so a bug here would become an
     infinite redelivery loop rather than a single failure."""
+    # Telegram retries until it gets a 200, so the same press or the same
+    # /start can arrive several times. Acting twice would send the customer
+    # a duplicate message, which is the visible half of the bug.
+    if await telegram_recovery.already_seen(session, update.get("update_id")):
+        await session.commit()
+        return {"ok": True, "ignored": "duplicate update"}
     try:
         if "callback_query" in update:
             return await _handle_press(session, update["callback_query"])
@@ -190,6 +198,16 @@ async def _handle_message(session, message: dict) -> dict:
     if command == "/link":
         return await _handle_link(session, chat_id, sender, parts[1:])
 
+    # A CUSTOMER arriving from a deep link (Change 2). This has to come
+    # before the operator gate: the whole point is that somebody who is not
+    # an operator — and never will be — can attach their own book, and the
+    # gate would answer "you are not linked" to every customer who ever
+    # tapped the button.
+    if command == "/start" and len(parts) > 1:
+        return await _handle_recovery_start(session, chat_id, parts[1])
+    if command == "/stop":
+        return await _handle_recovery_stop(session, chat_id, user_id)
+
     if not await _is_allowed(session, user_id):
         log.warning("telegram_command_refused", user_id=user_id, command=command)
         if chat_id is not None:
@@ -256,3 +274,62 @@ def _order_line(row: dict) -> str:
     pages = f"{row['page_count']} pages" if row.get("page_count") else "book"
     return (f"📖 {row['human_ref']}\n"
             f"{pages} · {amount} {row.get('currency', 'UZS')}")
+
+
+# --- the customer side of the bot (Change 2) ---------------------------
+#
+# Everything above this line is the operator console in a chat window.
+# What follows belongs to somebody who made a book and would like to be
+# reminded about it. They share a bot and nothing else.
+
+RECOVERY_OK = (
+    "Done — we'll remind you here about your book.\n\n"
+    "Open it any time: {url}\n\n"
+    "Send /stop to hear nothing more from us.")
+RECOVERY_OK_NO_URL = (
+    "Done — we'll remind you here about your book.\n\n"
+    "Send /stop to hear nothing more from us.")
+# An unknown token is an ordinary thing, not an error: links get forwarded,
+# and they expire. The reply says what to do rather than what went wrong.
+RECOVERY_UNKNOWN = (
+    "That link has expired or belongs to a different book.\n\n"
+    "Open your book in the editor and tap “Remind me in Telegram” again to "
+    "get a fresh one.")
+RECOVERY_STOPPED = "Stopped. You won't hear from us here again."
+RECOVERY_NOTHING = "You weren't getting anything from us here anyway."
+
+
+async def _handle_recovery_start(session, chat_id, token: str) -> dict:
+    if chat_id is None:
+        return {"ok": True, "ignored": "no chat"}
+    book = await telegram_recovery.link_chat(session, token, int(chat_id))
+    if book is None:
+        outbox.enqueue(session, outbox.TOPIC_TELEGRAM_REPLY,
+                       {"chat_id": chat_id, "text": RECOVERY_UNKNOWN})
+        await session.commit()
+        return {"ok": True, "command": "/start", "result": "unknown_token"}
+
+    # The customer told us how to reach them, which is a funnel step in its
+    # own right — and the channel matters, because this one gets read.
+    await funnel.emit_for_book(session, EventType.CONTACT_CAPTURED, book.id,
+                               properties={"channel": "telegram"})
+    url = telegram_recovery.editor_url(book.id)
+    outbox.enqueue(session, outbox.TOPIC_TELEGRAM_REPLY, {
+        "chat_id": chat_id,
+        "text": RECOVERY_OK.format(url=url) if url else RECOVERY_OK_NO_URL,
+    })
+    await session.commit()
+    return {"ok": True, "command": "/start", "result": "linked"}
+
+
+async def _handle_recovery_stop(session, chat_id, user_id) -> dict:
+    """`/stop` means stop. Every book, not the most recent one."""
+    if chat_id is None:
+        return {"ok": True, "ignored": "no chat"}
+    cleared = await telegram_recovery.unlink_chat(session, int(chat_id))
+    outbox.enqueue(session, outbox.TOPIC_TELEGRAM_REPLY, {
+        "chat_id": chat_id,
+        "text": RECOVERY_STOPPED if cleared else RECOVERY_NOTHING,
+    })
+    await session.commit()
+    return {"ok": True, "command": "/stop", "books_cleared": cleared}

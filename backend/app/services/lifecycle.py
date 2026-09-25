@@ -14,6 +14,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import anyio
+import sqlalchemy as sa
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +24,7 @@ from app.domain.states import BookStatus, transition_book
 from app.models.book import Book
 from app.models.photo import Photo
 from app.domain.events import EventType
-from app.services import funnel, outbox
+from app.services import funnel, outbox, telegram_recovery
 
 log = structlog.get_logger()
 
@@ -77,6 +78,12 @@ def _edit_url(book_id: uuid.UUID) -> str:
     return f"/editor/{book_id}"
 
 
+def _reminder_text(url: str) -> str:
+    """Short, because it arrives in a chat rather than an inbox."""
+    body = "Your photo book is still waiting — you left it half-finished."
+    return f"{body}\n\n{url}" if url else body
+
+
 def _reminder_url(book_id: uuid.UUID, day: int) -> str:
     """The same link, marked with which reminder it came from, so a click
     can be attributed to the day-3 or the day-14 message (Change 3)."""
@@ -90,27 +97,43 @@ async def queue_reminders(session: AsyncSession,
 
     for flag, delta in (("reminder_3d_sent", REMINDER_FIRST),
                         ("reminder_14d_sent", REMINDER_SECOND)):
+        # Either channel will do. Telegram is preferred where we have it
+        # (Change 2): in this market a message there gets read and an email
+        # may not, and the whole reason to offer it is that a reminder
+        # nobody sees is a reminder that was not sent.
         books = (await session.execute(
             select(Book).where(
                 Book.status == BookStatus.DRAFT.value,
-                Book.email.is_not(None),
+                sa.or_(Book.email.is_not(None),
+                       Book.telegram_chat_id.is_not(None)),
                 getattr(Book, flag).is_(False),
                 Book.updated_at <= now - delta,
             )
         )).scalars().all()
         for book in books:
-            outbox.enqueue(session, outbox.TOPIC_BOOK_REMINDER, {
-                "book_id": str(book.id),
-                "email": book.email,
-                "days_since_edit": delta.days,
-                "edit_url": _reminder_url(book.id, delta.days),
-            })
+            url = telegram_recovery.editor_url(book.id, delta.days)
+            if book.telegram_chat_id is not None:
+                channel = "telegram"
+                outbox.enqueue(session, outbox.TOPIC_BOOK_REMINDER_TG, {
+                    "book_id": str(book.id),
+                    "chat_id": book.telegram_chat_id,
+                    "days_since_edit": delta.days,
+                    "text": _reminder_text(url),
+                })
+            else:
+                channel = "email"
+                outbox.enqueue(session, outbox.TOPIC_BOOK_REMINDER, {
+                    "book_id": str(book.id),
+                    "email": book.email,
+                    "days_since_edit": delta.days,
+                    "edit_url": url or _reminder_url(book.id, delta.days),
+                })
             setattr(book, flag, True)  # flag + message commit atomically (R7)
             # Repeatable by design: day 3 and day 14 are two sends, and the
             # funnel wants both. The day is in the properties so a reminder
             # that works can be told from one that does not.
             await funnel.emit_for_book(session, EventType.REMINDER_SENT, book.id,
-                                       properties={"channel": "email",
+                                       properties={"channel": channel,
                                                    "day": delta.days})
             await session.commit()
             queued += 1

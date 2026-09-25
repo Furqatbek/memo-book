@@ -128,6 +128,14 @@
            it there and then discovering the mistake two uploads later used
            to mean abandoning the book, because this was the only copy. -->
       <select id="ed-lang-select" class="lang-select" aria-label="Language"></select>
+      <!-- The recovery channel (Change 2). In the bar rather than behind a
+           panel because the person it is for is the one about to close the
+           tab, and a button they have to go looking for is a button they
+           never see. Hidden until the server says there is a bot to point
+           at, and replaced by a quiet confirmation once linked. -->
+      <a id="btn-tg-remind" class="btn small hidden" target="_blank"
+         rel="noopener" data-i18n="tg.remind"></a>
+      <span id="tg-linked" class="save-state hidden" data-i18n="tg.linked"></span>
       <span class="spacer"></span>
       <select id="tier-select" aria-label="Pages">
         <option value="16">16</option><option value="32">32</option>
@@ -330,6 +338,6 @@
     </div>
   </section>
 
-  <script type="module" src="js/app.js?v=20260925i"></script>
+  <script type="module" src="js/app.js?v=20260925k"></script>
 </body>
 </html>

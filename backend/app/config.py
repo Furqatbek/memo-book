@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     debug: bool = False
 
     database_url: str = "postgresql+asyncpg://memobook:memobook@localhost:5432/memobook"
+    # Where this deployment answers, for links that leave the building. A
+    # reminder whose link reads "/editor/abc" is not clickable in an email
+    # and is useless in a Telegram message; with this set, both become
+    # absolute.
+    public_base_url: str = ""
     redis_url: str = "redis://localhost:6379/0"
 
     s3_endpoint_url: str = "http://localhost:9000"
@@ -118,6 +123,10 @@ class Settings(BaseSettings):
     render_stall_after_s: int = 1800
 
     telegram_bot_token: str = ""
+    # The bot's @name, needed to build a customer deep link (Change 2).
+    # Without it there is no link to offer, and the editor hides the option
+    # rather than showing one that lands nowhere.
+    telegram_bot_username: str = ""
     telegram_chat_id: str = ""
 
     # Inbound control (A96). Telegram is an UNAUTHENTICATED surface — A76 is

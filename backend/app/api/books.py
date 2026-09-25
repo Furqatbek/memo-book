@@ -25,6 +25,7 @@ from app.schemas.book import (
 from app.services import books as svc
 from app.services import photos as photo_svc
 from app.services import placement as placement_svc
+from app.services import telegram_recovery
 
 router = APIRouter(prefix="/api/v1/books", tags=["books"])
 
@@ -123,6 +124,29 @@ async def auto_place(book_id: uuid.UUID, request: Request, session: Session,
         # How many of those carried a date, so the editor can say it put the
         # photos in the order they were taken only when that is true (P1-5).
         "dated_count": dated_count,
+    }
+
+
+@router.get("/{book_id}/telegram-link")
+async def telegram_link(book_id: uuid.UUID, session: Session,
+                        x_edit_token: EditToken) -> dict:
+    """The deep link that turns this book into a Telegram conversation.
+
+    Behind the edit token, because minting a recovery secret for somebody
+    else's book is exactly what an attacker would want to do with an open
+    endpoint. `available: false` when no bot username is configured — the
+    editor then hides the offer rather than showing a link that lands
+    nowhere, which is the P0-2 lesson in a different place.
+    """
+    book = await svc.get_book_authed(session, book_id, x_edit_token)
+    if not telegram_recovery.configured():
+        return {"available": False, "deep_link": None, "linked": False}
+    token = await telegram_recovery.issue_token(session, book)
+    await session.commit()
+    return {
+        "available": True,
+        "deep_link": telegram_recovery.deep_link(token),
+        "linked": book.telegram_chat_id is not None,
     }
 
 
