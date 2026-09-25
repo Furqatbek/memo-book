@@ -165,8 +165,14 @@ LANG_DIRS = ["", "ru/", "uz/", "uz-cyrl/", "kaa/"]
 # that covers the main pages has to cover them too, and a link preview
 # matters more here than anywhere else on the site.
 LANDING_SLUGS = ["new-year", "family"]
+# The privacy policy and the terms (P2-4). Held to the same honesty checks
+# as everything else: a policy page that quietly went stale on a contact
+# detail is worse than most pages that do, because it is the page a
+# customer reads precisely when they have stopped trusting you.
+POLICY_SLUGS = ["privacy", "terms"]
 SITE_PAGES = ([f"{d}index.html" for d in LANG_DIRS]
-              + [f"{d}{s}/index.html" for s in LANDING_SLUGS for d in LANG_DIRS])
+              + [f"{d}{s}/index.html"
+                 for s in LANDING_SLUGS + POLICY_SLUGS for d in LANG_DIRS])
 PLACEHOLDER_CONTACT = re.compile(r"XXXXXXXX|example\.com|\+998XXX")
 # Every way the site offers to be contacted. Absolute targets, so they are
 # the same string on all five pages — which is what makes them comparable.
@@ -383,10 +389,12 @@ def _lang_of(page: str) -> str:
 def check_delivery_claim() -> Finding:
     """Every page says it in the footer; every page with an FAQ says it there.
 
-    The FAQ requirement applies where there is an FAQ to put it in rather
-    than to a fixed list, so a campaign landing page — which sends its FAQ
-    traffic to the main page — is held to the footer alone instead of
-    failing for a section it deliberately does not have.
+    Both halves apply where there is somewhere to put them rather than to a
+    fixed list of pages. A campaign landing page sends its FAQ traffic to
+    the main page, so it is held to the footer alone; a policy page carries
+    a plain document footer with no marketing column at all, and pushing
+    delivery copy into the privacy policy would be noise in the one
+    document a customer reads when they have stopped trusting you.
     """
     silent: dict[str, str] = {}
     for page in SITE_PAGES:
@@ -400,7 +408,8 @@ def check_delivery_claim() -> Finding:
                 re.search(claim, d, re.IGNORECASE) for d in
                 re.findall(r"<details>(.*?)</details>", head, re.S)):
             missing.append("not in the FAQ")
-        if not (sep and re.search(claim, foot, re.IGNORECASE)):
+        sells = 'class="f-col f-brand"' in foot
+        if sells and not re.search(claim, foot, re.IGNORECASE):
             missing.append("not in the footer")
         if missing:
             silent[page] = " and ".join(missing)

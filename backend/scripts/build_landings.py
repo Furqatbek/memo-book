@@ -88,6 +88,8 @@ CHROME = {
         "f_faq": "FAQ",
         "f_track": "Track an order",
         "f_reprint": "Reprint policy",
+        "f_privacy": "Privacy policy",
+        "f_terms": "Terms of service",
         "f_main": "The full site",
         "f_create": "Create your book",
         "f_bottom": "© RS Pixel · Made in Uzbekistan",
@@ -121,6 +123,8 @@ CHROME = {
         "f_faq": "Вопросы и ответы",
         "f_track": "Отследить заказ",
         "f_reprint": "Перепечатка",
+        "f_privacy": "Конфиденциальность",
+        "f_terms": "Условия использования",
         "f_main": "Основной сайт",
         "f_create": "Создать книгу",
         "f_bottom": "© RS Pixel · Сделано в Узбекистане",
@@ -155,6 +159,8 @@ CHROME = {
         "f_faq": "Savol-javob",
         "f_track": "Buyurtmani kuzatish",
         "f_reprint": "Qayta chop etish",
+        "f_privacy": "Maxfiylik siyosati",
+        "f_terms": "Foydalanish shartlari",
         "f_main": "Asosiy sayt",
         "f_create": "Kitob yaratish",
         "f_bottom": "© RS Pixel · Oʻzbekistonda yaratilgan",
@@ -189,6 +195,8 @@ CHROME = {
         "f_faq": "Савол-жавоб",
         "f_track": "Буюртмани кузатиш",
         "f_reprint": "Қайта чоп этиш",
+        "f_privacy": "Махфийлик сиёсати",
+        "f_terms": "Фойдаланиш шартлари",
         "f_main": "Асосий сайт",
         "f_create": "Китоб яратиш",
         "f_bottom": "© RS Pixel · Ўзбекистонда яратилган",
@@ -223,6 +231,8 @@ CHROME = {
         "f_faq": "Sorawlar",
         "f_track": "Buyırtpanı gúzetiw",
         "f_reprint": "Qayta basıw",
+        "f_privacy": "Qupıyalıq siyasatı",
+        "f_terms": "Paydalanıw shártleri",
         "f_main": "Tiykarǵı sayt",
         "f_create": "Kitap jaratıw",
         "f_bottom": "© RS Pixel · Ózbekstanda jaratılǵan",
@@ -697,6 +707,8 @@ def render(lang: str, slug: str) -> str:
       <a href="{main_page}#faq">{c["f_faq"]}</a>
       <a href="{editor}#track">{c["f_track"]}</a>
       <a href="{main_page}#reprint">{c["f_reprint"]}</a>
+      <a href="{main_page}privacy/">{c["f_privacy"]}</a>
+      <a href="{main_page}terms/">{c["f_terms"]}</a>
     </nav>
     <nav class="f-col" aria-label="Contacts">
       <h3>{c["f_contacts"]}</h3>

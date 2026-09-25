@@ -2712,3 +2712,70 @@ the paint entry through a `PerformanceObserver` and takes bytes from CDP
 `loadingFinished`, and it treats a missing FCP as a failure rather than a
 pass — a performance check that goes green on a blank page is worse than
 not measuring.
+
+**P2-4 — the privacy policy, the terms, and the EXIF question.**
+
+**The engineering half first, because it is the one with live harm in it.**
+A phone writes the coordinates of where a photo was taken into the file,
+so a family photograph taken at home carries the home address.
+`image_processing` already said in a comment that derivatives carry no
+metadata. A comment is not a test, and this session has repeatedly found
+code that says untrue things about itself, so it was checked against a
+GPS-tagged fixture instead: the display JPEG, the thumbnail, the composed
+print page and the preview page all come out with no EXIF tags, no GPS
+IFD and no APP1 segment at all. **The claim was true.**
+
+`tests/test_exif_privacy.py` now holds it true. The way it would break is
+somebody adding `exif=` to a `save()` call to fix a rotation bug — a
+reasonable-looking one-liner that silently reattaches the coordinates to
+every page of every book. That exact change was made temporarily and
+turned three assertions red, including a search of the raw bytes for the
+packed rationals a GPS IFD would contain, which catches metadata surviving
+somewhere a tag parser does not look.
+
+The original upload keeps its EXIF deliberately: it is the customer's own
+file, `taken_at` is read off it for R2, and it is never sent anywhere. The
+print files that go to the printer — a third party, over Telegram — are
+composed canvases, and they are clean.
+
+**Every fact in the policy was read out of the code, not drafted from a
+template.** 30 days is `books.DRAFT_RETENTION`, and because `books.py`
+resets `expires_at` on every mutation the document says "30 days after you
+last opened it" rather than "after you create it" — a difference that
+matters to somebody who has been working on a book for a month. Expiry
+really deletes the files, because `lifecycle.expire_drafts` collects the
+original, display, thumbnail and preview keys and removes them.
+`test_policy_pages.py` ties the number in the document to the constant:
+change `DRAFT_RETENTION` and the policy becomes false, in five languages
+at once, and the test says so.
+
+**Where the honest answer is not the tidy one:** a book that reached
+`locked` or `ordered` is never expired, so order files are kept
+indefinitely and removed only when somebody asks. The document says
+exactly that rather than naming a retention period nothing implements.
+**This is a real gap worth closing** — an acquirer or a regulator will
+generally want a stated period, and "until you ask" is a weaker answer
+than "12 months, then deleted". Implementing that is outstanding work, not
+something the wording papers over.
+
+**A script-mixing bug, found and then guarded.** The Karakalpak terms
+contained `máselениń` — Cyrillic е, н and и pasted into a Latin word. It
+renders as a word nobody can search for and no spell-check would see. The
+translation-hygiene tests now scan the document body of every Latin-script
+page for Cyrillic, and the Cyrillic pages for the opposite. They scan the
+document rather than the whole page on purpose: the language menu carries
+«Русский» and «Ўзбекча» on every page by design, and a scan over the whole
+page flags all five of them.
+
+**`check_delivery_claim` grew a third case.** It asks for the footer line
+only where the footer has a marketing column, because a policy page
+carries a plain document footer — pushing delivery copy into the privacy
+policy would be noise in the one document a customer reads when they have
+stopped trusting you.
+
+**`checks/policies.js` follows the links rather than building them.** It
+reads the privacy and terms hrefs out of the footer of all fifteen selling
+pages and fetches them, because a relative href that resolves correctly
+from `/index.html` and wrongly from `/ru/new-year/` is exactly the bug a
+hand-written URL in the check would hide. A privacy link that 404s is the
+P0-2 failure on the page where it costs the most.

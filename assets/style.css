@@ -149,6 +149,17 @@ a { color: var(--primary); }
    following "#reprint" hides the heading underneath it. */
 #reprint { scroll-margin-top: 80px; }
 
+/* The privacy policy and the terms (P2-4). A document, not a landing page:
+   one measured column, because a policy nobody can read is a policy that
+   does not do the job it exists for. */
+.policy-doc { max-width: 42rem; }
+.policy-doc h1 { margin-bottom: 6px; }
+.policy-doc h2 {
+  font-size: 1.25rem; margin-top: 34px; margin-bottom: 8px;
+}
+.policy-doc p { line-height: 1.65; margin-bottom: 12px; }
+.policy-updated { color: var(--muted); font-size: .9rem; margin-bottom: 20px; }
+
 @media (max-width: 720px) {
   .policy-grid { grid-template-columns: 1fr; gap: 20px; }
 }

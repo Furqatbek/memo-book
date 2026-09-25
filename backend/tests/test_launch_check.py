@@ -451,7 +451,13 @@ class TestOrderClaim:
 # names from inside a comprehension.
 LANDING_PAGES = [p for p in lc.SITE_PAGES
                  if any(f"{s}/" in p for s in lc.LANDING_SLUGS)]
-MAIN_PAGES = [p for p in lc.SITE_PAGES if p not in LANDING_PAGES]
+# Policy pages carry a plain document footer with no marketing column, so
+# the delivery line does not belong on them at all.
+POLICY_PAGES = [p for p in lc.SITE_PAGES
+                if any(f"{s}/" in p for s in lc.POLICY_SLUGS)]
+MAIN_PAGES = [p for p in lc.SITE_PAGES
+              if p not in LANDING_PAGES and p not in POLICY_PAGES]
+SELLING_PAGES = MAIN_PAGES + LANDING_PAGES
 
 
 class TestDeliveryClaim:
@@ -497,6 +503,8 @@ class TestDeliveryClaim:
 
     LANDING = LANDING_PAGES
     MAIN = MAIN_PAGES
+    SELLING = SELLING_PAGES
+    POLICY = POLICY_PAGES
 
     def test_the_real_pages_all_state_it(self):
         assert lc.check_delivery_claim().ok
@@ -504,6 +512,7 @@ class TestDeliveryClaim:
     def test_every_page_is_covered_not_just_the_main_five(self):
         assert len(self.MAIN) == 5
         assert len(self.LANDING) == 10
+        assert len(self.POLICY) == 10
 
     @pytest.mark.parametrize("page", MAIN)
     def test_a_missing_faq_entry_fires(self, tmp_path, monkeypatch, page):
@@ -512,7 +521,7 @@ class TestDeliveryClaim:
         assert not finding.ok
         assert page in finding.detail and "not in the FAQ" in finding.detail
 
-    @pytest.mark.parametrize("page", MAIN + LANDING)
+    @pytest.mark.parametrize("page", SELLING_PAGES)
     def test_a_missing_footer_line_fires(self, tmp_path, monkeypatch, page):
         """The footer is the half likeliest to be forgotten — the same line
         in fifteen files, and nobody reads it on purpose."""
@@ -520,6 +529,16 @@ class TestDeliveryClaim:
         finding = lc.check_delivery_claim()
         assert not finding.ok
         assert page in finding.detail and "not in the footer" in finding.detail
+
+    def test_a_policy_page_is_not_asked_to_advertise_delivery(self):
+        """It carries a plain document footer with no marketing column.
+        Pushing delivery copy into the privacy policy would be noise in the
+        one document a customer reads when they have stopped trusting you.
+        """
+        for page in self.POLICY:
+            foot = (lc.REPO / page).read_text(encoding="utf-8").partition("<footer")[2]
+            assert 'class="f-col f-brand"' not in foot, page
+        assert lc.check_delivery_claim().ok
 
     def test_a_landing_page_is_not_asked_for_an_FAQ_it_does_not_have(self):
         """It would otherwise be impossible to satisfy without bolting an
@@ -540,13 +559,13 @@ class TestDeliveryClaim:
         """The brief singled it out: its readers are furthest from the print
         shop and likeliest to assume the answer is no."""
         kaa = [p for p in lc.SITE_PAGES if p.startswith("kaa/")]
-        assert len(kaa) == 3
+        assert len(kaa) == 5
         self._tree(tmp_path, monkeypatch, {"kaa/new-year/index.html": self._drop_footer})
         assert not lc.check_delivery_claim().ok
 
     def test_it_warns_rather_than_blocks(self, tmp_path, monkeypatch):
         self._tree(tmp_path, monkeypatch,
-                   {p: self._drop_footer for p in lc.SITE_PAGES})
+                   {p: self._drop_footer for p in SELLING_PAGES})
         finding = lc.check_delivery_claim()
         assert not finding.ok and not finding.blocking
 

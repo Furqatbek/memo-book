@@ -69,6 +69,10 @@ const NEEDS = {
   resumebanner: 'the dev server serving the site at `/`, which it now does '
     + 'by default — the front page reads the editor\'s localStorage, so the '
     + 'two have to be one origin (A105)',
+  policies: 'the dev server serving the site at `/` — it follows the '
+    + 'privacy and terms links out of the footer of all fifteen selling '
+    + 'pages rather than building the URLs itself, because a relative href '
+    + 'that works from / and not from /ru/new-year/ is the bug (P2-4)',
   pageweight: 'the dev server serving the site at `/`, which does NOT gzip '
     + 'where production Caddy does — so it throttles to a slow 4G cell and '
     + 'measures the pessimistic case (P2-3)',
