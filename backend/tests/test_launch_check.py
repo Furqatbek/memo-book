@@ -318,6 +318,62 @@ class TestReviewHonesty:
         assert lc.check_review_honesty().blocking
 
 
+class TestLinkPreviews:
+    """P1-4: what renders in a Telegram card is the advertisement."""
+
+    def _page(self, tmp_path, monkeypatch, body: str):
+        (tmp_path / "index.html").write_text(body, encoding="utf-8")
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+        monkeypatch.setattr(lc, "SITE_PAGES", ["index.html"])
+
+    GOOD = ('<meta property="og:title" content="t">'
+            '<meta property="og:description" content="d">'
+            '<meta property="og:image" content="https://rspixel.uz/assets/og.png">'
+            '<meta property="og:url" content="https://rspixel.uz/">'
+            '<meta property="og:locale" content="en_GB">'
+            '<meta name="twitter:card" content="summary_large_image">')
+
+    def test_it_is_quiet_on_a_complete_head(self, tmp_path, monkeypatch):
+        self._page(tmp_path, monkeypatch, self.GOOD)
+        assert lc.check_link_previews().ok
+
+    @pytest.mark.parametrize("drop", list(lc.OG_REQUIRED))
+    def test_it_names_whichever_tag_is_missing(self, tmp_path, monkeypatch, drop):
+        body = "".join(line for line in self.GOOD.split("><")
+                       if f'property="{drop}"' not in line)
+        self._page(tmp_path, monkeypatch, body)
+        finding = lc.check_link_previews()
+        assert not finding.ok
+        assert drop in finding.detail
+
+    def test_it_fires_on_a_relative_image(self, tmp_path, monkeypatch):
+        """The mistake that looks right in a browser and fails everywhere it
+        matters: a preview is fetched by somebody else's server, which has
+        no page to resolve a relative path against."""
+        self._page(tmp_path, monkeypatch,
+                   self.GOOD.replace("https://rspixel.uz/assets/og.png",
+                                     "assets/og.png"))
+        finding = lc.check_link_previews()
+        assert not finding.ok
+        assert "absolute" in finding.detail
+
+    def test_it_fires_without_a_twitter_card(self, tmp_path, monkeypatch):
+        self._page(tmp_path, monkeypatch,
+                   self.GOOD.replace('<meta name="twitter:card" '
+                                     'content="summary_large_image">', ""))
+        assert not lc.check_link_previews().ok
+
+    def test_the_real_pages_are_complete(self):
+        assert lc.check_link_previews().ok
+
+    def test_it_warns_rather_than_blocks(self, tmp_path, monkeypatch):
+        """A grey preview card is lost reach, not a broken product — it must
+        not sit on the STOP list beside selling something that does not
+        exist."""
+        self._page(tmp_path, monkeypatch, "<p>nothing</p>")
+        assert not lc.check_link_previews().blocking
+
+
 class TestTheReportItself:
     def test_it_exits_non_zero_while_anything_blocks(self, capsys):
         assert lc.main() == 1

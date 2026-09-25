@@ -57,6 +57,8 @@ const NEEDS = {
     + 'hides in a SubIFD behind a 320x240 thumbnail (A103)',
   bookcfg: 'nothing — it makes a "love" book, whose prefilled cover title is '
     + 'the text that used to be impossible to remove (A104)',
+  ogtags: 'the dev server serving the site at `/` — it reads the link-preview '
+    + 'tags on all five pages and fetches the image they point at (P1-4)',
   reviewslot: 'the dev server serving the site at `/` — it serves its own '
     + 'reviews through a route intercept, because a fixture review living '
     + 'in the repository is an invented review (P1-3)',

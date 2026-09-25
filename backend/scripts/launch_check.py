@@ -298,6 +298,43 @@ def check_review_honesty() -> Finding:
             "section showing its honest note")
 
 
+# What a link preview needs. Telegram and Instagram render these and
+# nothing else; without them a marketing link is a bare grey rectangle, and
+# the money behind the link is spent either way (P1-4).
+OG_REQUIRED = ("og:title", "og:description", "og:image", "og:url", "og:locale")
+
+
+def check_link_previews() -> Finding:
+    """Every page, every language, plus an absolute image.
+
+    The relative-image mistake gets its own test because it is the one that
+    looks right in a browser and fails everywhere it matters: a preview is
+    fetched by somebody else's server, which has no page to resolve it
+    against.
+    """
+    problems: dict[str, str] = {}
+    for page in SITE_PAGES:
+        path = REPO / page
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        missing = [tag for tag in OG_REQUIRED
+                   if f'property="{tag}"' not in text]
+        if missing:
+            problems[page] = "missing " + ", ".join(missing)
+        elif 'name="twitter:card"' not in text:
+            problems[page] = "no twitter:card"
+        elif not re.search(r'property="og:image" content="https?://', text):
+            problems[page] = "og:image is not an absolute URL"
+    return Finding(
+        ok=not problems, blocking=False,
+        what="Link previews (Open Graph)",
+        detail=("every page and language" if not problems else
+                "; ".join(f"{p}: {why}" for p, why in problems.items())),
+        fix="add the og: block — a shared link with none of it renders as a "
+            "bare grey rectangle, and the ad spend behind it is the same")
+
+
 def check_test_book() -> Finding:
     """Not machine-checkable, and too important to leave off the list."""
     marker = REPO / "docs" / ".test-book-printed"
@@ -318,6 +355,7 @@ def main() -> int:
         check_prices(env), check_spines(env), check_admin_token(env),
         check_telegram(env), check_pay_card(env), check_site_contacts(),
         check_unshipped_claims(), check_review_honesty(),
+        check_link_previews(),
         check_env_is_production(env), check_backups(env), check_test_book(),
     ]
 

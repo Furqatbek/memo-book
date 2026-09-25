@@ -2357,3 +2357,48 @@ can do is make the easy lie expensive.
 serves its own through a route intercept, because a fabricated review
 committed as test data is a fabricated review, and it would be the first
 thing a reader of this repository found.
+
+**P1-4 — the link preview is the advertisement.** The site had no Open
+Graph tags at all, so every link pasted into Telegram or Instagram rendered
+as a bare grey rectangle. The money behind the link is spent either way.
+
+All five pages now carry title, description, image, url, locale, the image
+dimensions, and `twitter:card: summary_large_image`. Three details are
+where this usually goes wrong:
+
+* **The image is absolute.** A preview is fetched by somebody else's
+  server, from a link with no page to resolve a relative path against. A
+  relative `og:image` looks right in a browser and fails everywhere it
+  matters, so both the release check and the browser check test for it by
+  name.
+* **`og:url` and `og:locale` are per page.** Copying the block between
+  languages and forgetting these makes every share point at the English
+  page. `checks/ogtags.js` requires five distinct values of each rather
+  than merely requiring them to exist.
+* **The image is fetched, not just declared.** The tag can be perfect and
+  the file absent; a preview server gives up quietly. The check pulls the
+  bytes, confirms the PNG header and reads 1200x630 out of it.
+
+**The image is an illustration and says so.** The brief asked for a
+photograph of a real book, and no book has been printed — that is still an
+open item on this very checklist. A rendered mock-up passed off as a
+product photograph would be the reviews problem in picture form, so
+`assets/og-card.svg` draws the product as a drawing: our own artwork, our
+own wordmark, nothing pretending to be a thing we have not made. It is
+re-rendered with `node browser-tests/tools/render-og.js` and must be
+replaced with a real photograph the day there is one.
+
+**One card, not five.** The only text on it is the brand name and the
+domain, so there is nothing to translate and nothing to keep in step; the
+language lives in `og:title` and `og:description`, which are copied from
+the page's own `<title>` and description rather than written again.
+
+**This check warns rather than blocks.** A grey preview card is lost reach,
+not a broken product, and it must not sit on the STOP list beside selling
+something that does not exist.
+
+**What cannot be checked from here:** how Telegram actually renders it.
+Telegram caches previews aggressively per URL, so the render has to be
+tried against the live site — and if it is wrong, the cache has to be
+cleared through @WebpageBot before the next attempt shows anything
+different.
