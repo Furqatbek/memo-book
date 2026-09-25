@@ -258,6 +258,46 @@ def check_unshipped_claims() -> Finding:
             "ship the feature")
 
 
+# Services that hand out a face nobody owns. A competitor in this category
+# fills its reviews with `i.pravatar.cc` portraits beside invented quotes,
+# and it is visible to anyone who looks — which is exactly why it is worth
+# a blocking check rather than a good intention (P1-3).
+FAKE_FACE = re.compile(
+    r"pravatar|ui-avatars|dicebear|gravatar\.com|randomuser\.me"
+    r"|placehold(?:er)?\.(?:co|com|it)|source\.unsplash",
+    re.IGNORECASE)
+# A review photograph is a file we hold, of a customer or their book. A
+# remote one is somebody else's picture, and it can change or vanish under
+# us after it has been vouched for.
+REMOTE_PHOTO = re.compile(r"photo\s*:\s*['\"]https?://", re.IGNORECASE)
+REVIEW_SOURCES = ["assets/reviews.js"]
+
+
+def check_review_honesty() -> Finding:
+    """No invented faces, and no photographs we do not hold.
+
+    This cannot check whether a QUOTE is real — nothing can. What it can do
+    is make the cheapest way to fake one fail loudly.
+    """
+    guilty: dict[str, str] = {}
+    for page in SITE_PAGES + REVIEW_SOURCES:
+        path = REPO / page
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if FAKE_FACE.search(text):
+            guilty[page] = "a stock-avatar service"
+        elif REMOTE_PHOTO.search(text):
+            guilty[page] = "a review photo hosted somewhere else"
+    return Finding(
+        ok=not guilty, blocking=True,
+        what="Reviews are real or absent",
+        detail=("no invented faces" if not guilty else
+                "; ".join(f"{p}: {why}" for p, why in guilty.items())),
+        fix="publish real reviews with photographs we hold, or leave the "
+            "section showing its honest note")
+
+
 def check_test_book() -> Finding:
     """Not machine-checkable, and too important to leave off the list."""
     marker = REPO / "docs" / ".test-book-printed"
@@ -277,7 +317,7 @@ def main() -> int:
     findings = [
         check_prices(env), check_spines(env), check_admin_token(env),
         check_telegram(env), check_pay_card(env), check_site_contacts(),
-        check_unshipped_claims(),
+        check_unshipped_claims(), check_review_honesty(),
         check_env_is_production(env), check_backups(env), check_test_book(),
     ]
 

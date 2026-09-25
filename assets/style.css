@@ -451,6 +451,37 @@ a { color: var(--primary); }
   padding: 26px 24px;
 }
 
+.review-card[hidden], .review-grid[hidden] { display: none; }
+
+/* Built for three (P1-3): equal columns, equal height, the quote on top and
+   the person underneath, so the row reads as one deliberate block rather
+   than as however many cards happened to exist. */
+.review-card {
+  display: flex; flex-direction: column; justify-content: space-between;
+  gap: 18px;
+}
+.review-text {
+  color: var(--muted); font-size: 0.97rem; line-height: 1.6;
+  font-style: normal;
+}
+.review-text::before { content: "\201C"; }
+.review-text::after { content: "\201D"; }
+.review-who { display: flex; align-items: center; gap: 12px; }
+/* A real photograph of the customer or their book. There is no fallback
+   avatar on purpose: a generated face is the thing this section exists to
+   not do, so a missing photo removes the portrait and leaves the name. */
+.review-photo {
+  width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+  flex: 0 0 44px; background: var(--bg-soft);
+}
+.review-name {
+  display: block; font-style: normal; font-weight: 700;
+  color: var(--ink); font-size: 0.92rem;
+}
+.review-book {
+  display: block; margin-top: 2px; font-size: 0.82rem; color: var(--muted);
+}
+
 .review-card blockquote { color: var(--muted); font-size: 0.97rem; }
 
 .review-card cite {

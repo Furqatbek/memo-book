@@ -261,6 +261,63 @@ class TestUnshippedClaims:
         assert lc.check_unshipped_claims().blocking
 
 
+class TestReviewHonesty:
+    """P1-3: the reviews section is a statement of integrity while it is
+    empty. The cheapest way to fill it is a stock avatar beside an invented
+    quote, which is what a competitor does — so the cheapest way must fail
+    loudly."""
+
+    def _files(self, tmp_path, monkeypatch, bodies: dict):
+        for name, body in bodies.items():
+            path = tmp_path / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body, encoding="utf-8")
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+        monkeypatch.setattr(lc, "SITE_PAGES", [n for n in bodies
+                                               if n.endswith(".html")])
+        monkeypatch.setattr(lc, "REVIEW_SOURCES", [n for n in bodies
+                                                   if n.endswith(".js")])
+
+    @pytest.mark.parametrize("url", [
+        "https://i.pravatar.cc/100",
+        "https://ui-avatars.com/api/?name=A",
+        "https://api.dicebear.com/7.x/avataaars/svg",
+        "https://randomuser.me/api/portraits/women/1.jpg",
+        "https://www.gravatar.com/avatar/abc",
+        "https://via.placeholder.com/80",
+        "https://source.unsplash.com/random/80x80",
+    ])
+    def test_it_fires_on_a_face_nobody_owns(self, tmp_path, monkeypatch, url):
+        self._files(tmp_path, monkeypatch,
+                    {"index.html": f'<img src="{url}">'})
+        assert not lc.check_review_honesty().ok
+
+    def test_it_fires_on_a_photo_hosted_elsewhere(self, tmp_path, monkeypatch):
+        """A remote photograph is somebody else's picture: it can change or
+        vanish after it has been vouched for."""
+        self._files(tmp_path, monkeypatch, {
+            "assets/reviews.js": "{ name:'A', photo: 'https://example.org/a.jpg' }"})
+        assert not lc.check_review_honesty().ok
+
+    def test_it_is_quiet_on_a_photo_we_hold(self, tmp_path, monkeypatch):
+        self._files(tmp_path, monkeypatch, {
+            "assets/reviews.js": "{ name:'A', photo: 'reviews/aziza.jpg' }"})
+        assert lc.check_review_honesty().ok
+
+    def test_an_empty_section_is_honest(self, tmp_path, monkeypatch):
+        """No reviews is not a failure. It is the current, true state."""
+        self._files(tmp_path, monkeypatch, {"assets/reviews.js": "var REVIEWS = [];"})
+        assert lc.check_review_honesty().ok
+
+    def test_the_real_site_is_clean(self):
+        assert lc.check_review_honesty().ok
+
+    def test_it_blocks_rather_than_warns(self, tmp_path, monkeypatch):
+        self._files(tmp_path, monkeypatch,
+                    {"index.html": '<img src="https://i.pravatar.cc/100">'})
+        assert lc.check_review_honesty().blocking
+
+
 class TestTheReportItself:
     def test_it_exits_non_zero_while_anything_blocks(self, capsys):
         assert lc.main() == 1

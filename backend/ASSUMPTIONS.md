@@ -2319,3 +2319,41 @@ this is a financial control rather than legalese, and `checks/promises.js`
 treats it as one: it fails if the policy loses either half of its list, if
 any language drops below three links to it, or if the old unqualified
 sentence returns in any of the five languages it was translated into.
+
+**P1-3 — the reviews section, built but still empty.** The copy standing
+there — "Verified reviews from our first customers will appear here — the
+pilot books are being printed right now. We never publish invented quotes"
+— is kept exactly as it was. It turns an empty section into a statement,
+and it is true.
+
+What was missing was the component behind it. There is now one slot that
+takes a name, a photograph and what the book was about, and it lives in a
+single list in `assets/reviews.js` that fills all five language pages at
+once. Adding a review is one entry plus one file in `assets/reviews/`.
+
+**The words are not translated.** A review appears in the language it was
+written in, on every page, with `lang` set so a screen reader says it
+correctly. Rewriting a customer's sentence into four other languages is
+putting words in their mouth — a smaller version of inventing the quote,
+and the person who left it cannot check what we made them say.
+
+**Three or none.** One card in a row built for three does not read as "our
+first customer"; it reads as "one person has ever bought this". Below three
+the honest note stays. `MIN_TO_PUBLISH` is one line and says so.
+
+**A half-built entry is dropped, loudly.** A card with a name and no book is
+indistinguishable from one somebody invented in a hurry, so an entry
+missing any required field is skipped and the console says how many were.
+
+**And the cheapest way to fake this now fails.** `check_review_honesty`
+blocks the release if a stock-avatar service appears anywhere on the site —
+pravatar, ui-avatars, dicebear, gravatar, randomuser, placeholder,
+unsplash-random — or if a review photograph is hosted somewhere we do not
+control, since a remote picture can change or vanish after it has been
+vouched for. It cannot check whether a QUOTE is real; nothing can. What it
+can do is make the easy lie expensive.
+
+**There is no fixture review in the repository.** `checks/reviewslot.js`
+serves its own through a route intercept, because a fabricated review
+committed as test data is a fabricated review, and it would be the first
+thing a reader of this repository found.

@@ -345,12 +345,10 @@
       <h3>Харидорлар шарҳлари</h3>
       <p>Бу ерда биринчи харидорларнинг тасдиқланган шарҳлари пайдо бўлади — илк китоблар ҳозир чоп этилмоқда. Биз ўйлаб топилган шарҳларни эълон қилмаймиз.</p>
     </div>
-    <!-- Real reviews go here when real orders exist (name + city, with
-         permission). NEVER publish invented quotes.
-    <div class="review-grid">
-      <div class="review-card"><blockquote>…</blockquote><cite>Name, City</cite></div>
-    </div>
-    -->
+    <!-- Filled by assets/reviews.js from the one list in that file, which
+         is empty until three real customers have said something. The note
+         above stays until then. NEVER publish invented quotes. -->
+    <div id="reviews" class="review-grid" hidden></div>
   </div>
 </section>
 
@@ -484,5 +482,6 @@
 </footer>
 
 <script src="../assets/resume.js" data-editor="../editor/"></script>
+<script src="../assets/reviews.js"></script>
 </body>
 </html>
