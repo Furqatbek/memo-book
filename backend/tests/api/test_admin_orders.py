@@ -17,9 +17,12 @@ from app.models.book import Book
 from app.models.order import Order, OrderEvent
 from app.models.payment import PdfArtifact
 from app.services.admin_orders import OPERATOR_TARGETS
+from tests.api.conftest import ADMIN_TOKEN
 from tests.api.test_checkout import do_checkout, ready_book
 
-TOKEN = "test-admin-token"
+# The `admin` fixture that switches the console on lives in
+# tests/api/conftest.py — three other modules need it too.
+TOKEN = ADMIN_TOKEN
 AUTH = {"X-Admin-Token": TOKEN}
 
 ORDER_ROUTES = [
@@ -29,14 +32,6 @@ ORDER_ROUTES = [
     ("POST", "/api/v1/admin/orders/UB-ZZZZZ/status"),
     ("POST", "/api/v1/admin/orders/UB-ZZZZZ/resend"),
 ]
-
-
-@pytest.fixture
-def admin(monkeypatch):
-    monkeypatch.setenv("ADMIN_TOKEN", TOKEN)
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
 
 
 async def an_order(client, db) -> str:

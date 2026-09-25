@@ -26,6 +26,13 @@ dependencies = [
     "anyio>=4.0",
     "reportlab>=4.1",
     "python-multipart>=0.0.9",  # admin artwork upload (UploadFile)
+    # The flip video (CR-003-5). A ~30MB wheel carrying one static ffmpeg
+    # binary, rather than apt's ffmpeg and its 350-450MB of codec
+    # dependencies — this image already has to be pulled onto a small VPS.
+    # Only the BINARY is used; imageio_ffmpeg's own writer silently rounds
+    # 1080 up to 1088 to suit the encoder, and a vertical video that is not
+    # exactly 1080x1920 is one Instagram re-crops.
+    "imageio-ffmpeg>=0.5",
 ]
 
 [project.optional-dependencies]

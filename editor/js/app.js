@@ -2,8 +2,8 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260925m';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925m';
+import * as api from './api.js?v=20260925n';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925n';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
@@ -769,6 +769,19 @@ function renderTray() {
         }, t(raw ? 'tray.rawPreview' : 'tray.lowres')));
       }
       if (placed.has(p.photo_id)) card.append(h('span', { class: 'badge ok' }, '✓'));
+    }
+    // Somebody else's photograph (CR-003-6). Flagged wherever it appears,
+    // because the owner is about to decide which pictures go in a book they
+    // are paying for and needs to know which ones they did not take. The
+    // name is whatever the contributor typed, and is shown as a title
+    // rather than as a badge so a long one cannot break the tile.
+    if (p.contributed) {
+      card.append(h('span', {
+        class: 'badge contrib',
+        title: p.contributor_name
+          ? t('contrib.fromNamed').replace('{name}', p.contributor_name)
+          : t('contrib.from'),
+      }, p.contributor_name || t('contrib.fromShort')));
     }
     if (!S.locked) {
       card.append(h('button', {
@@ -3308,6 +3321,32 @@ async function shareBook() {
   }
 }
 
+/* "Ask friends for photos" (CR-003-6).
+ *
+ * Copies the link, like the share button, and for the same reason: it is
+ * going into a chat. Minting REPLACES any previous link — the server keeps
+ * only the hash and cannot hand the old one back — so the toast says what
+ * the link lets somebody do, since that is the thing the owner is about to
+ * hand to a group chat.
+ */
+async function contributorLink() {
+  const btn = $('btn-contrib');
+  btn.disabled = true;
+  try {
+    const r = await api.createContributorLink(S.creds);
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(r.url);
+      copied = true;
+    } catch (e) { /* no clipboard permission: show the link instead */ }
+    toast(copied ? t('contrib.copied') : r.url);
+  } catch (e) {
+    await handleActionError(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function autoFill() {
   if (!(await flushSave())) return;
   try {
@@ -3811,6 +3850,7 @@ function bind() {
   $('tab-stickers').addEventListener('click', () => setTrayTab('stickers'));
   $('btn-autofill').addEventListener('click', autoFill);
   $('btn-share').addEventListener('click', shareBook);
+  $('btn-contrib').addEventListener('click', contributorLink);
   $('btn-preview').addEventListener('click', openPreview);
   $('tier-select').addEventListener('change', (e) => changeTier(Number(e.target.value)));
   $('btn-view-order').addEventListener('click', () => {

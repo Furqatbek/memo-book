@@ -76,12 +76,17 @@ class Effect(StrEnum):
     ENQUEUE_RENDER = "enqueue_render"
     ALERT_OPERATOR = "alert_operator"
     NOTIFY_PRODUCTION = "notify_production"
+    # CR-003-5. Declared here so it is visible in the same place as every
+    # other consequence of a status — but it is the only effect in this
+    # file whose failure is allowed to be invisible, because a missing
+    # video must never touch an order.
+    MAKE_FLIP_VIDEO = "make_flip_video"
 
 
 EFFECTS_ON_ENTER: dict[OrderStatus, tuple[Effect, ...]] = {
     OrderStatus.PAID: (Effect.ENQUEUE_RENDER,),          # R8: the only render trigger
     OrderStatus.RENDER_FAILED: (Effect.ALERT_OPERATOR,),
-    OrderStatus.RENDERED: (Effect.NOTIFY_PRODUCTION,),
+    OrderStatus.RENDERED: (Effect.NOTIFY_PRODUCTION, Effect.MAKE_FLIP_VIDEO),
 }
 
 

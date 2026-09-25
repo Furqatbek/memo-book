@@ -37,6 +37,11 @@ class EventType(str, Enum):
     SHARE_LINK_VIEWED = "share_link_viewed"        # {referrer}
     SHARE_CTA_CLICKED = "share_cta_clicked"
     GIFT_MODE_ENABLED = "gift_mode_enabled"
+    FLIP_VIDEO_GENERATED = "flip_video_generated"
+    FLIP_VIDEO_DOWNLOADED = "flip_video_downloaded"
+    CONTRIBUTOR_LINK_CREATED = "contributor_link_created"
+    CONTRIBUTOR_UPLOAD = "contributor_upload"       # {contributor}
+    CONTRIBUTOR_CTA_CLICKED = "contributor_cta_clicked"
 
 
 # Events that may legitimately happen more than once for the same book.
@@ -51,6 +56,14 @@ REPEATABLE = frozenset({
     # the owner sends it to, and that count is the entire point of it.
     EventType.SHARE_LINK_VIEWED,
     EventType.SHARE_CTA_CLICKED,
+    # One video per order, but the link is sent to a chat and opened by
+    # whoever the customer forwards it to — which is the number worth
+    # having (CR-003-5).
+    EventType.FLIP_VIDEO_DOWNLOADED,
+    # Several people upload to the same book; that is the entire feature
+    # (CR-003-6). The link is created once, so that one stays once-only.
+    EventType.CONTRIBUTOR_UPLOAD,
+    EventType.CONTRIBUTOR_CTA_CLICKED,
 })
 
 ONCE_PER_BOOK = frozenset(EventType) - REPEATABLE
@@ -75,6 +88,8 @@ CLIENT_REPORTABLE = frozenset({
     # holding no token at all. The server cannot see a button being
     # pressed, and there is nothing here worth forging.
     EventType.SHARE_CTA_CLICKED,
+    # The same, on the contributor page (CR-003-6).
+    EventType.CONTRIBUTOR_CTA_CLICKED,
 })
 
 # The funnel, in order, for the report. Every step is server-observed

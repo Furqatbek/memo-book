@@ -65,6 +65,23 @@ class Settings(BaseSettings):
     # pointless as well as hopeless. Generous because a family group chat
     # opening the same link is a burst of real traffic.
     rate_limit_share_per_min: int = 90
+    # The contributor page and its uploads (CR-003-6). Lower than the share
+    # limit and for a different reason: this endpoint accepts FILES from
+    # somebody holding nothing but a link, which makes it the most abusable
+    # surface in the system. The hard caps (photos, bytes, contributors)
+    # are the real defence; this is the one that makes reaching them slow.
+    rate_limit_contribute_per_min: int = 40
+
+    # --- The flip video (CR-003-5) ---
+    # A vertical MP4 of the customer's own pages, made after the print files
+    # and sent to them. OFF switches the whole thing off — a small VPS
+    # running one render worker may not have the CPU to spare, and no
+    # customer is owed this.
+    flip_video_enabled: bool = True
+    # Contributor links, likewise. This one is a kill switch for an
+    # unauthenticated upload endpoint, which is a thing worth being able to
+    # turn off from an env file at three in the morning.
+    contributor_links_enabled: bool = True
 
     # --- Admin console (A72) ---
     # The shared secret the console signs in with. EMPTY DISABLES THE ADMIN

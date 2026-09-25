@@ -140,7 +140,8 @@ def _num(cover: dict, key: str, default: float) -> float:
     return default if value is None else float(value)
 
 
-def _preview_photo_box(cover: dict, w: int, h: int) -> tuple[int, int, int, int]:
+def _preview_photo_box(cover: dict, w: int, h: int,
+                       scale: float = PREVIEW_SCALE) -> tuple[int, int, int, int]:
     """The cover template's photo rectangle on this preview canvas.
 
     Same rule as the print sheet (app/render/cover.py:photo_box_px): a
@@ -153,10 +154,12 @@ def _preview_photo_box(cover: dict, w: int, h: int) -> tuple[int, int, int, int]
     from app.domain.geometry import BLEED_MM, PX_PER_MM, TRIM_H_MM, TRIM_W_MM
 
     rect = photo_rect_for(cover)
-    scale = PX_PER_MM * scale
+    # Millimetres to pixels ON THIS CANVAS: the page scale and the print
+    # resolution both apply, which is why it is not simply PX_PER_MM.
+    px_per_mm = PX_PER_MM * scale
 
     def px(mm: float) -> int:
-        return round((mm + BLEED_MM) * scale)
+        return round((mm + BLEED_MM) * px_per_mm)
 
     left = 0 if rect["x_mm"] <= 0 else px(rect["x_mm"])
     top = 0 if rect["y_mm"] <= 0 else px(rect["y_mm"])
@@ -199,7 +202,7 @@ def render_preview_cover(cover: dict, photo_bytes: bytes | None,
         photo = ImageOps.exif_transpose(photo)
         if photo.mode != "RGB":
             photo = photo.convert("RGB")
-        left, top, right, bottom = _preview_photo_box(cover, w, h)
+        left, top, right, bottom = _preview_photo_box(cover, w, h, scale)
         img.paste(_fit_cover(photo, right - left, bottom - top,
                              zoom=_num(cover, "photo_zoom", 1.0),
                              focus_x=_num(cover, "photo_focus_x", 0.5),

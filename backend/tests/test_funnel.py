@@ -13,7 +13,6 @@ worse than useless:
      uncomputable, which is the entire purpose of the change.
 """
 import uuid
-from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import func, select
@@ -67,16 +66,26 @@ class TestTheVocabularyIsClosed:
         import importlib.util
         import pathlib
 
-        # The LATEST migration to touch the predicate. 0012 created it;
-        # 0017 widened it when share views arrived.
-        path = (pathlib.Path(__file__).resolve().parents[1]
-                / "alembic" / "versions" / "0017_share_events_repeatable.py")
-        # Loaded by path: a module name starting with a digit cannot be
-        # imported the ordinary way.
-        spec = importlib.util.spec_from_file_location("migpred", path)
-        mig = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mig)
-        assert set(mig.NEW) == {e.value for e in REPEATABLE}
+        # The LATEST migration to touch the predicate, FOUND rather than
+        # named. 0012 created it, 0017 widened it for share views, 0020 for
+        # the flip video and contributors — and each time somebody had to
+        # remember to point this test at the new file. A test that needs
+        # editing every time the thing it guards changes is a test that
+        # eventually gets pointed at a stale file and passes for ever.
+        versions = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions"
+        latest, newest = None, ""
+        for path in sorted(versions.glob("0*.py")):
+            # Loaded by path: a module name starting with a digit cannot be
+            # imported the ordinary way.
+            spec = importlib.util.spec_from_file_location(
+                f"migpred_{path.stem}", path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            if hasattr(module, "NEW") and module.revision > newest:
+                latest, newest = module, module.revision
+        assert latest is not None, "no migration defines the index predicate"
+        assert set(latest.NEW) == {e.value for e in REPEATABLE}, (
+            f"migration {newest} and the REPEATABLE set disagree")
 
 
 class TestItNeverBreaksTheRequest:
@@ -236,7 +245,9 @@ class TestRecoveryAttribution:
     """
 
     async def test_a_reminder_click_is_stamped_by_the_server(self, client, db):
-        book = await make_book(client, 16)
+        # A book exists so the session is a real one; the click itself
+        # names no book, which is the thing being tested.
+        await make_book(client, 16)
         resp = await client.post("/api/v1/events", json={
             "type": "reminder_clicked", "day": 3})
         assert resp.status_code == 202

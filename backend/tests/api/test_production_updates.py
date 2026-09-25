@@ -17,10 +17,10 @@ from sqlalchemy import select
 
 from app.domain.states import OrderStatus
 from app.models.book import Book
-from app.models.order import Order, OrderEvent
+from app.models.order import OrderEvent
 from app.models.outbox import OutboxMessage
 from app.services import outbox, production_updates
-from tests.api.test_admin_orders import AUTH, admin, an_order, load  # noqa: F401
+from tests.api.test_admin_orders import AUTH, an_order, load
 
 
 async def to_production(client, db, ref: str) -> None:

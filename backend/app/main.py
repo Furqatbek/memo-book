@@ -8,9 +8,11 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.admin import router as admin_router
 from app.api.books import router as books_router
+from app.api.contribute import router as contribute_router
 from app.api.cover_designs import router as cover_designs_router
 from app.api.errors import register_error_handlers
 from app.api.events import router as events_router
+from app.api.flip import router as flip_router
 from app.api.funnel import router as funnel_router
 from app.api.health import router as health_router
 from app.api.share import router as share_router
@@ -104,6 +106,8 @@ def create_app() -> FastAPI:
     app.include_router(events_router)
     app.include_router(funnel_router)
     app.include_router(share_router)
+    app.include_router(flip_router)
+    app.include_router(contribute_router)
     app.include_router(books_router)
     app.include_router(photos_router)
     app.include_router(preview_router)

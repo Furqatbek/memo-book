@@ -40,6 +40,11 @@ TOPIC_TELEGRAM_REPLY = "telegram.reply"
 # (CR-003-2). The Telegram ones reuse the reminder topic — it is the same
 # act: a message with a picture to one chat.
 TOPIC_ORDER_PROGRESS = "order.progress"
+# The flip video, as a VIDEO in the chat rather than a link (CR-003-5). Its
+# own topic because it is its own Telegram method and its own failure: a
+# video too large for the API must retry and then give up on its own,
+# without taking a text message down with it.
+TOPIC_FLIP_VIDEO_TG = "order.flip_video.telegram"
 
 
 def _send_telegram_message(payload: dict) -> None:
@@ -60,6 +65,22 @@ def _send_telegram_message(payload: dict) -> None:
         telegram.send_photo_to(payload["chat_id"], url, payload["text"])
         return
     telegram.send_to(payload["chat_id"], payload["text"])
+
+
+def _send_flip_video(payload: dict) -> None:
+    """Sent as a video, not a link. A file that plays where it lands is one
+    people forward; a link is one more tap between the customer and posting
+    it, and most of them never take it.
+
+    Presigned at delivery, like everything else here, so the URL Telegram
+    fetches from is minted on the attempt that actually happens.
+    """
+    from app import storage
+    from app.services import telegram
+
+    url = storage.presign_get(payload["video_key"],
+                              expires_in=REMINDER_PHOTO_EXPIRY_S)
+    telegram.send_video_to(payload["chat_id"], url, payload["text"])
 
 
 def _send_progress_email(payload: dict) -> None:
@@ -92,6 +113,7 @@ HANDLERS: dict[str, Callable[[dict], None]] = {
     TOPIC_BOOK_REMINDER_TG: _send_telegram_message,
     TOPIC_TELEGRAM_REPLY: _send_telegram_message,
     TOPIC_ORDER_PROGRESS: _send_progress_email,
+    TOPIC_FLIP_VIDEO_TG: _send_flip_video,
     TOPIC_ORDER_ATTENTION: send_attention_alert,
     TOPIC_ORDER_RECEIPT: send_receipt_notification,
 }

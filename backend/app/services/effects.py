@@ -97,8 +97,40 @@ async def _alert_operator(session: AsyncSession, order: Order,
                        detail=context.get("detail")))
 
 
+async def _make_flip_video(session: AsyncSession, order: Order,
+                           context: dict) -> None:
+    """Queue the customer's shareable video (CR-003-5).
+
+    Two things make this different from every other executor in this file,
+    and both are deliberate:
+
+    * it is on its OWN queue, so a minutes-long encode can never sit in
+      front of a print job somebody paid for;
+    * it swallows everything. Every other effect here is allowed — required,
+      even — to fail loudly, because every other effect is part of getting a
+      book printed. This one is a nicety, and an order must not be able to
+      notice its absence.
+    """
+    from app import queue
+    from app.config import get_settings
+
+    if not get_settings().flip_video_enabled:
+        return
+    try:
+        if queue.eager():
+            from app.services.flip_video import generate
+
+            await generate(session, order.id)
+        else:
+            queue.enqueue_flip_video(order.id)
+    except Exception as exc:  # noqa: BLE001 — see the docstring
+        log.warning("flip_video.not_queued", order=order.human_ref,
+                    error=str(exc)[:300])
+
+
 EXECUTORS: dict[Effect, tuple[When, Executor]] = {
     Effect.ENQUEUE_RENDER: (When.AFTER_COMMIT, _enqueue_render),
+    Effect.MAKE_FLIP_VIDEO: (When.AFTER_COMMIT, _make_flip_video),
     Effect.NOTIFY_PRODUCTION: (When.IN_TRANSACTION, _notify_production),
     Effect.ALERT_OPERATOR: (When.IN_TRANSACTION, _alert_operator),
 }

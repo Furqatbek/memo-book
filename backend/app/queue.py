@@ -7,6 +7,10 @@ from app.config import get_settings
 INGEST_QUEUE = "ingest"
 PREVIEW_QUEUE = "preview"
 RENDER_QUEUE = "render"
+# A queue of its own, and that is the whole point (CR-003-5). The flip video
+# is minutes of encoding for something nobody paid for; sharing the render
+# queue would let it sit in front of a print job somebody did.
+FLIP_QUEUE = "flip"
 
 
 def eager() -> bool:
@@ -32,3 +36,7 @@ def enqueue_preview(book_id: uuid.UUID) -> None:
 
 def enqueue_order_render(order_id: uuid.UUID) -> None:
     _enqueue(RENDER_QUEUE, "app.workers.render.run", str(order_id))
+
+
+def enqueue_flip_video(order_id: uuid.UUID) -> None:
+    _enqueue(FLIP_QUEUE, "app.workers.flip_video.run", str(order_id))

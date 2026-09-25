@@ -69,6 +69,32 @@ async def _get_photo(session: AsyncSession, book: Book, photo_id: uuid.UUID) -> 
 async def issue_upload_url(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
                            filename: str, mime: str, size_bytes: int) -> tuple[Photo, str]:
     book = await get_book_authed(session, book_id, edit_token)
+    return await _issue_for_book(book, session, mime, size_bytes)
+
+
+async def issue_contributor_upload_url(
+        session: AsyncSession, book: Book, who: str, contributor_name: str | None,
+        mime: str, size_bytes: int) -> tuple[Photo, str]:
+    """The same upload, for somebody holding only a contributor link.
+
+    IDENTICAL validation to the owner's path — same MIME allow-list, same
+    ceiling, same book cap — because a contributor's file goes through the
+    same ingest and ends up in the same printed book. The contributor caps
+    are an EXTRA fence on top, checked first so the commonest refusal is
+    the one with the useful message.
+    """
+    from app.services import contribute
+
+    await contribute.check_quota(session, book, who, size_bytes)
+    return await _issue_for_book(book, session, mime, size_bytes,
+                                 contributed_by=who,
+                                 contributor_name=contributor_name)
+
+
+async def _issue_for_book(book: Book, session: AsyncSession, mime: str,
+                          size_bytes: int, *, contributed_by: str | None = None,
+                          contributor_name: str | None = None
+                          ) -> tuple[Photo, str]:
     _require_mutable(book)
     if mime not in ALLOWED_MIMES:
         raise DomainError(ErrorCode.VALIDATION_ERROR,
@@ -96,6 +122,8 @@ async def issue_upload_url(session: AsyncSession, book_id: uuid.UUID, edit_token
         mime_original=mime,
         bytes_original=size_bytes,
         uploaded_at=_now(),
+        contributed_by=contributed_by,
+        contributor_name=contributor_name,
     )
     session.add(photo)
     await session.commit()
@@ -110,6 +138,28 @@ async def complete_upload(session: AsyncSession, book_id: uuid.UUID, edit_token:
                           photo_id: uuid.UUID,
                           taken_at_exif: str | None = None) -> Photo:
     book = await get_book_authed(session, book_id, edit_token)
+    return await _complete_for_book(session, book, photo_id, taken_at_exif)
+
+
+async def complete_contributor_upload(session: AsyncSession, book: Book, who: str,
+                                      photo_id: uuid.UUID,
+                                      taken_at_exif: str | None = None) -> Photo:
+    """Finish a contributor's upload — and ONLY their own.
+
+    The `contributed_by` check is what stops a contributor link being used
+    to touch the owner's photographs, or another contributor's. Without it,
+    a token that can only add pictures could still reach in and complete —
+    or, worse, later be extended into anything else that takes a photo id.
+    """
+    photo = await _get_photo(session, book, photo_id)
+    if photo.contributed_by != who:
+        raise _photo_not_found()
+    return await _complete_for_book(session, book, photo_id, taken_at_exif)
+
+
+async def _complete_for_book(session: AsyncSession, book: Book,
+                             photo_id: uuid.UUID,
+                             taken_at_exif: str | None = None) -> Photo:
     _require_mutable(book)
     photo = await _get_photo(session, book, photo_id)
     if taken_at_exif:
@@ -158,6 +208,23 @@ async def ingest_photo(session: AsyncSession, photo_id: uuid.UUID) -> Photo:
                 "too_large",
                 f"uploaded {actual} bytes, over the {MAX_UPLOAD_BYTES} limit")
         photo.bytes_original = actual
+        # The contributor byte ceiling, checked against what ACTUALLY
+        # arrived rather than what was declared (CR-003-6). The declaration
+        # is not evidence — a presigned PUT does not sign the length — so a
+        # contributor can promise 1 MB and send sixty. This is the check
+        # that sees the real number, and it runs before the bytes are read
+        # into memory.
+        if photo.contributed_by is not None:
+            from app.services.contribute import (
+                MAX_CONTRIBUTED_BYTES,
+                over_byte_cap,
+            )
+
+            if await over_byte_cap(session, photo):
+                raise IngestError(
+                    "quota_exceeded",
+                    "this book has reached its limit for contributed photos "
+                    f"({MAX_CONTRIBUTED_BYTES // (1024 * 1024)} MB)")
         data = await anyio.to_thread.run_sync(storage.get_bytes, photo.original_key)
         processed = await anyio.to_thread.run_sync(process_image, data)
 
@@ -293,6 +360,11 @@ def serialize_photo(photo: Photo) -> dict:
         "uploaded_at": photo.uploaded_at,
         "resolution_status": res_status,
         "duplicate_of": photo.duplicate_of,
+        # Flagged so the owner can tell whose pictures are whose (CR-003-6),
+        # and delete any of them. The opaque contributor id stays on the
+        # server; the owner gets the name the contributor typed, or nothing.
+        "contributed": photo.contributed_by is not None,
+        "contributor_name": photo.contributor_name,
         "display_url": storage.presign_get(photo.display_key) if photo.display_key else None,
         "thumb_url": storage.presign_get(photo.thumb_key) if photo.thumb_key else None,
     }

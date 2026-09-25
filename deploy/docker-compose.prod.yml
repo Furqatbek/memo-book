@@ -78,6 +78,27 @@ services:
       redis: { condition: service_started }
       minio-init: { condition: service_completed_successfully }
 
+  # The flip video, on a worker of its own (CR-003-5). NOT added to the
+  # `worker` service's queue list, and that is the entire point: an encode
+  # is minutes of CPU for a file nobody paid for, and sharing a worker with
+  # `render` would let it sit in front of a print job somebody did.
+  #
+  # Safe to stop. Nothing else waits on it, and no order notices.
+  flip:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    logging: *logs
+    env_file: .env
+    environment:
+      S3_ENDPOINT_URL: http://minio:9000
+    command: rq worker flip --url ${REDIS_URL}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      minio-init: { condition: service_completed_successfully }
+
   outbox:
     build:
       context: ..

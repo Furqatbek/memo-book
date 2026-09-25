@@ -122,7 +122,6 @@ async def render(session: AsyncSession, book: Book) -> None:
     """
     from app.render.preview import render_share_cover, render_share_page
     from app.services.cover_designs import design_artwork_bytes
-    from app.services.preview import _back_as_page
 
     layout_version = book.layout_version
     photos = {str(p.id): p for p in (await session.execute(

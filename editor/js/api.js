@@ -147,6 +147,18 @@ export const createShare = (c) =>
 export const revokeShare = (c) =>
   request('DELETE', `${V}/books/${c.book_id}/share`, { token: c.edit_token });
 
+/* The contributor link (CR-003-6). Behind the edit token to mint; what it
+   produces lets somebody ADD photographs and do nothing else. The token
+   comes back once and is never retrievable again — the server keeps only
+   its hash — so minting a second time replaces the first. */
+export const createContributorLink = (c) =>
+  request('POST', `${V}/books/${c.book_id}/contributor-link`,
+          { token: c.edit_token });
+
+export const revokeContributorLink = (c) =>
+  request('DELETE', `${V}/books/${c.book_id}/contributor-link`,
+          { token: c.edit_token });
+
 export const listPhotos = (c) =>
   request('GET', `${V}/books/${c.book_id}/photos`, { token: c.edit_token });
 

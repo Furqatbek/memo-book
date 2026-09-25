@@ -293,6 +293,17 @@ def send_photo_to(chat_id, photo_url: str, caption: str) -> None:
                         "caption": caption})
 
 
+def send_video_to(chat_id, video_url: str, caption: str) -> None:
+    """The flip video, playing in the chat (CR-003-5).
+
+    `supports_streaming` matters more than it looks: without it Telegram
+    offers a download button instead of a player, and a video nobody
+    watches in place is a video nobody forwards.
+    """
+    _call("sendVideo", {"chat_id": chat_id, "video": video_url,
+                        "caption": caption, "supports_streaming": True})
+
+
 # What to call the file in a sentence. The bytes already said which of the
 # three it is (A100); this is just the word for it.
 RECEIPT_TYPE_LABELS = {

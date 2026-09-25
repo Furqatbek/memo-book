@@ -19,7 +19,7 @@ from app.models.gift import GiftDetails
 from app.models.outbox import OutboxMessage
 from app.services import orders as orders_svc
 from app.services import outbox, telegram
-from tests.api.test_admin_orders import AUTH, admin, load  # noqa: F401
+from tests.api.test_admin_orders import AUTH, load
 from tests.api.test_checkout import CUSTOMER, do_checkout, ready_book
 from tests.api.test_production_updates import (
     advance,

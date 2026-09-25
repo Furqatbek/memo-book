@@ -83,6 +83,12 @@ EXEMPT = {
     # routes a stranger's token reaches, IS throttled.
     "POST /api/v1/books/{book_id}/share": "edit token",
     "DELETE /api/v1/books/{book_id}/share": "edit token",
+    # Edit token once more (CR-003-6). Minting replaces the book's one
+    # contributor link and writes a single row; the UNAUTHENTICATED side —
+    # the contributor page and both of its upload calls — is throttled, and
+    # is where the volume problem actually lives.
+    "POST /api/v1/books/{book_id}/contributor-link": "edit token",
+    "DELETE /api/v1/books/{book_id}/contributor-link": "edit token",
     # The same public shop window for everybody; nothing to guess at.
     "GET /api/v1/prices": "public, identical for everyone",
     "GET /api/v1/cover-designs": "public, identical for everyone",

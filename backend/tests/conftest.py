@@ -87,6 +87,11 @@ async def client(sessionmaker, s3, monkeypatch):
     from app.main import create_app
 
     monkeypatch.setenv("TASK_EAGER", "true")  # queue jobs run inline in tests
+    # The flip video is on in production and off here (CR-003-5). Eager mode
+    # would otherwise run a real ffmpeg encode inside every test that reaches
+    # `rendered` — seconds each, for a file none of them look at. The tests
+    # that are about the video turn it back on for themselves.
+    monkeypatch.setenv("FLIP_VIDEO_ENABLED", "false")
     monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")  # dedicated tests re-enable
     # The shop is shut by default (A74); tests about checkout are testing
     # checkout, so open it here and let the guard's own tests turn it back off.

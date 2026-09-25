@@ -39,3 +39,16 @@ class Photo(Base):
     uploaded_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     sha256: Mapped[str | None] = mapped_column(sa.String(64), nullable=True, index=True)
     duplicate_of: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid, nullable=True)
+
+    # Who added this, when it was not the owner (CR-003-6). NOT the
+    # contributor's token: that is a secret, and a copy of it on every photo
+    # row would undo the point of storing only its hash. This is an opaque
+    # per-contributor id derived from their anonymous session, and it exists
+    # for two jobs — counting distinct contributors against the cap, and
+    # showing the owner which pictures are not theirs.
+    contributed_by: Mapped[str | None] = mapped_column(
+        sa.String(64), nullable=True, index=True)
+    # Self-declared and optional. Never trusted for anything; it is a label
+    # so the owner can tell Aziza's photographs from Bek's.
+    contributor_name: Mapped[str | None] = mapped_column(
+        sa.String(60), nullable=True)

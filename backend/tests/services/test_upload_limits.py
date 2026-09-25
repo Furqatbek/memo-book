@@ -15,7 +15,7 @@ import pytest
 
 from app.services import photos as svc
 from app.services.photos import MAX_PHOTOS_PER_BOOK, MAX_UPLOAD_BYTES
-from tests.api.test_books import auth, make_book
+from tests.api.test_books import make_book
 
 
 class TestTheDeclaredSizeIsNotTrusted:
