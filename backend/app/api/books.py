@@ -92,7 +92,7 @@ async def set_email(book_id: uuid.UUID, body: SetEmailRequest, session: Session,
 @router.post("/{book_id}/auto-place")
 async def auto_place(book_id: uuid.UUID, session: Session, x_edit_token: EditToken,
                      if_match: IfMatch = None):
-    book, placed_count, unplaced = await placement_svc.auto_place(
+    book, placed_count, unplaced, dated_count = await placement_svc.auto_place(
         session, book_id, x_edit_token, if_match
     )
     return {
@@ -100,6 +100,9 @@ async def auto_place(book_id: uuid.UUID, session: Session, x_edit_token: EditTok
         "layout_version": book.layout_version,
         "placed_count": placed_count,
         "unplaced_photo_ids": unplaced,  # R3: surplus is surfaced, never dropped
+        # How many of those carried a date, so the editor can say it put the
+        # photos in the order they were taken only when that is true (P1-5).
+        "dated_count": dated_count,
     }
 
 

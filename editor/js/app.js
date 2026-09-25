@@ -3,7 +3,7 @@
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
 import * as api from './api.js?v=20260826';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925e';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
@@ -3216,6 +3216,35 @@ async function changeTier(next) {
   }
 }
 
+/* What auto-fill just did, said accurately (P1-5).
+ *
+ * The ordering is the best thing this button does and the toast used to
+ * report two numbers, so the customer never learned it happened. But it
+ * only happens when the photos carry dates: EXIF is stripped by Telegram
+ * and WhatsApp, and screenshots never had any, so a book assembled from
+ * forwarded photos is placed in UPLOAD order (R2). Claiming otherwise
+ * there would be a lie told at the one moment the customer could still
+ * fix the order by hand — so each case gets its own sentence.
+ *
+ * `dated_count` is absent on a server older than this change; treating
+ * that as "no dates" would mis-report every book, so fall back to the
+ * bare count instead of guessing.
+ */
+function autoFillMessage(r) {
+  const placed = r.placed_count;
+  const left = (r.unplaced_photo_ids || []).length;
+  const fits = left ? ` ${t('autofill.left', { left })}` : '';
+  if (!placed) return t('autofill.none');
+  if (typeof r.dated_count !== 'number') {
+    return t('autofill.plain', { placed }) + fits;
+  }
+  const dated = r.dated_count;
+  const how = dated === placed ? t('autofill.dated', { placed })
+    : dated === 0 ? t('autofill.undated', { placed })
+      : t('autofill.mixed', { placed, dated });
+  return how + fits;
+}
+
 async function autoFill() {
   if (!(await flushSave())) return;
   try {
@@ -3223,9 +3252,7 @@ async function autoFill() {
     S.book.layout = r.layout;
     S.book.layout_version = r.layout_version;
     S.sel = null;
-    toast(t('autofill.done', {
-      placed: r.placed_count, left: (r.unplaced_photo_ids || []).length,
-    }));
+    toast(autoFillMessage(r));
     renderAll();
   } catch (e) {
     await handleActionError(e);

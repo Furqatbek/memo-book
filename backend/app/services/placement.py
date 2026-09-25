@@ -38,11 +38,19 @@ def _slot_placement(photo_id: str, slot: dict) -> dict:
 
 
 async def auto_place(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
-                     if_match: int | None) -> tuple[Book, int, list[str]]:
+                     if_match: int | None) -> tuple[Book, int, list[str], int]:
     """Fill pages chronologically (R2) into each page's layout slots — one
     photo per slot, so a 4-up page takes four. Existing texts, stickers and
     the cover are preserved; only placements are rewritten. Surplus photos
-    are returned, never silently dropped (R3)."""
+    are returned, never silently dropped (R3).
+
+    Also returns how many of the placed photos actually carried a date, so
+    the editor can say what it did without overclaiming. Undated photos are
+    ordered by upload instead (R2), and a phone photo that arrived over
+    Telegram or WhatsApp has had its EXIF stripped — for that book "in the
+    order you took them" would be false, and it is the editor's only chance
+    to say the dates are missing while the customer can still reorder.
+    """
     book = await get_book_authed(session, book_id, edit_token)
     _require_mutable(book)
     _require_version(book, if_match)
@@ -71,8 +79,13 @@ async def auto_place(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
     await session.commit()
     await session.refresh(book)
 
+    # Counted from the placed ids rather than inferred from the sort order,
+    # so this stays right if R2's tie-breaking is ever revisited.
+    dated = {str(p.id) for p in photos if p.taken_at is not None}
+    dated_count = sum(1 for pid in ordered_ids[:cursor] if pid in dated)
+
     unplaced = ordered_ids[cursor:]
-    return book, cursor, unplaced
+    return book, cursor, unplaced, dated_count
 
 
 def layout_progress(layout: dict, usable_ids: set[str]) -> tuple[int, int]:

@@ -2444,3 +2444,59 @@ itself. A customer who never reads the marketing page presses the button
 and sees photos appear; nothing tells them the order was chosen rather
 than arbitrary. A line in the editor at the moment auto-layout runs would
 put the claim where it is actually experienced.
+
+**P1-5b — the editor says what auto-fill did.** The marketing page now
+sells the chronological ordering, but the editor — the only place the
+feature is actually experienced — reported two numbers: "3 placed. 0 did
+not fit." A customer who never read the marketing page pressed the button,
+saw photos appear, and had no way to learn the order was chosen rather
+than arbitrary.
+
+**The toast could not simply repeat the marketing line, because it is not
+always true.** Auto-place orders by EXIF `taken_at`; photos without one
+are placed in upload order (R2). Telegram and WhatsApp strip EXIF, and
+screenshots never had any, so *a book assembled from forwarded photos is
+in upload order* — and that is not a rare case here, it may well be the
+common one. "In the order you took them" would then be a lie told at the
+one moment the customer could still fix the order by hand.
+
+So the endpoint now also returns `dated_count` — how many of the PLACED
+photos carried a date — and the editor picks one of three sentences:
+
+* all dated — "in the order you took them";
+* none dated — "in the order you added them — these photos carry no date",
+  which also tells the customer *why*, and so what to do about it;
+* some — "{placed} placed — {dated} by the date they were taken, the
+  undated ones after".
+
+A fourth case, nothing placed at all, used to read "0 placed. 0 did not
+fit."; it now says there is nothing to place yet.
+
+**`dated_count` counts the placed photos, not the uploaded ones,** so a
+16-page book made from 20 dated photos reports 16 of 16 rather than 20 of
+16. It is counted from the placed ids rather than inferred from the sort
+order, so it stays correct if R2's tie-breaking is ever revisited.
+
+**An absent `dated_count` is not read as "no dates".** A browser holding
+cached JS against an older server would otherwise tell every customer
+their photos had no dates; the editor falls back to the bare count
+instead. This is the A61 trap from the other side, and the cache stamps
+for `app.js` and `i18n.js` were bumped together for the same reason — new
+code calling `t('autofill.dated')` against a cached `i18n.js` that has
+never heard of the key renders the raw key.
+
+**`checks/ordertoast.js` strips the EXIF out of the jpg fixtures itself,**
+which is exactly what a messenger does to a photo in transit, and asserts
+the undated book does NOT claim the taken order. The expected sentences
+are written out in the check rather than read back from `i18n.js`: a check
+that derives its expectation from the thing it is checking passes just as
+happily when the copy is wrong. The Russian case is a book made in Russian
+from the start, and asserts the absence of «снимали» as well as the
+presence of «добавили» — a fallback to the English string would otherwise
+pass a "is it translated?" test that only looked for Cyrillic.
+
+**Found while testing, not fixed:** the language selector lives only in
+`#screen-start`. Once the editor is open there is no way to change
+language, so a customer who picks the wrong one has to clear the book and
+start again. That is a pre-existing gap, not something this change
+introduced.

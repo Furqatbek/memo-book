@@ -79,6 +79,47 @@ class TestAutoPlace:
         body = (await do_auto_place(client, book)).json()
         assert placed_ids(body["layout"]) == [dated, undated_early, undated_late]
 
+    async def test_dated_count_is_all_of_them_when_every_photo_has_a_date(
+            self, client, db):
+        """P1-5: the editor may only claim "in the order you took them" when
+        that is what happened, so it is told how many dates there were."""
+        book = await make_book(client, 16)
+        for i in range(3):
+            await seed_photo(db, book["book_id"], taken_offset_h=i, uploaded_offset_s=i)
+        body = (await do_auto_place(client, book)).json()
+        assert body["dated_count"] == body["placed_count"] == 3
+
+    async def test_dated_count_is_zero_when_nothing_carries_a_date(self, client, db):
+        """The common case for a book built from photos forwarded over
+        Telegram or WhatsApp, which strip EXIF: the order is upload order,
+        and the editor has to say so rather than claim the dates."""
+        book = await make_book(client, 16)
+        for i in range(3):
+            await seed_photo(db, book["book_id"], None, uploaded_offset_s=i)
+        body = (await do_auto_place(client, book)).json()
+        assert body["placed_count"] == 3
+        assert body["dated_count"] == 0
+
+    async def test_dated_count_counts_only_the_dated_ones(self, client, db):
+        book = await make_book(client, 16)
+        for i in range(2):
+            await seed_photo(db, book["book_id"], taken_offset_h=i, uploaded_offset_s=i)
+        for i in range(3):
+            await seed_photo(db, book["book_id"], None, uploaded_offset_s=10 + i)
+        body = (await do_auto_place(client, book)).json()
+        assert body["placed_count"] == 5
+        assert body["dated_count"] == 2
+
+    async def test_dated_count_ignores_photos_that_did_not_fit(self, client, db):
+        """It describes the book, not the upload. Counting the surplus would
+        make a 16-page book of 20 dated photos report 20 of 16 placed."""
+        book = await make_book(client, 16)
+        for i in range(20):
+            await seed_photo(db, book["book_id"], taken_offset_h=i, uploaded_offset_s=i)
+        body = (await do_auto_place(client, book)).json()
+        assert body["placed_count"] == 16
+        assert body["dated_count"] == 16
+
     async def test_deterministic_across_runs(self, client, db):
         book = await make_book(client, 16)
         for i in range(6):

@@ -69,6 +69,9 @@ const NEEDS = {
   resumebanner: 'the dev server serving the site at `/`, which it now does '
     + 'by default — the front page reads the editor\'s localStorage, so the '
     + 'two have to be one origin (A105)',
+  ordertoast: 'nothing — it strips the EXIF out of the jpg fixtures itself, '
+    + 'which is what Telegram and WhatsApp do to a photo on the way through, '
+    + 'and that book is placed in upload order (P1-5)',
   autoflow: 'AUTO_CONFIRM_ORDERS=true',
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',
