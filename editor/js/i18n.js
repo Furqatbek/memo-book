@@ -312,8 +312,11 @@ const STRINGS = {
     'tool.removeTitle': 'Убрать заголовок',
     'tool.removePhoto': 'Убрать фото',
     'autofill.dated': 'Размещено: {placed} — в том порядке, в каком вы их снимали.',
-    'autofill.undated': 'Размещено: {placed} — в том порядке, в каком вы их добавили: в этих фото нет даты съёмки.',
-    'autofill.mixed': 'Размещено: {placed} — из них {dated} по дате съёмки, остальные следом.',
+    // "съёмки" would be the natural word in both of these, and its "ъ" is
+    // not in the subset the editor ships (A84) — "снимка" says the same
+    // thing with letters we can draw.
+    'autofill.undated': 'Размещено: {placed} — в том порядке, в каком вы их добавили: у этих фото нет даты снимка.',
+    'autofill.mixed': 'Размещено: {placed} — из них {dated} по дате снимка, остальные следом.',
     'autofill.plain': 'Размещено: {placed}.',
     'autofill.left': 'Не поместилось: {left}.',
     'autofill.none': 'Пока нечего размещать — сначала добавьте фото.',

@@ -2500,3 +2500,19 @@ pass a "is it translated?" test that only looked for Cyrillic.
 language, so a customer who picks the wrong one has to clear the book and
 start again. That is a pre-existing gap, not something this change
 introduced.
+
+**A84 caught this change, and the catch was correct.** The first Russian
+wording used «съёмки». The editor's display face is a subset built from
+the strings we actually ship, and no string had ever contained a hard
+sign, so `Ъ/ъ` is not in it — the word would have rendered with one
+letter in a fallback typeface. The copy now says «снимка», which means
+the same thing in letters the subset has.
+
+The repo's intended fix for a genuinely new character is to re-run
+`scripts/subset_web_font.py`, but that takes the upstream TTFs and only
+the subset `.woff2` files are in the tree, so rewording was the fix
+available here. **Any future Russian string containing `ъ` will fail this
+test for the same reason** — and it is a common enough letter
+(«объектив», «подъезд») that the subset should be rebuilt from upstream
+EB Garamond the next time the fonts are touched, rather than each string
+being worded around it.
