@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.errors import DomainError, ErrorCode
 from app.domain.money import assert_amount_matches
+from app.domain.events import EventType
 from app.domain.states import BookStatus, OrderStatus, transition_book
 from app.models.book import Book
 from app.models.order import Order
@@ -28,6 +29,8 @@ from app.payments.base import ParsedEvent
 from app.payments.registry import get_provider
 from app.services.effects import When, run_effects
 from app.services.orders import apply_transition
+
+from app.services import funnel  # noqa: E402
 
 log = structlog.get_logger()
 
@@ -128,6 +131,13 @@ async def mark_paid(session: AsyncSession, order: Order, *, note: str,
     )).scalar_one()
     transition_book(BookStatus(book.status), BookStatus.ORDERED)
     book.status = BookStatus.ORDERED.value
+    # The money event, emitted at the single point every payment passes
+    # through — an acquirer callback and an operator confirming a transfer
+    # by hand both arrive here. Attribution comes off the book's first
+    # event, because a webhook carries no cookie and a campaign that cannot
+    # be joined to a payment is a campaign whose cost per sale is unknowable.
+    await funnel.emit_for_book(session, EventType.PAYMENT_SUCCEEDED, book.id,
+                               properties={"provider": provider})
     await session.commit()
     log.info("payment.paid", order=order.human_ref, note=note)
 
@@ -158,6 +168,8 @@ async def _handle_cancel(session: AsyncSession, order: Order,
     )).scalar_one()
     transition_book(BookStatus(book.status), BookStatus.DRAFT)
     book.status = BookStatus.DRAFT.value
+    await funnel.emit_for_book(session, EventType.PAYMENT_FAILED, book.id,
+                               properties={"reason": "provider_cancel"})
     await session.commit()
     log.info("payment.cancelled", order=order.human_ref)
     return _ok(order, duplicate=duplicate)

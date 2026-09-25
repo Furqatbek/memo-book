@@ -112,6 +112,27 @@ export const completePhoto = (c, photoId, takenAt) =>
   request('POST', `${V}/books/${c.book_id}/photos/${photoId}/complete`,
           { token: c.edit_token, body: takenAt ? { taken_at_exif: takenAt } : {} });
 
+/* The three things the server cannot see for itself (Change 3): a browser
+   opening the editor, moving to the checkout screen, and arriving from a
+   reminder. Deliberately NOT routed through `request`: analytics must
+   never surface an error to the customer, retry, or hold anything up, so
+   this is a bare fire-and-forget that swallows everything. The session and
+   the campaign ride on the cookie, so there is nothing to pass. */
+export const recordEvent = (type, extra) => {
+  try {
+    const body = { type, ...(extra || {}) };
+    const headers = { 'Content-Type': 'application/json' };
+    if (extra && extra.edit_token) {
+      headers['X-Edit-Token'] = extra.edit_token;
+      delete body.edit_token;
+    }
+    fetch(`${V}/events`, {
+      method: 'POST', headers, body: JSON.stringify(body),
+      keepalive: true, credentials: 'same-origin',
+    }).catch(() => {});
+  } catch (e) { /* never the customer's problem */ }
+};
+
 export const listPhotos = (c) =>
   request('GET', `${V}/books/${c.book_id}/photos`, { token: c.edit_token });
 

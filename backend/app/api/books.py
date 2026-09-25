@@ -4,10 +4,12 @@ If-Match: <layout_version> (409 on conflict, 428 when absent)."""
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.tracking import record
 from app.db.session import get_session
+from app.domain.events import EventType
 from app.models.book import Book
 from app.rate_limit import rate_limit
 from app.schemas.book import (
@@ -51,8 +53,14 @@ def _book_response(book: Book) -> dict:
 @router.post("", response_model=CreateBookResponse, status_code=201,
              dependencies=[rate_limit("book-create",
                                       lambda s: s.rate_limit_book_create_per_min)])
-async def create_book(body: CreateBookRequest, session: Session):
+async def create_book(body: CreateBookRequest, request: Request, session: Session):
     book = await svc.create_book(session, body.page_count, body.book_type)
+    # The first step the server can see for itself: a tier was chosen and a
+    # row exists. Everything above this in the funnel is client-reported.
+    await record(request, session, EventType.BOOK_STARTED, book_id=book.id,
+                 properties={"page_count": book.page_count,
+                             "book_type": book.book_type})
+    await session.commit()
     return {**_book_response(book), "edit_token": book.edit_token}
 
 
@@ -65,9 +73,13 @@ async def get_book(book_id: uuid.UUID, session: Session, x_edit_token: EditToken
 
 
 @router.patch("/{book_id}/layout", response_model=LayoutPatchResponse)
-async def patch_layout(book_id: uuid.UUID, body: LayoutBody, session: Session,
+async def patch_layout(book_id: uuid.UUID, body: LayoutBody, request: Request,
+                       session: Session,
                        x_edit_token: EditToken, if_match: IfMatch = None):
     book = await svc.patch_layout(session, book_id, x_edit_token, if_match, body)
+    for milestone in placement_svc.design_milestones(book.layout):
+        await record(request, session, milestone, book_id=book.id)
+    await session.commit()
     return {"layout": book.layout, "layout_version": book.layout_version}
 
 
@@ -83,18 +95,26 @@ async def change_page_count(book_id: uuid.UUID, body: ChangePageCountRequest,
 
 
 @router.patch("/{book_id}/email", response_model=BookResponse)
-async def set_email(book_id: uuid.UUID, body: SetEmailRequest, session: Session,
-                    x_edit_token: EditToken):
+async def set_email(book_id: uuid.UUID, body: SetEmailRequest, request: Request,
+                    session: Session, x_edit_token: EditToken):
     book = await svc.set_email(session, book_id, x_edit_token, body.email)
+    if book.email:
+        await record(request, session, EventType.CONTACT_CAPTURED,
+                     book_id=book.id, properties={"channel": "email"})
+        await session.commit()
     return _book_response(book)
 
 
 @router.post("/{book_id}/auto-place")
-async def auto_place(book_id: uuid.UUID, session: Session, x_edit_token: EditToken,
-                     if_match: IfMatch = None):
+async def auto_place(book_id: uuid.UUID, request: Request, session: Session,
+                     x_edit_token: EditToken, if_match: IfMatch = None):
     book, placed_count, unplaced, dated_count = await placement_svc.auto_place(
         session, book_id, x_edit_token, if_match
     )
+    # One click here can cross both design lines at once.
+    for milestone in placement_svc.design_milestones(book.layout):
+        await record(request, session, milestone, book_id=book.id)
+    await session.commit()
     return {
         "layout": book.layout,
         "layout_version": book.layout_version,

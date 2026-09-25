@@ -105,6 +105,31 @@ def layout_progress(layout: dict, usable_ids: set[str]) -> tuple[int, int]:
     return empty, len(usable_ids - used)
 
 
+def design_milestones(layout: dict) -> list:
+    """Which funnel milestones this layout has crossed (Change 3).
+
+    Both are returned when a single save crosses both lines — filling the
+    last half of a small book does exactly that, and reporting only the
+    later one would leave `half_designed` below `design_completed` in the
+    funnel, which reads as a bug in the product rather than in the counting.
+
+    Emission is once-per-book, so calling this on every save is harmless:
+    the second crossing is refused by the unique index.
+    """
+    from app.domain.events import EventType
+
+    pages = layout.get("pages", [])
+    if not pages:
+        return []
+    placed = sum(1 for page in pages if page.get("placements"))
+    out = []
+    if placed / len(pages) >= 0.5:
+        out.append(EventType.HALF_DESIGNED)
+    if placed == len(pages):
+        out.append(EventType.DESIGN_COMPLETED)
+    return out
+
+
 async def eligibility(session: AsyncSession, book_id: uuid.UUID,
                       edit_token: str) -> CheckoutEligibility:
     book = await get_book_authed(session, book_id, edit_token)

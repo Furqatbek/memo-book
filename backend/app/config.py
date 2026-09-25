@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     # attack available, and volume is the only thing that makes it work. A
     # customer refreshing their own order does so a handful of times (A77).
     rate_limit_order_status_per_min: int = 20
+    # Funnel events from the browser (Change 3). A real visitor sends a
+    # handful in a session; the cap is here so that a page stuck in a loop,
+    # or somebody with a script, cannot fill the table faster than anybody
+    # notices. Generous, because dropping a real event silently skews a
+    # metric and that is the failure this instrumentation exists to avoid.
+    rate_limit_events_per_min: int = 120
 
     # --- Admin console (A72) ---
     # The shared secret the console signs in with. EMPTY DISABLES THE ADMIN

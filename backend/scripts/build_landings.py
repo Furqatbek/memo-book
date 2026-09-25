@@ -723,6 +723,8 @@ def render(lang: str, slug: str) -> str:
   <div class="wrap f-bottom">{c["f_bottom"]}</div>
 </footer>
 
+<script src="{root}assets/funnel.js"></script>
+
 </body>
 </html>
 """

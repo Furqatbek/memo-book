@@ -10,6 +10,8 @@ from app.api.admin import router as admin_router
 from app.api.books import router as books_router
 from app.api.cover_designs import router as cover_designs_router
 from app.api.errors import register_error_handlers
+from app.api.events import router as events_router
+from app.api.funnel import router as funnel_router
 from app.api.health import router as health_router
 from app.api.orders import router as orders_router
 from app.api.payments import router as payments_router
@@ -17,6 +19,7 @@ from app.api.photos import router as photos_router
 from app.api.preview import router as preview_router
 from app.api.pricing import router as pricing_router
 from app.api.telegram import router as telegram_router
+from app.api.tracking import FunnelSessionMiddleware
 from app.config import get_settings
 from app.logging import configure_logging
 
@@ -87,8 +90,18 @@ def create_app() -> FastAPI:
             allow_headers=["*"],
             max_age=600,
         )
+    # In front of the static mounts as well as the API, so the anonymous
+    # session cookie is set by the first marketing page a visitor opens
+    # rather than by the first API call — which is how a site_visit and the
+    # payment it eventually leads to end up sharing one id (Change 3).
+    # `Secure` would stop the cookie being set at all over plain http, which
+    # is what dev and the browser suite run on.
+    app.add_middleware(FunnelSessionMiddleware,
+                       secure=settings.env not in ("dev", "test"))
     register_error_handlers(app)
     app.include_router(health_router)
+    app.include_router(events_router)
+    app.include_router(funnel_router)
     app.include_router(books_router)
     app.include_router(photos_router)
     app.include_router(preview_router)

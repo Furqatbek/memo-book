@@ -2,11 +2,13 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import queue
+from app.api.tracking import record
 from app.db.session import get_session
+from app.domain.events import EventType
 from app.services import preview as svc
 
 router = APIRouter(prefix="/api/v1/books/{book_id}/preview", tags=["preview"])
@@ -16,9 +18,11 @@ EditToken = Annotated[str, Header(alias="X-Edit-Token")]
 
 
 @router.post("", status_code=202)
-async def request_preview(book_id: uuid.UUID, session: Session,
+async def request_preview(book_id: uuid.UUID, request: Request, session: Session,
                           x_edit_token: EditToken):
     book = await svc.request_preview(session, book_id, x_edit_token)
+    await record(request, session, EventType.PREVIEW_VIEWED, book_id=book.id)
+    await session.commit()
     if queue.eager():
         await svc.run_preview(session, book.id)
     else:

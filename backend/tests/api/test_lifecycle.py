@@ -157,3 +157,100 @@ class TestReminders:
         await db.refresh(message)
         assert message.status == "pending"
         assert "not configured" in message.last_error
+
+
+class TestFunnelEventsFromTheNightlyJob:
+    """Change 3: the two funnel events nobody's browser can report.
+
+    A payment webhook and a nightly job both run with no cookie in sight,
+    so these take their session and campaign off the book's own first
+    event — which is what keeps a lost customer attributable to the
+    campaign that paid to bring them in.
+    """
+
+    async def test_an_untouched_book_with_photos_is_recorded_as_abandoned(
+            self, client, db):
+        from app.domain.events import EventType
+        from app.services.lifecycle import mark_abandoned
+        from tests.test_funnel import count_of
+
+        book = await make_book(client, 16)
+        db.add(Photo(id=uuid.uuid4(), book_id=uuid.UUID(book["book_id"]),
+                     status="ready", original_key="k", mime_original="image/jpeg",
+                     bytes_original=1, orig_width=100, orig_height=100,
+                     uploaded_at=NOW, sha256=uuid.uuid4().hex))
+        await age_book(db, book["book_id"], expires_delta_days=20,
+                       updated_delta_days=5)
+        assert await mark_abandoned(db, now=NOW) == 1
+        assert await count_of(db, EventType.BOOK_ABANDONED,
+                              uuid.UUID(book["book_id"])) == 1
+
+    async def test_it_is_counted_once_however_many_nights_pass(self, client, db):
+        """A book sitting untouched for a fortnight is one lost customer,
+        not fourteen."""
+        from app.domain.events import EventType
+        from app.services.lifecycle import mark_abandoned
+        from tests.test_funnel import count_of
+
+        book = await make_book(client, 16)
+        db.add(Photo(id=uuid.uuid4(), book_id=uuid.UUID(book["book_id"]),
+                     status="ready", original_key="k", mime_original="image/jpeg",
+                     bytes_original=1, orig_width=100, orig_height=100,
+                     uploaded_at=NOW, sha256=uuid.uuid4().hex))
+        await age_book(db, book["book_id"], expires_delta_days=20,
+                       updated_delta_days=5)
+        await mark_abandoned(db, now=NOW)
+        await mark_abandoned(db, now=NOW + timedelta(days=1))
+        assert await count_of(db, EventType.BOOK_ABANDONED,
+                              uuid.UUID(book["book_id"])) == 1
+
+    async def test_a_book_with_no_photos_is_a_bounce_not_an_abandonment(
+            self, client, db):
+        """Lumping the two together would make the abandonment rate read
+        far worse than it is, and hide the step that actually leaks."""
+        from app.domain.events import EventType
+        from app.services.lifecycle import mark_abandoned
+        from tests.test_funnel import count_of
+
+        book = await make_book(client, 16)
+        await age_book(db, book["book_id"], expires_delta_days=20,
+                       updated_delta_days=5)
+        assert await mark_abandoned(db, now=NOW) == 0
+        assert await count_of(db, EventType.BOOK_ABANDONED) == 0
+
+    async def test_a_book_touched_yesterday_is_not_abandoned(self, client, db):
+        from app.services.lifecycle import mark_abandoned
+
+        book = await make_book(client, 16)
+        db.add(Photo(id=uuid.uuid4(), book_id=uuid.UUID(book["book_id"]),
+                     status="ready", original_key="k", mime_original="image/jpeg",
+                     bytes_original=1, orig_width=100, orig_height=100,
+                     uploaded_at=NOW, sha256=uuid.uuid4().hex))
+        await age_book(db, book["book_id"], expires_delta_days=20,
+                       updated_delta_days=1)          # 24h, inside the 72h line
+        assert await mark_abandoned(db, now=NOW) == 0
+
+    async def test_a_queued_reminder_records_its_day(self, client, db):
+        from app.domain.events import EventType
+        from app.models.funnel_event import FunnelEvent
+
+        book = await make_book(client, 16)
+        await age_book(db, book["book_id"], expires_delta_days=20,
+                       updated_delta_days=4, email="a@example.com")
+        assert await queue_reminders(db, now=NOW) == 1
+        rows = [r for r in (await db.execute(
+            select(FunnelEvent).where(
+                FunnelEvent.event_type == EventType.REMINDER_SENT.value))
+        ).scalars()]
+        assert len(rows) == 1
+        assert rows[0].properties == {"channel": "email", "day": 3}
+
+    async def test_the_reminder_link_says_which_reminder_it_was(self, client, db):
+        """Without the marker a click cannot be told apart from any other
+        visit, and reminder_sent has nothing to be measured against."""
+        book = await make_book(client, 16)
+        await age_book(db, book["book_id"], expires_delta_days=20,
+                       updated_delta_days=4, email="a@example.com")
+        await queue_reminders(db, now=NOW)
+        msg = (await db.execute(select(OutboxMessage))).scalars().first()
+        assert msg.payload["edit_url"].endswith("?r=3")

@@ -108,7 +108,7 @@ class TestTheRequiredStatements:
 
     @pytest.mark.parametrize("rel", PRIVACY)
     def test_it_has_every_section(self, rel):
-        assert PAGES[rel].count("<h2>") == 6, rel
+        assert PAGES[rel].count("<h2>") == 7, rel
 
     @pytest.mark.parametrize("rel", PAGES)
     def test_the_documents_link_to_each_other(self, rel):

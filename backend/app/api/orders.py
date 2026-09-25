@@ -2,11 +2,14 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
+from fastapi import (APIRouter, Depends, File, Form, Header, Query, Request,
+                     UploadFile)
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.tracking import record
 from app.db.session import get_session
+from app.domain.events import EventType
 from app.domain.states import OrderStatus
 from app.payments.registry import available_providers, get_provider
 from app.rate_limit import rate_limit
@@ -29,13 +32,22 @@ class CheckoutRequest(BaseModel):
 
 
 @router.post("/books/{book_id}/checkout", status_code=201)
-async def checkout(book_id: uuid.UUID, body: CheckoutRequest, session: Session,
-                   x_edit_token: EditToken):
+async def checkout(book_id: uuid.UUID, body: CheckoutRequest, request: Request,
+                   session: Session, x_edit_token: EditToken):
     order = await svc.checkout(
         session, book_id, x_edit_token,
         name=body.name, phone=body.phone, address=body.address,
         email=body.email, confirmed_preview=body.confirmed_preview,
     )
+    # The order exists and has a reference; whether it is ever paid is a
+    # separate event. A contact detail arriving here counts too — for many
+    # customers this is the first time we learn how to reach them.
+    await record(request, session, EventType.CHECKOUT_SUBMITTED,
+                 book_id=book_id)
+    if body.email:
+        await record(request, session, EventType.CONTACT_CAPTURED,
+                     book_id=book_id, properties={"channel": "email"})
+    await session.commit()
     # Trust-first card pilot: confirm immediately through the full webhook
     # machinery (amount check, idempotency via the deterministic event id,
     # render trigger) — the operator verifies the actual bank transfer

@@ -3,12 +3,14 @@ presigned PUT — never through the API server."""
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import queue
+from app.api.tracking import record
 from app.db.session import get_session
+from app.domain.events import EventType
 from app.rate_limit import rate_limit
 from app.services import photos as svc
 
@@ -50,8 +52,8 @@ class CompleteRequest(BaseModel):
 
 
 @router.post("/{photo_id}/complete")
-async def complete(book_id: uuid.UUID, photo_id: uuid.UUID, session: Session,
-                   x_edit_token: EditToken,
+async def complete(book_id: uuid.UUID, photo_id: uuid.UUID, request: Request,
+                   session: Session, x_edit_token: EditToken,
                    body: CompleteRequest | None = None):
     photo = await svc.complete_upload(session, book_id, x_edit_token, photo_id,
                                       taken_at_exif=body.taken_at_exif if body else None)
@@ -60,6 +62,11 @@ async def complete(book_id: uuid.UUID, photo_id: uuid.UUID, session: Session,
             await svc.ingest_photo(session, photo.id)
         else:
             queue.enqueue_ingest(photo.id)
+    # Once per book: the index refuses the second and every later photo, so
+    # this needs no "is this the first?" query of its own.
+    await record(request, session, EventType.FIRST_PHOTO_UPLOADED,
+                 book_id=book_id)
+    await session.commit()
     return {"status": "processing"}
 
 

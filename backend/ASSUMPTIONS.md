@@ -2779,3 +2779,78 @@ pages and fetches them, because a relative href that resolves correctly
 from `/index.html` and wrongly from `/ru/new-year/` is exactly the bug a
 hand-written URL in the check would hide. A privacy link that 404s is the
 P0-2 failure on the page where it costs the most.
+
+**Change 3 — funnel instrumentation.** An append-only `funnel_events`
+table, a closed event vocabulary, server-side emission everywhere the
+server can see the step for itself, and a JSON report behind the admin
+token. The purpose is cost of acquisition per channel, so the design is
+driven by three ways instrumentation is worse than useless.
+
+**1. It must never break the thing it measures.** The obvious
+implementation — insert into the caller's session — is wrong, and wrong in
+the normal case rather than an exotic one: a once-only event emitted twice
+raises a unique violation, which aborts the enclosing transaction, and the
+customer's checkout fails because we tried to count it. The other obvious
+implementation, a separate session outside the caller's transaction, is
+wrong the other way: the row would survive a rollback, so a book whose
+creation failed would still report `book_started`.
+
+So every write runs in a **SAVEPOINT** nested in the caller's transaction.
+A failure unwinds the savepoint alone; a caller rollback takes the event
+with it, which is correct — the step never happened. A test commits after
+a deliberately duplicated event specifically to prove the transaction is
+still usable.
+
+**2. It must not inflate.** A customer who refreshes has not started a
+second book, and a funnel that says otherwise makes every rate below it
+wrong in the flattering direction. The guard is a **partial unique index**
+on `(book_id, event_type)` excluding the four genuinely repeatable events
+— not a check-then-insert in Python, which two simultaneous requests both
+pass. The report then counts **distinct books** (and distinct sessions for
+the two steps that happen before a book exists), never rows, so even a
+duplicate that somehow landed could not move a number.
+
+**3. Attribution has to reach the money.** `utm_*` is captured on first
+landing into a first-party cookie and **first landing wins** — overwriting
+it would record a customer who saw a New Year advert, left, and came back
+a week later by typing the address as direct traffic, and the campaign
+that actually paid for them would show a cost per acquisition with the
+acquisition missing. Payments arrive on a webhook and abandonment is found
+by a nightly job, neither of which carries a cookie, so both take their
+session and campaign off the **book's own earliest event**. Without that
+one join, every sale reads as direct traffic and the entire point of the
+change is lost.
+
+**Where the specification and the product disagreed, and what I did.**
+The brief says only `site_visit` and `editor_opened` come from the client.
+`checkout_opened` cannot: moving to the checkout screen is a screen swap
+in the editor with no server call behind it, so the server never learns of
+it. Rather than drop the step — it is the one where the drop-off is most
+worth knowing — the client may report it through one narrow door, and the
+door is what makes that safe: a fixed allowlist that cannot name a money
+event, the book's edit token required, and the once-per-book index, so a
+replay or a forgery cannot move the number. `reminder_clicked` arrives the
+same way, off a `?r=3` marker on the reminder link. **The report says in
+its own payload which steps are client-reported**, so nobody reads the top
+of the funnel as gospel.
+
+**Two bugs my own tests found.** `log.debug(..., event=...)` collides with
+structlog's own key for the message and raises `TypeError` — inside the
+exception handler whose entire job is to swallow errors, which is the
+worst possible place for a throw. And the migration's index predicate is
+spelled out while the model builds its own from the enum; a test asserts
+the two agree, because a partial index whose predicate drifts stops
+guarding the events it was written for and nothing else notices.
+
+**The privacy policy was updated in the same change, not after it.** P2-4
+published a document listing what we store, and adding two cookies without
+saying so would have made that document false — the specific failure the
+policy tests exist to prevent. It now has a section naming both cookies,
+what they are for, that neither holds a name, phone or email, that neither
+is readable by the page, and that there are no third-party analytics or
+advertising trackers at all.
+
+**What is not done:** there is no admin UI, by agreement — a JSON endpoint
+is enough for now. `half_designed` and `design_completed` are computed on
+every layout save, which is cheap but means a book completed by an
+operator action rather than a customer save would not record them.

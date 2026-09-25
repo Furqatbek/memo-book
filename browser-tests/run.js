@@ -69,6 +69,10 @@ const NEEDS = {
   resumebanner: 'the dev server serving the site at `/`, which it now does '
     + 'by default — the front page reads the editor\'s localStorage, so the '
     + 'two have to be one origin (A105)',
+  funnel: 'ADMIN_TOKEN=dev-admin (the dev server sets it) — it clicks an '
+    + 'advert link with a campaign on it and builds a book in ONE browser '
+    + 'context, then reads the funnel report back to prove the whole '
+    + 'journey arrives attributed to that campaign (Change 3)',
   policies: 'the dev server serving the site at `/` — it follows the '
     + 'privacy and terms links out of the footer of all fifteen selling '
     + 'pages rather than building the URLs itself, because a relative href '

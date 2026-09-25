@@ -133,6 +133,19 @@ DOCS = {
                     "You can also delete individual photographs yourself in "
                     "the editor at any time before you order.",
                 ]),
+                ("Cookies, and how we count visits", [
+                    "Two small first-party cookies. One is a random id that "
+                    "strings your own steps together — opened the editor, "
+                    "uploaded a photo, placed an order — so we can see where "
+                    "people give up. The other remembers which advert or link "
+                    "brought you here, so we know which ones are worth paying "
+                    "for.",
+                    "Neither holds your name, phone or email, neither can be "
+                    "read by the page itself, and we use no third-party "
+                    "analytics or advertising trackers at all. Delete them in "
+                    "your browser whenever you like — nothing on the site "
+                    "stops working.",
+                ]),
                 ("Who to contact", [
                     "RS Pixel, Tashkent, Uzbekistan. Phone and Telegram "
                     "+998 70 164-76-64, email merelyriki@gmail.com. A real "
@@ -192,6 +205,18 @@ DOCS = {
                     "Отдельные фотографии вы можете удалить сами в редакторе в "
                     "любой момент до заказа.",
                 ]),
+                ("Куки и как мы считаем визиты", [
+                    "Два небольших собственных куки-файла. Один — случайный "
+                    "идентификатор, который связывает ваши шаги: открыли "
+                    "редактор, загрузили фото, оформили заказ, — чтобы мы "
+                    "видели, где люди бросают. Второй запоминает, какая "
+                    "реклама или ссылка привела вас сюда, чтобы понимать, за "
+                    "что имеет смысл платить.",
+                    "Ни в одном нет вашего имени, телефона или почты, ни один "
+                    "не читается самой страницей, и мы вообще не используем "
+                    "сторонние системы аналитики и рекламные трекеры. Удалите "
+                    "их в браузере в любой момент — сайт продолжит работать.",
+                ]),
                 ("Контакты", [
                     "RS Pixel, Ташкент, Узбекистан. Телефон и Telegram "
                     "+998 70 164-76-64, почта merelyriki@gmail.com. Это читает "
@@ -249,6 +274,19 @@ DOCS = {
                     "Oʻchiramiz va tasdiqlaymiz.",
                     "Ayrim suratlarni buyurtmagacha istalgan vaqtda muharrirda "
                     "oʻzingiz oʻchirishingiz mumkin.",
+                ]),
+                ("Kuki fayllar va tashriflarni qanday sanaymiz", [
+                    "Ikkita kichik oʻz kuki faylimiz. Biri — tasodifiy "
+                    "identifikator: muharrirni ochdingiz, surat yukladingiz, "
+                    "buyurtma berdingiz — qadamlaringizni bogʻlaydi, shunda "
+                    "odamlar qayerda toʻxtashini koʻramiz. Ikkinchisi qaysi "
+                    "reklama yoki havola sizni bu yerga olib kelganini eslab "
+                    "qoladi.",
+                    "Ularda ismingiz, telefoningiz yoki pochtangiz yoʻq, "
+                    "ularni sahifaning oʻzi oʻqiy olmaydi va biz uchinchi "
+                    "tomon analitikasi hamda reklama kuzatuvchilaridan "
+                    "umuman foydalanmaymiz. Istalgan vaqtda brauzerda "
+                    "oʻchiring — sayt ishlashda davom etadi.",
                 ]),
                 ("Kim bilan bogʻlanish", [
                     "RS Pixel, Toshkent, Oʻzbekiston. Telefon va Telegram "
@@ -308,6 +346,19 @@ DOCS = {
                     "Айрим суратларни буюртмагача исталган вақтда муҳаррирда "
                     "ўзингиз ўчиришингиз мумкин.",
                 ]),
+                ("Куки файллар ва ташрифларни қандай санаймиз", [
+                    "Иккита кичик ўз куки файлимиз. Бири — тасодифий "
+                    "идентификатор: муҳаррирни очдингиз, сурат юкладингиз, "
+                    "буюртма бердингиз — қадамларингизни боғлайди, шунда "
+                    "одамлар қаерда тўхташини кўрамиз. Иккинчиси қайси "
+                    "реклама ёки ҳавола сизни бу ерга олиб келганини эслаб "
+                    "қолади.",
+                    "Уларда исмингиз, телефонингиз ёки почтангиз йўқ, уларни "
+                    "саҳифанинг ўзи ўқий олмайди ва биз учинчи томон "
+                    "аналитикаси ҳамда реклама кузатувчиларидан умуман "
+                    "фойдаланмаймиз. Исталган вақтда браузерда ўчиринг — сайт "
+                    "ишлашда давом этади.",
+                ]),
                 ("Ким билан боғланиш", [
                     "RS Pixel, Тошкент, Ўзбекистон. Телефон ва Telegram "
                     "+998 70 164-76-64, почта merelyriki@gmail.com. Буни "
@@ -365,6 +416,19 @@ DOCS = {
                     "tastıyıqlaymız.",
                     "Ayırım súwretlerdi buyırtpaǵa shekem qálegen waqıtta "
                     "redaktorda ózińiz óshire alasız.",
+                ]),
+                ("Kuki fayllar hám tashriflerdi qalay sanaymız", [
+                    "Eki kishkene óz kuki faylımız. Biri — tosınnan shıqqan "
+                    "identifikator: redaktordı ashtıńız, súwret júkledińiz, "
+                    "buyırtpa berdińiz — qádemlerińizdi baylanıstıradı, sonda "
+                    "adamlar qayerde toqtaytuǵının kóremiz. Ekinshisi qaysı "
+                    "reklama yamasa siltem sizdi bul jerge alıp kelgenin eske "
+                    "saqlaydı.",
+                    "Olarda atıńız, telefonıńız yamasa pochtańız joq, olardı "
+                    "bettiń ózi oqıy almaydı hám biz úshinshi tárep "
+                    "analitikasınan hám reklama gúzetiwshilerinen ulıwma "
+                    "paydalanbaymız. Qálegen waqıtta brauzerde óshiriń — sayt "
+                    "islewin dawam etedi.",
                 ]),
                 ("Kim menen baylanısıw", [
                     "RS Pixel, Tashkent, Ózbekstan. Telefon hám Telegram "
@@ -724,6 +788,8 @@ def render(lang: str, slug: str) -> str:
   </div>
   <div class="wrap f-bottom">{c["bottom"]}</div>
 </footer>
+
+<script src="{root}assets/funnel.js"></script>
 
 </body>
 </html>

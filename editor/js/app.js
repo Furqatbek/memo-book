@@ -2,7 +2,7 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260826';
+import * as api from './api.js?v=20260925i';
 import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925h';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
@@ -3792,6 +3792,14 @@ function bind() {
   $('pv-checkout').addEventListener('click', () => {
     renderCheckoutSummary();
     showScreen('checkout');
+    // No server call happens here otherwise — moving to checkout is a
+    // screen swap — so this step would be invisible in the funnel, and it
+    // is the one where the drop-off is most worth knowing about.
+    if (S.creds) {
+      api.recordEvent('checkout_opened', {
+        book_id: S.creds.book_id, edit_token: S.creds.edit_token,
+      });
+    }
   });
 
   $('co-back').addEventListener('click', () => openPreview());
@@ -3842,6 +3850,12 @@ function bind() {
 
 async function init() {
   initLang();
+  /* The editor is open (Change 3). `?r=3` marks a link that came out of a
+     day-3 reminder, so a reminder that gets clicked can be told from one
+     that merely got sent — the whole reason both events exist. */
+  api.recordEvent('editor_opened');
+  const fromReminder = Number(new URLSearchParams(location.search).get('r'));
+  if (fromReminder > 0) api.recordEvent('reminder_clicked', { day: fromReminder });
   buildLangSelects();
   applyStatic();
   bind();
