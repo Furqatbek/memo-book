@@ -350,6 +350,51 @@ def check_order_claim() -> Finding:
             "the only place a customer can learn it")
 
 
+# "We deliver anywhere in Uzbekistan", per language (P1-6).
+#
+# The coverage question is the one a buyer outside Tashkent asks first, and
+# an unanswered one is a closed tab — there is nobody to ask at 11pm. It
+# has to be in the FAQ, where somebody looking for it will look, AND in the
+# footer, where somebody who never thought to ask still passes it.
+#
+# It matters most on the Karakalpak page, whose readers are furthest from
+# the print shop and likeliest to assume the answer is no.
+DELIVERY_CLAIM = {
+    "index.html": r"deliver anywhere in Uzbekistan",
+    "ru/index.html": r"любую точку Узбекистана",
+    "uz/index.html": r"istalgan nuqtasiga yetkazib",
+    "uz-cyrl/index.html": r"исталган нуқтасига етказиб",
+    "kaa/index.html": r"qálegen jerine jetkerip",
+}
+
+
+def check_delivery_claim() -> Finding:
+    """Stated in both places, on all five pages."""
+    silent: dict[str, str] = {}
+    for page, claim in DELIVERY_CLAIM.items():
+        path = REPO / page
+        if not path.exists():
+            continue
+        head, sep, foot = path.read_text(encoding="utf-8").partition("<footer")
+        missing = []
+        # In an FAQ answer, not merely somewhere above the footer.
+        if not any(re.search(claim, d, re.IGNORECASE) for d in
+                   re.findall(r"<details>(.*?)</details>", head, re.S)):
+            missing.append("not in the FAQ")
+        if not (sep and re.search(claim, foot, re.IGNORECASE)):
+            missing.append("not in the footer")
+        if missing:
+            silent[page] = " and ".join(missing)
+    return Finding(
+        ok=not silent, blocking=False,
+        what="Delivery coverage is stated",
+        detail=("FAQ and footer, all five languages" if not silent else
+                "; ".join(f"{p}: {why}" for p, why in silent.items())),
+        fix="say that we deliver anywhere in Uzbekistan — a buyer in Nukus "
+            "who cannot find that out closes the tab, and nobody ever hears "
+            "that they tried")
+
+
 # What a link preview needs. Telegram and Instagram render these and
 # nothing else; without them a marketing link is a bare grey rectangle, and
 # the money behind the link is spent either way (P1-4).
@@ -407,7 +452,7 @@ def main() -> int:
         check_prices(env), check_spines(env), check_admin_token(env),
         check_telegram(env), check_pay_card(env), check_site_contacts(),
         check_unshipped_claims(), check_review_honesty(),
-        check_link_previews(), check_order_claim(),
+        check_link_previews(), check_order_claim(), check_delivery_claim(),
         check_env_is_production(env), check_backups(env), check_test_book(),
     ]
 

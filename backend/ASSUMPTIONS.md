@@ -2550,3 +2550,43 @@ That last one is checked twice on purpose. A fresh visit agreeing proves
 only that `setLang` wrote to localStorage; the same-session Back is what
 covers the mirroring. Removing the one line that mirrors them was
 confirmed to turn that assertion red, and only that one.
+
+**P1-6 — delivery coverage is stated.** We deliver anywhere in Uzbekistan
+and the site never said so. "Do you even reach me?" is the first question
+a buyer in Namangan or Nukus asks, and at 11pm there is nobody to ask it
+to; an unanswered one is a closed tab, and nobody ever hears that they
+tried. It is the cheapest sentence on the page to have missing.
+
+It is now in two places on all five pages, because they serve different
+people: the **FAQ**, where somebody looking for it goes to look, and the
+**footer**, where somebody who never thought to ask still passes it. The
+FAQ entry sits immediately before "how long until it arrives" — coverage
+is the question that comes first, and an arrival time is meaningless to
+someone who does not yet believe we ship to them at all.
+
+**The Karakalpak page names Qaraqalpaqstan explicitly,** and so does the
+English one. Its readers are furthest from the print shop and likeliest
+to assume the answer is no, which is why the brief singled it out; a
+general "anywhere in Uzbekistan" is weaker there than being named.
+
+**The claim was checked against the order form before it was made.**
+Checkout takes a free-text address — a 500-character textarea, no region
+dropdown, no Tashkent-only restriction — so there is nothing in the
+system that would stop a Nukus order. Had the form constrained the
+region, the honest fix would have been the form, not the copy.
+
+**`check_delivery_claim` asserts the two places separately**, not that
+the words appear on the page. The footer is the half likelier to be
+forgotten: it is the same line in five files and nobody reads it on
+purpose.
+
+**`checks/delivery.js` expands the entry before reading the answer.** A
+`<details>` that opens onto an empty paragraph reads as an answer in the
+source and as silence on the page, and no source-level check can tell the
+difference — confirmed by emptying it in flight and watching only that
+assertion go red. It runs at 390px, because that is what this is read on.
+
+**Not done, and deliberate:** the editor's checkout screen still says
+nothing about coverage, and it is the moment the doubt actually bites —
+the customer is typing an address in Nukus and wondering. The brief asked
+for the FAQ and the footer; this would be the next place worth a line.

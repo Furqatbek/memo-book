@@ -69,6 +69,10 @@ const NEEDS = {
   resumebanner: 'the dev server serving the site at `/`, which it now does '
     + 'by default — the front page reads the editor\'s localStorage, so the '
     + 'two have to be one origin (A105)',
+  delivery: 'the dev server serving the site at `/` — it opens the delivery '
+    + 'FAQ entry on all five pages and reads the answer after expanding it, '
+    + 'because a <details> that opens onto nothing looks fine in the source '
+    + '(P1-6)',
   editorlang: 'nothing — it switches language three uploads into a book and '
     + 'checks the book survives it, which is why the control was worth '
     + 'adding to the editor bar rather than leaving on the start screen',

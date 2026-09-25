@@ -12,6 +12,8 @@ that runs nightly and stores nothing. So each check is exercised in both
 directions: it must fire on the placeholder, and it must go quiet on a real
 value.
 """
+import re
+
 import pytest
 
 from scripts import launch_check as lc
@@ -442,6 +444,82 @@ class TestOrderClaim:
         self._tree(tmp_path, monkeypatch, dict(self.OLD))
         finding = lc.check_order_claim()
         assert not finding.ok and not finding.blocking
+
+
+class TestDeliveryClaim:
+    """P1-6: a buyer outside Tashkent asks "do you even reach me?" first.
+
+    It has to be in the FAQ, where somebody looking for it looks, AND in
+    the footer, where somebody who never thought to ask still passes it —
+    so each place is checked separately rather than "appears on the page".
+    """
+
+    def _tree(self, tmp_path, monkeypatch, edits: dict[str, callable]):
+        for page in lc.DELIVERY_CLAIM:
+            dest = tmp_path / page
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            text = (lc.REPO / page).read_text(encoding="utf-8")
+            if page in edits:
+                text = edits[page](text)
+            dest.write_text(text, encoding="utf-8")
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+
+    @staticmethod
+    def _drop_faq(text):
+        """Remove the whole <details> block that carries the claim."""
+        head, sep, foot = text.partition("<footer")
+        for block in re.findall(r"      <details>.*?</details>\n", head, re.S):
+            if re.search(r"deliver anywhere|любую точку|istalgan nuqtasiga"
+                         r"|исталган нуқтасига|qálegen jerine", block, re.I):
+                head = head.replace(block, "", 1)
+                break
+        return head + sep + foot
+
+    @staticmethod
+    def _drop_footer(text):
+        head, sep, foot = text.partition("<footer")
+        foot = re.sub(r"\n\s*<p>[^<]*(?:deliver anywhere in Uzbekistan"
+                      r"|любую точку Узбекистана|istalgan nuqtasiga yetkazib"
+                      r"|исталган нуқтасига етказиб|qálegen jerine jetkerip)"
+                      r"[^<]*</p>", "", foot, count=1, flags=re.I)
+        return head + sep + foot
+
+    def test_the_real_pages_say_it_in_both_places(self):
+        assert lc.check_delivery_claim().ok
+
+    @pytest.mark.parametrize("page", list(lc.DELIVERY_CLAIM))
+    def test_a_missing_faq_entry_fires(self, tmp_path, monkeypatch, page):
+        self._tree(tmp_path, monkeypatch, {page: self._drop_faq})
+        finding = lc.check_delivery_claim()
+        assert not finding.ok
+        assert page in finding.detail and "not in the FAQ" in finding.detail
+
+    @pytest.mark.parametrize("page", list(lc.DELIVERY_CLAIM))
+    def test_a_missing_footer_line_fires(self, tmp_path, monkeypatch, page):
+        """The footer is the half most likely to be forgotten — it is the
+        same five lines in five files and no one reads it on purpose."""
+        self._tree(tmp_path, monkeypatch, {page: self._drop_footer})
+        finding = lc.check_delivery_claim()
+        assert not finding.ok
+        assert page in finding.detail and "not in the footer" in finding.detail
+
+    def test_it_names_both_when_a_page_says_it_nowhere(self, tmp_path, monkeypatch):
+        self._tree(tmp_path, monkeypatch, {
+            "kaa/index.html": lambda t: self._drop_footer(self._drop_faq(t))})
+        detail = lc.check_delivery_claim().detail
+        assert "not in the FAQ and not in the footer" in detail
+
+    def test_the_karakalpak_page_is_covered(self, tmp_path, monkeypatch):
+        """The brief singled it out: its readers are furthest from the print
+        shop and likeliest to assume the answer is no."""
+        assert "kaa/index.html" in lc.DELIVERY_CLAIM
+        self._tree(tmp_path, monkeypatch, {"kaa/index.html": self._drop_faq})
+        assert not lc.check_delivery_claim().ok
+
+    def test_it_warns_rather_than_blocks(self, tmp_path, monkeypatch):
+        self._tree(tmp_path, monkeypatch,
+                   {p: self._drop_faq for p in lc.DELIVERY_CLAIM})
+        assert not lc.check_delivery_claim().blocking
 
 
 class TestTheReportItself:
