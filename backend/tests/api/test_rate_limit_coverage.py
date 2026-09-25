@@ -71,6 +71,11 @@ EXEMPT = {
     "POST /api/v1/books/{book_id}/preview": "edit token",
     "GET /api/v1/books/{book_id}/preview": "edit token",
     "POST /api/v1/books/{book_id}/checkout": "edit token",
+    # Also the edit token — and worth saying why minting a secret here is
+    # not a volume problem: the token is REUSED until it expires, so
+    # calling this in a loop returns the same string rather than leaving a
+    # trail of live secrets behind (Change 2).
+    "GET /api/v1/books/{book_id}/telegram-link": "edit token",
     # The same public shop window for everybody; nothing to guess at.
     "GET /api/v1/prices": "public, identical for everyone",
     "GET /api/v1/cover-designs": "public, identical for everyone",
