@@ -2660,3 +2660,55 @@ if you order later, because a deadline with no consequence attached reads
 as a suggestion; a test asserts both, and asserts the family page carries
 no seasonal date at all, since it runs all year and a December date on it
 would go stale in January with nobody noticing.
+
+**P2-3 — page weight, and a premise that did not hold.** The brief asked
+for WebP with fallbacks, lazy-loading below the fold and hard-compressed
+hero imagery, on the grounds that a photography site is image-heavy.
+Measured first, and it is not: **this site ships no raster images at
+all.** Every illustration on every page is inline SVG, the type is a
+system stack with no web font, and there is not one `<img>` element in the
+markup. There was nothing to convert to WebP and nothing below the fold to
+defer.
+
+What the site actually costs, gzipped as production serves it: the
+heaviest page (Russian home) is 8.6 KB of HTML, 4.7 KB of CSS and 5.5 KB
+of JavaScript — **about 19 KB fully loaded**. The campaign landing pages
+are roughly 9 KB. First contentful paint on a throttled slow-4G cell,
+measured against the dev server which does *not* compress, is far inside
+the three-second target.
+
+**`assets/og.png` is 230 KB and is deliberately left alone.** It is
+fetched by Telegram's and Instagram's preview crawlers and never by the
+page, and several preview fetchers do not render WebP — "optimising" it
+would cost the link previews P1-4 exists to produce, to save bytes no
+visitor ever downloads. This is the one place where doing what the brief
+literally asked for would have made the product worse.
+
+**So the work was a budget rather than a clean-up.** `check_page_weight`
+holds every page, with every local asset it pulls in, under 120 KB
+uncompressed (the heaviest is currently 63 KB) and any single raster file
+under 200 KB. It counts raw bytes rather than gzipped on purpose: Caddy
+compresses in production, so the number is the pessimistic one, and a
+budget that cannot be met by reaching for a better compressor is the one
+worth having. Written now, while nothing is slow, because the first real
+photograph — a printed book for the OG card, a customer's review portrait
+— is exactly what turns a 19 KB page into a 2 MB one, and a budget
+written after that is a post-mortem.
+
+**`check_image_discipline` found a real defect on its first run.**
+`assets/reviews.js` — the one place an `<img>` actually arrives — set
+`loading="lazy"` but no dimensions, so every published review portrait
+would have shifted the quote under the reader's thumb as it landed. It now
+sets `decoding="async"` and an explicit 44x44, the size the stylesheet
+draws it, as attributes rather than CSS alone: the browser needs the ratio
+*before* it has the file. That bug would only have appeared the day real
+reviews were published, long after the code was written.
+
+**A measurement that lies is worse than none.** The first version of the
+timing harness read `first-contentful-paint` immediately and counted
+response bodies in an async handler; it reported `null` paints and gave
+the same page two different byte counts. `checks/pageweight.js` waits for
+the paint entry through a `PerformanceObserver` and takes bytes from CDP
+`loadingFinished`, and it treats a missing FCP as a failure rather than a
+pass — a performance check that goes green on a blank page is worse than
+not measuring.

@@ -415,6 +415,111 @@ def check_delivery_claim() -> Finding:
             "that they tried")
 
 
+# P2-3. The audience is on mobile data, and every second of load is paid
+# traffic bought and lost. Today the site carries NO raster images at all —
+# every illustration is inline SVG and the type is a system stack — so the
+# whole site is around 19 KB gzipped and first paint lands well inside the
+# three-second target with room to spare.
+#
+# That is exactly why this check exists now rather than later. Nothing is
+# slow yet; the budget is here so that the first real photograph — a
+# printed book for the OG card, a customer's review portrait — cannot
+# quietly turn a 19 KB page into a 2 MB one. A budget written after the
+# regression is a post-mortem.
+#
+# Raw bytes, not gzipped: Caddy compresses in production, so every number
+# here is the pessimistic case, and a budget you cannot game by reaching
+# for a better compressor is the one worth having.
+PAGE_BUDGET_KB = 120          # html + every local asset it pulls in
+IMAGE_BUDGET_KB = 200         # any single raster file a PAGE loads
+LOCAL_REF = re.compile(r'(?:src|href)="(?!https?:|//|#|data:|mailto:|tel:)([^"]+)"')
+RASTER = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif")
+
+
+def _page_assets(page: str) -> list[Path]:
+    """Local files a page pulls in. Not a browser, so it sees what the
+    markup asks for, which is the thing a budget can be held to."""
+    path = REPO / page
+    base = path.parent
+    out = []
+    for ref in LOCAL_REF.findall(path.read_text(encoding="utf-8")):
+        ref = ref.split("?")[0].split("#")[0]
+        if not ref or ref.endswith("/"):
+            continue          # a link to another page, not an asset
+        target = (base / ref).resolve()
+        if target.is_file() and target.suffix in (
+                ".css", ".js", ".mjs", ".svg", *RASTER):
+            out.append(target)
+    return out
+
+
+def check_page_weight() -> Finding:
+    """Every page, with everything it loads, inside the budget."""
+    heavy: dict[str, str] = {}
+    worst = ("", 0)
+    for page in SITE_PAGES:
+        if not (REPO / page).exists():
+            continue
+        assets = _page_assets(page)
+        total = (REPO / page).stat().st_size + sum(a.stat().st_size for a in assets)
+        if total > worst[1]:
+            worst = (page, total)
+        if total > PAGE_BUDGET_KB * 1024:
+            heavy[page] = f"{total // 1024} KB over the wire uncompressed"
+        for a in assets:
+            if a.suffix in RASTER and a.stat().st_size > IMAGE_BUDGET_KB * 1024:
+                heavy[page] = (f"{a.name} is {a.stat().st_size // 1024} KB")
+    return Finding(
+        ok=not heavy, blocking=False,
+        what="Page weight within budget",
+        detail=(f"heaviest is {worst[0] or 'n/a'} at {worst[1] // 1024} KB "
+                f"of {PAGE_BUDGET_KB} KB, uncompressed" if not heavy else
+                "; ".join(f"{p}: {why}" for p, why in heavy.items())),
+        fix=f"keep a page under {PAGE_BUDGET_KB} KB and any single image "
+            f"under {IMAGE_BUDGET_KB} KB — the audience is on mobile data, "
+            "and a slow page is paid traffic bought and thrown away")
+
+
+# Any <img> the site ships has to carry these. `loading` keeps a photo
+# below the fold off the critical path; `width`/`height` reserve its box so
+# the text does not jump under a reader's thumb as it arrives. There are no
+# raster images on the site today, so this is the rule waiting for the
+# first one rather than a cleanup of existing ones.
+IMG_TAG = re.compile(r"<img\b[^>]*>", re.I)
+
+
+def check_image_discipline() -> Finding:
+    """Every <img>, in markup or in the scripts that build one."""
+    bad: dict[str, str] = {}
+    for page in SITE_PAGES:
+        if not (REPO / page).exists():
+            continue
+        for tag in IMG_TAG.findall((REPO / page).read_text(encoding="utf-8")):
+            missing = [a for a in ("loading=", "width=", "height=")
+                       if a not in tag.lower()]
+            if missing:
+                bad[page] = "an <img> without " + ", ".join(missing)
+    # The one place images actually arrive: a published review's portrait.
+    reviews = REPO / "assets" / "reviews.js"
+    if reviews.exists():
+        text = reviews.read_text(encoding="utf-8")
+        absent = [why for attr, why in (("loading", "lazy loading"),
+                                        ("width", "a reserved width"),
+                                        ("height", "a reserved height"))
+                  if f".{attr}" not in text and f"'{attr}'" not in text]
+        if absent:
+            bad["assets/reviews.js"] = "review photos get no " + ", ".join(absent)
+    return Finding(
+        ok=not bad, blocking=False,
+        what="Images are cheap to load",
+        detail=("nothing loads a raster image yet, and the rule is in place"
+                if not bad else
+                "; ".join(f"{p}: {why}" for p, why in bad.items())),
+        fix="give every <img> loading=lazy and an explicit width and height "
+            "— without the dimensions the text jumps under the reader's "
+            "thumb as each photo lands")
+
+
 # What a link preview needs. Telegram and Instagram render these and
 # nothing else; without them a marketing link is a bare grey rectangle, and
 # the money behind the link is spent either way (P1-4).
@@ -473,6 +578,7 @@ def main() -> int:
         check_telegram(env), check_pay_card(env), check_site_contacts(),
         check_unshipped_claims(), check_review_honesty(),
         check_link_previews(), check_order_claim(), check_delivery_claim(),
+        check_page_weight(), check_image_discipline(),
         check_env_is_production(env), check_backups(env), check_test_book(),
     ]
 

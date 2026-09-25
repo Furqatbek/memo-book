@@ -69,6 +69,9 @@ const NEEDS = {
   resumebanner: 'the dev server serving the site at `/`, which it now does '
     + 'by default — the front page reads the editor\'s localStorage, so the '
     + 'two have to be one origin (A105)',
+  pageweight: 'the dev server serving the site at `/`, which does NOT gzip '
+    + 'where production Caddy does — so it throttles to a slow 4G cell and '
+    + 'measures the pessimistic case (P2-3)',
   landings: 'the dev server serving the site at `/` — it opens all ten '
     + 'campaign landing pages, checks /new-year resolves without its '
     + 'trailing slash (the form that goes in an ad), and that switching '

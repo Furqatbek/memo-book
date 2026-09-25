@@ -551,6 +551,113 @@ class TestDeliveryClaim:
         assert not finding.ok and not finding.blocking
 
 
+class TestPageWeight:
+    """P2-3: the audience is on mobile data.
+
+    Nothing is slow today — the site carries no raster images at all and
+    comes to about 19 KB gzipped — which is the point of writing the budget
+    now. It is here so the first real photograph cannot quietly turn a 19 KB
+    page into a 2 MB one. A budget written after the regression is a
+    post-mortem.
+    """
+
+    def _site(self, tmp_path, monkeypatch, extra=b"", ref=""):
+        page = tmp_path / "index.html"
+        page.write_text(f'<link href="assets/style.css" rel="stylesheet">{ref}',
+                        encoding="utf-8")
+        (tmp_path / "assets").mkdir()
+        (tmp_path / "assets" / "style.css").write_bytes(b"body{}" + extra)
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+        monkeypatch.setattr(lc, "SITE_PAGES", ["index.html"])
+
+    def test_the_real_site_is_inside_the_budget(self):
+        finding = lc.check_page_weight()
+        assert finding.ok, finding.detail
+
+    def test_the_real_site_is_nowhere_near_the_budget(self):
+        """If this ever gets close, the number in the detail line is the
+        early warning — it names the heaviest page and its size."""
+        assert "of 120 KB" in lc.check_page_weight().detail
+
+    def test_a_fat_asset_fires(self, tmp_path, monkeypatch):
+        self._site(tmp_path, monkeypatch, extra=b"x" * (130 * 1024))
+        finding = lc.check_page_weight()
+        assert not finding.ok
+        assert "index.html" in finding.detail
+
+    def test_one_oversized_photo_fires_even_inside_the_page_budget(
+            self, tmp_path, monkeypatch):
+        """A single heavy image is worth naming on its own: the page total
+        can still look fine while one photo does all the damage."""
+        self._site(tmp_path, monkeypatch, ref='<img src="assets/hero.jpg">')
+        (tmp_path / "assets" / "hero.jpg").write_bytes(b"x" * (210 * 1024))
+        finding = lc.check_page_weight()
+        assert not finding.ok
+        assert "hero.jpg" in finding.detail
+
+    def test_it_ignores_links_to_other_pages(self, tmp_path, monkeypatch):
+        """`href="../ru/new-year/"` is a page, not an asset — counting those
+        would make the budget meaningless."""
+        self._site(tmp_path, monkeypatch, ref='<a href="../ru/new-year/">ru</a>')
+        assert lc.check_page_weight().ok
+
+    def test_it_warns_rather_than_blocks(self, tmp_path, monkeypatch):
+        self._site(tmp_path, monkeypatch, extra=b"x" * (130 * 1024))
+        assert not lc.check_page_weight().blocking
+
+
+class TestImageDiscipline:
+    """The rule waiting for the first photograph, not a cleanup of existing
+    ones: there are no raster images on the site yet."""
+
+    def test_the_real_site_passes(self):
+        finding = lc.check_image_discipline()
+        assert finding.ok, finding.detail
+
+    @pytest.mark.parametrize("tag,missing", [
+        ('<img src="a.jpg">', "loading="),
+        ('<img src="a.jpg" loading="lazy">', "width="),
+        ('<img src="a.jpg" loading="lazy" width="44">', "height="),
+    ])
+    def test_an_img_missing_an_attribute_fires(self, tmp_path, monkeypatch,
+                                               tag, missing):
+        (tmp_path / "index.html").write_text(tag, encoding="utf-8")
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+        monkeypatch.setattr(lc, "SITE_PAGES", ["index.html"])
+        finding = lc.check_image_discipline()
+        assert not finding.ok
+        assert missing in finding.detail
+
+    def test_a_complete_img_passes(self, tmp_path, monkeypatch):
+        (tmp_path / "index.html").write_text(
+            '<img src="a.jpg" loading="lazy" width="44" height="44">',
+            encoding="utf-8")
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+        monkeypatch.setattr(lc, "SITE_PAGES", ["index.html"])
+        assert lc.check_image_discipline().ok
+
+    def test_review_photos_reserve_their_box(self):
+        """The one place an <img> actually arrives. Without width and height
+        the quote jumps under the reader's thumb as each portrait lands, and
+        it only shows up once real reviews are published — long after the
+        code was written."""
+        js = (lc.REPO / "assets" / "reviews.js").read_text(encoding="utf-8")
+        for attr in ("loading", "decoding", "width", "height"):
+            assert f".{attr}" in js, attr
+
+    def test_it_notices_if_review_photos_lose_their_dimensions(
+            self, tmp_path, monkeypatch):
+        (tmp_path / "index.html").write_text("<p>no images</p>", encoding="utf-8")
+        (tmp_path / "assets").mkdir()
+        (tmp_path / "assets" / "reviews.js").write_text(
+            "img.loading = 'lazy';", encoding="utf-8")
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+        monkeypatch.setattr(lc, "SITE_PAGES", ["index.html"])
+        finding = lc.check_image_discipline()
+        assert not finding.ok
+        assert "reviews.js" in finding.detail
+
+
 class TestTheReportItself:
     def test_it_exits_non_zero_while_anything_blocks(self, capsys):
         assert lc.main() == 1

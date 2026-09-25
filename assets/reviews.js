@@ -74,6 +74,15 @@
     img.src = base + r.photo;
     img.alt = '';                       // the name is right next to it
     img.loading = 'lazy';
+    /* The audience is on mobile data (P2-3). `lazy` keeps a portrait below
+       the fold off the critical path, `async` keeps decoding off the main
+       thread, and the explicit 44x44 — the size the stylesheet draws it —
+       reserves the box so the quote does not jump under a reader's thumb
+       as each photo lands. Attributes rather than CSS alone, because the
+       browser needs the ratio BEFORE it has the file. */
+    img.decoding = 'async';
+    img.width = 44;
+    img.height = 44;
     // A missing photo drops the portrait rather than showing a broken icon
     // (A99's lesson, one level down).
     img.addEventListener('error', function () { img.remove(); });
