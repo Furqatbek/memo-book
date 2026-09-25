@@ -3807,6 +3807,11 @@ async function init() {
   const order = load('mb-order');
   if (order) S.order = order;
   enterStart();
+  /* `#order` opens the order screen directly. The front page offers to
+     track an order (A105), and without this that offer landed on the start
+     screen where the customer had to find "View order" and press it again —
+     two clicks for one intention, the second of them a search. */
+  if (location.hash === '#order' && order) showOrder();
 }
 
 init();

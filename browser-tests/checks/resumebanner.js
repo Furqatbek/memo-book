@@ -31,13 +31,21 @@ function check(what, ok, detail) {
   if (!ok) failed++;
 }
 
-/* Only what is actually ON SCREEN. The banner's markup is in the page
-   whether or not it is shown, so reading `.resume-row` unconditionally
-   returns its text even while it is hidden — which would let every
-   assertion about the wording pass against a banner nobody can see. */
-const bannerText = (page) => page.$eval('#resume-banner',
-  (el) => (el.hidden ? '' : el.textContent.replace(/\s+/g, ' ').trim()))
-  .catch(() => '');
+/* Only what is actually ON SCREEN, row by row. The banner's markup is in
+   the page whether or not it is shown, so reading it unconditionally
+   returns text nobody can see — which would let every assertion about the
+   wording pass against a hidden banner. Reading the CONTAINER is not enough
+   either, now that it holds two rows with their own `hidden`: a visible
+   book row would drag the hidden order row's words in with it, and an
+   assertion about the wording would be reading half a banner that is not
+   there. */
+const bannerText = (page) => page.$eval('#resume-banner', (el) => {
+  if (el.hidden) return '';
+  return [...el.querySelectorAll('.resume-row')]
+    .filter((row) => !row.hidden)
+    .map((row) => row.textContent.replace(/\s+/g, ' ').trim())
+    .join(' | ');
+}).catch(() => '');
 
 async function makeBook(page, tier) {
   await page.goto(`${BASE}/editor/`);
@@ -120,6 +128,71 @@ async function makeBook(page, tier) {
   await page.waitForTimeout(1200);
   check('an ordered book gets no "continue"', await page.isHidden('#resume-banner'));
   await page.unroute('**/api/v1/books/**');
+
+  console.log('AN ORDER ON ITS WAY IS OFFERED FOR TRACKING');
+  /* Stubbed rather than bought. That a REAL checkout leaves `mb-order` in
+     the shape this reads is the one thing a stub cannot prove, so `e2e`
+     proves it — it pays for a whole order already. What is under test here
+     is the decision: which statuses are worth a banner. */
+  const stubStatus = (status) => page.route('**/api/v1/orders/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json',
+                    body: JSON.stringify({ human_ref: 'UB-TRACK', status }) }));
+  const putOrder = () => page.evaluate(() => {
+    localStorage.setItem('mb-order', JSON.stringify(
+      { ref: 'UB-TRACK', phone: '+998 90 123-45-67', status: 'pending_payment' }));
+    sessionStorage.clear();
+  });
+
+  await page.goto(`${BASE}/`);
+  await page.evaluate(() => localStorage.clear());
+  await stubStatus('sent_to_production');
+  await putOrder();
+  await page.reload();
+  const orderShown = await page.waitForSelector('#order-row:not([hidden])', { timeout: 15000 })
+    .then(() => true).catch(() => false);
+  check('an order in flight gets a banner', orderShown);
+  const orderText = await page.$eval('#order-row',
+    (el) => (el.hidden ? '' : el.textContent.replace(/\s+/g, ' ').trim())).catch(() => '');
+  check('and it names the order', orderText.includes('UB-TRACK'),
+    JSON.stringify(orderText));
+  check('and points at the order screen',
+    (await page.$eval('#order-link', (el) => el.getAttribute('href'))) === 'editor/#order');
+  await page.screenshot({ path: `${SHOTS}/105-order-banner.png`,
+                          clip: { x: 0, y: 0, width: 1280, height: 200 } });
+
+  console.log('AND A FINISHED ONE IS NOT');
+  // A banner that goes on asking after the book has arrived is a nag.
+  for (const done of ['delivered', 'cancelled', 'refunded']) {
+    await page.unroute('**/api/v1/orders/**');
+    await stubStatus(done);
+    await putOrder();
+    await page.reload();
+    await page.waitForTimeout(900);
+    check(`${done}: no banner`, await page.isHidden('#order-row'));
+  }
+
+  console.log('AND THE STATUS IS ASKED FOR ONCE A SESSION, NOT ONCE A PAGE');
+  // The endpoint takes the customer's phone in the query string, so every
+  // extra call writes their number into an access log again.
+  await page.unroute('**/api/v1/orders/**');
+  let asks = 0;
+  await page.route('**/api/v1/orders/**', (route) => {
+    asks += 1;
+    return route.fulfill({ status: 200, contentType: 'application/json',
+                           body: JSON.stringify({ human_ref: 'UB-TRACK', status: 'shipped' }) });
+  });
+  await putOrder();
+  await page.reload();
+  await page.waitForSelector('#order-row:not([hidden])', { timeout: 15000 });
+  await page.reload();
+  await page.waitForSelector('#order-row:not([hidden])', { timeout: 15000 });
+  await page.reload();
+  await page.waitForTimeout(900);
+  check('three page loads, one request', asks === 1, `${asks} requests`);
+  check('and the banner still shows from what was cached',
+    await page.isVisible('#order-row'));
+  await page.unroute('**/api/v1/orders/**');
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
 
   console.log('AND IT WORKS ON A LANGUAGE PAGE, ONE LEVEL DOWN');
   await page.goto(`${BASE}/editor/`);

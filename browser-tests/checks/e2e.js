@@ -117,6 +117,19 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   if (head !== '%PDF-') throw new Error('interior link did not serve a PDF');
   await page.screenshot({ path: SHOT('10-order-paid.png') });
 
+  // 8b. The FRONT PAGE offers to track it (A105). This is the seam the
+  //     stubbed cases in `resumebanner.js` cannot reach: that a real
+  //     checkout leaves `mb-order` in the shape the site's script reads.
+  await page.goto('http://127.0.0.1:8000/');
+  await page.waitForSelector('#order-row:not([hidden])', { timeout: 15000 });
+  const banner = (await page.textContent('#order-row')).replace(/\s+/g, ' ').trim();
+  console.log('front page order banner:', JSON.stringify(banner));
+  if (!banner.includes(ref)) throw new Error('the banner does not name the order');
+  // And the button lands on the order screen itself, not the start screen.
+  await page.click('#order-link');
+  await page.waitForSelector('#screen-order.active', { timeout: 20000 });
+  console.log('tracking button opened the order screen: true');
+
   // 9. Reload -> resume flow shows the stored book/locked state
   await page.goto(BASE);
   await page.waitForSelector('#resume-card:not(.hidden)', { timeout: 10000 });

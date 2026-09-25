@@ -2127,3 +2127,52 @@ server now serves the site at `/` as production does.
 and the page counts are 32, 64, 96 and 192 — so that wording is right for
 96 and wrong for the other three. Both it and the new banner use "стр.",
 which does not decline and is what a Russian book's own front matter uses.
+
+**A105, continued — and the order you already placed.** The same question
+applied to the other thing we know: a customer with an order in flight was
+also met by "Create your book".
+
+The banner is two rows now, each shown only when it has something true to
+say, and both can be true at once — an order on its way and a new book
+already started.
+
+**The order row does not repeat the status in words.** The order screen
+already says that, in five languages, and a second copy of that vocabulary
+in five static HTML files is two places that have to agree about what
+`sent_to_production` is called. The status is fetched to decide whether
+there is anything left to track; the screen built for it says the rest.
+
+**It is asked for once per session, not once per page load.** The status
+endpoint takes the customer's phone in the query string — the same reason
+A100 put the receipt's phone in a form body instead — and a phone number
+written into the access log on every visit to the front page is a real cost
+for an answer that changes a few times a week. One request per session,
+cached in `mb-order`, and the banner renders from that on later page loads.
+
+**A finished order gets no banner.** `delivered`, `cancelled` and
+`refunded` end it. A banner that goes on asking after the book has arrived
+is a nag, not a service — and without the fetch there would be no way to
+know the difference.
+
+**A 404 here deletes nothing**, unlike the book row above it. The status
+endpoint answers 404 for a wrong phone exactly as it does for an unknown
+reference (A77), so a 404 is not proof the order is gone — and the
+reference is the customer's only handle on money they have already paid. A
+book that expired is genuinely gone; an order is a record.
+
+`#order` now opens the order screen directly, because without it the
+front-page offer to track an order landed on the start screen, where the
+customer had to find "View order" and press it again — two clicks for one
+intention, the second of them a search.
+
+**What the stub cannot prove, `e2e` does.** `resumebanner.js` fakes the
+status to test which ones are worth a banner; that a REAL checkout leaves
+`mb-order` in the shape the site's script reads is a seam a stub cannot
+reach, so the assertion lives in `e2e`, which buys a whole order anyway.
+
+**And the check caught itself twice.** `bannerText` read the banner's text
+whether or not it was on screen, which would have let every assertion about
+the wording pass against a banner nobody could see. Fixed once — and then
+the second row reintroduced it in a subtler form, because reading the
+CONTAINER dragged the hidden row's words in with the visible one. It now
+reads row by row, skipping the hidden ones.

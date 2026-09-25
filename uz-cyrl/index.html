@@ -18,10 +18,20 @@
 </head>
 <body>
 
-<!-- Shown by assets/resume.js only when this browser holds a book that is
-     still editable, and only after the server has confirmed it (A105). -->
-<div id="resume-banner" class="resume-banner" role="region" aria-label="Сизда тугалланмаган китоб бор" hidden>
-  <div class="wrap resume-row">
+<!-- Two rows, each shown by assets/resume.js only when it has something
+     true to say: an order still on its way, and a book still editable. Both
+     are confirmed with the server first, and both stay hidden otherwise —
+     so a first-time visitor, and a browser with no JavaScript, see exactly
+     the page that was here before (A105). -->
+<div id="resume-banner" class="resume-banner" role="region" aria-label="Сиз тўхтаган жой" hidden>
+  <div id="order-row" class="wrap resume-row" hidden>
+    <p class="resume-text">
+      <b>Буюртмангиз бизда.</b>
+      <span class="resume-info">Буюртма <code id="order-ref"></code></span>
+    </p>
+    <a id="order-link" class="btn btn-primary btn-small" href="../editor/#order">Буюртмани кўриш</a>
+  </div>
+  <div id="resume-row" class="wrap resume-row" hidden>
     <p class="resume-text">
       <b>Китобингиз шу ерда.</b>
       <span id="resume-info" class="resume-info" data-info="{pages} саҳифали китоб, шу браузерда сақланган."></span>

@@ -100,7 +100,16 @@ a { color: var(--primary); }
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap;
 }
+/* Both rows can be true at once — an order on its way and a new book
+   already started. Rare, and when it happens both are worth saying, so
+   they stack with a hairline between them rather than competing. */
+.resume-row + .resume-row { border-top: 1px solid #d8e0f5; }
+.resume-row[hidden] { display: none; }
 .resume-text { font-size: 0.95rem; line-height: 1.45; }
+.resume-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em; color: var(--ink);
+}
 .resume-text b { color: var(--ink); }
 .resume-info { color: var(--muted); }
 .resume-info:not(:empty)::before { content: " "; }
