@@ -374,6 +374,76 @@ class TestLinkPreviews:
         assert not lc.check_link_previews().blocking
 
 
+class TestOrderClaim:
+    """P1-5: the card that sells auto-layout has to say what it does.
+
+    Auto-layout does not merely fill pages — anything fills pages. It sorts
+    by EXIF `taken_at` (R2) and rebuilds the trip in the order it happened.
+    These tests are about the five-way copy, not the rule; the rule is
+    covered by tests/domain/test_ordering.py and
+    tests/api/test_placement.py::test_chronological_order_full_bleed.
+    """
+
+    # The card as it read before P1-5: names the feature, claims nothing.
+    OLD = {
+        "index.html": "<h3>Auto-placement</h3>\n<p>One click fills your pages.</p>",
+        "ru/index.html": "<h3>Автозаполнение</h3>\n<p>Фото расставлены по страницам.</p>",
+        "uz/index.html": "<h3>Avtomatik joylashtirish</h3>\n<p>Suratlar sahifalarga joylashadi.</p>",
+        "uz-cyrl/index.html": "<h3>Автоматик жойлаштириш</h3>\n<p>Суратлар саҳифаларга жойлашади.</p>",
+        "kaa/index.html": "<h3>Avtomatikalıq jaylastırıw</h3>\n<p>Súwretler betlerge jaylasadı.</p>",
+    }
+
+    def _tree(self, tmp_path, monkeypatch, overrides: dict[str, str]):
+        """A copy of the real five pages, with some cards swapped out."""
+        for page in lc.ORDER_CLAIM:
+            dest = tmp_path / page
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(overrides.get(page, (lc.REPO / page).read_text(
+                encoding="utf-8")), encoding="utf-8")
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+
+    def test_the_real_pages_all_make_the_claim(self):
+        assert lc.check_order_claim().ok
+
+    @pytest.mark.parametrize("page", list(OLD))
+    def test_one_language_reverting_is_enough_to_fire(self, tmp_path,
+                                                      monkeypatch, page):
+        """Four correct pages must not hide the fifth. This is the failure
+        this check exists for: the copy is edited in the language the editor
+        reads and drifts silently in the four nobody opened."""
+        self._tree(tmp_path, monkeypatch, {page: self.OLD[page]})
+        finding = lc.check_order_claim()
+        assert not finding.ok
+        assert page in finding.detail
+        assert "chronological" in finding.detail
+
+    def test_it_reports_a_missing_card_separately(self, tmp_path, monkeypatch):
+        self._tree(tmp_path, monkeypatch, {"ru/index.html": "<p>no card</p>"})
+        finding = lc.check_order_claim()
+        assert not finding.ok
+        assert "no auto-layout card" in finding.detail
+
+    def test_renaming_the_card_is_reported_as_the_claim_going_missing(
+            self, tmp_path, monkeypatch):
+        """The English pattern matches the card under its old name too, so
+        a rename reports the real reason rather than 'no card found'."""
+        self._tree(tmp_path, monkeypatch, {"index.html": self.OLD["index.html"]})
+        assert "chronological" in lc.check_order_claim().detail
+
+    def test_the_claim_may_live_in_the_heading_alone(self, tmp_path, monkeypatch):
+        """Heading or body — the claim has to be made, not made twice."""
+        self._tree(tmp_path, monkeypatch, {
+            "uz/index.html": "<h3>Tartib bilan avtomatik joylashtirish</h3>"
+                             "\n<p>Bir bosishda joylashadi.</p>"})
+        assert lc.check_order_claim().ok
+
+    def test_it_warns_rather_than_blocks(self, tmp_path, monkeypatch):
+        """Under-selling a real feature costs sales, not customers."""
+        self._tree(tmp_path, monkeypatch, dict(self.OLD))
+        finding = lc.check_order_claim()
+        assert not finding.ok and not finding.blocking
+
+
 class TestTheReportItself:
     def test_it_exits_non_zero_while_anything_blocks(self, capsys):
         assert lc.main() == 1

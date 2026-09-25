@@ -298,6 +298,58 @@ def check_review_honesty() -> Finding:
             "section showing its honest note")
 
 
+# The auto-layout card, per language: the word that names the feature, and
+# the word that carries the only claim in it worth making (P1-5).
+#
+# Auto-layout does not "fill the pages" — anything fills pages. It sorts by
+# EXIF `taken_at` and rebuilds the trip in the order it happened (R2, see
+# app/domain/ordering.py). That is the difference between this editor and a
+# grid, and the copy said nothing about it for five languages at once.
+#
+# This is a drift guard, not a style rule. Five pages carry the same claim
+# and only one of them is read by the person editing it, so the way it fails
+# is silently, in the four nobody opened. Rephrase freely — keep the claim.
+ORDER_CLAIM = {
+    # Matches the card under either name, so renaming it is reported as the
+    # claim going missing rather than the card going missing.
+    "index.html": (r"auto.?(?:layout|placement)", r"in order|order you took"),
+    "ru/index.html": (r"автозаполнени", r"поряд"),
+    "uz/index.html": (r"avtomatik joylashtirish", r"tartib"),
+    "uz-cyrl/index.html": (r"автоматик жойлаштириш", r"тартиб"),
+    "kaa/index.html": (r"avtomatikalıq jaylastırıw", r"tártip|tártib"),
+}
+
+
+def check_order_claim() -> Finding:
+    """The feature card names the feature AND says what it does.
+
+    Anchored to the `<h3>` and the paragraph under it, because that card is
+    the one place on the page where a reader decides whether this is worth
+    an evening. A card that only promises to "fill your pages" is selling a
+    grid; the software is doing something better and saying nothing.
+    """
+    silent: dict[str, str] = {}
+    for page, (feature, claim) in ORDER_CLAIM.items():
+        path = REPO / page
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        card = re.search(rf"<h3>([^<]*{feature}[^<]*)</h3>\s*<p>([^<]*)</p>",
+                         text, re.IGNORECASE)
+        if not card:
+            silent[page] = "no auto-layout card found"
+        elif not re.search(claim, card.group(1) + card.group(2), re.IGNORECASE):
+            silent[page] = "the card never mentions chronological order"
+    return Finding(
+        ok=not silent, blocking=False,
+        what="Auto-layout sells the ordering",
+        detail=("all five languages" if not silent else
+                "; ".join(f"{p}: {why}" for p, why in silent.items())),
+        fix="say that one click puts the photos in the order they were "
+            "taken — it is the best thing the editor does and the page is "
+            "the only place a customer can learn it")
+
+
 # What a link preview needs. Telegram and Instagram render these and
 # nothing else; without them a marketing link is a bare grey rectangle, and
 # the money behind the link is spent either way (P1-4).
@@ -355,7 +407,7 @@ def main() -> int:
         check_prices(env), check_spines(env), check_admin_token(env),
         check_telegram(env), check_pay_card(env), check_site_contacts(),
         check_unshipped_claims(), check_review_honesty(),
-        check_link_previews(),
+        check_link_previews(), check_order_claim(),
         check_env_is_production(env), check_backups(env), check_test_book(),
     ]
 

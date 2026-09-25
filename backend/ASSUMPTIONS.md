@@ -2402,3 +2402,45 @@ Telegram caches previews aggressively per URL, so the render has to be
 tried against the live site — and if it is wrong, the cache has to be
 cleared through @WebpageBot before the next attempt shows anything
 different.
+
+**P1-5 — the best thing the editor does was not in the copy.** The
+auto-layout card said "one click fills your pages automatically", which is
+what a grid does. What the software actually does is sort by EXIF
+`taken_at` and rebuild the trip in the order it happened — business rule
+R2, `app/domain/ordering.py`, the rule that docstring calls the most
+important in the product. Five languages advertised the grid.
+
+The card is now named for the ordering and says it in the first clause, in
+all five languages, and the claim is repeated in the two other places the
+page describes the feature: the how-it-works step and the "do I need
+design skills?" answer.
+
+**The claim was verified against the shipped path before it was made,**
+not against the domain function. A true rule that nothing calls is still a
+false advertisement, so the whole chain was read end to end: the browser
+reads the EXIF date off the file header *before* downscaling
+(`editor/js/upload.js`, because the downscaled upload carries no EXIF),
+sends it on complete (`api.js` → `taken_at_exif`), the server also
+extracts it during ingest and keeps whichever it has, `placement.py` feeds
+`auto_place_order`, and the editor's button posts to that endpoint. Each
+link is covered by a test, and `tests/api/test_placement.py::
+test_chronological_order_full_bleed` covers the whole of it by seeding
+photos in reverse chronological order and asserting `taken_at` wins.
+
+**`check_order_claim` guards the copy, not the behaviour.** The behaviour
+already has tests; what had nothing was the five-way copy. This task
+demonstrated the failure mode while fixing it — the first pass edited the
+English page in three places and each translation in two, and the
+how-it-works step drifted out of step in four languages without a symptom.
+The check anchors to the `<h3>` and the paragraph under it, matches the
+card under either its old or new name, and asks only that the ordering be
+mentioned. Rephrase freely; keep the claim.
+
+**The check warns rather than blocks,** for the same reason P1-4 does:
+under-selling a real feature costs sales, not customers.
+
+**What is still worth doing:** the ordering is invisible in the editor
+itself. A customer who never reads the marketing page presses the button
+and sees photos appear; nothing tells them the order was chosen rather
+than arbitrary. A line in the editor at the moment auto-layout runs would
+put the claim where it is actually experienced.
