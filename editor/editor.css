@@ -974,6 +974,12 @@ img.lay-thumb { object-fit: cover; display: block; }
   background: #fff; font-weight: 400; color: var(--ink);
   transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
 }
+/* Lives inside the label so it hugs the field it is about — as a sibling
+   the .co-form gap would push it 16px down and orphan it from the box it
+   answers a question about. */
+.co-form .field-hint {
+  font-weight: 400; font-size: .84rem; color: var(--muted);
+}
 .co-form input:hover, .co-form textarea:hover { border-color: #cdd3dd; }
 .co-form input:focus, .co-form textarea:focus {
   outline: none; border-color: var(--primary); box-shadow: var(--ring);

@@ -77,6 +77,33 @@ const attach = (page, name, mimeType, buffer) =>
   await page.waitForSelector('#pv-checkout:not([disabled])', { timeout: 30000 });
   await page.click('#pv-checkout');
   await page.waitForSelector('#screen-checkout.active', { timeout: 30000 });
+
+  /* P1-6 rides along here. Reaching this screen costs a 32-photo upload
+     and a preview render, and this is the only default-run check already
+     standing on it — a second one that paid that cost again to read one
+     line would add minutes and find nothing new. The line answers the
+     doubt at the moment it bites: somebody typing an address in Nukus,
+     wondering whether anyone comes that far. */
+  const hint = await page.evaluate(() => {
+    const el = document.querySelector('#co-form .field-hint');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const box = document.querySelector('#co-form [name=address]')
+      .getBoundingClientRect();
+    return {
+      text: el.textContent.trim(),
+      visible: r.width > 0 && r.height > 0,
+      underTheAddress: r.top >= box.bottom - 1,
+    };
+  });
+  check('the checkout says where we deliver', !!hint && hint.visible,
+    hint ? hint.text : '(no hint element)');
+  check('and it is translated, not the raw key',
+    !!hint && hint.text.length > 10 && !hint.text.startsWith('co.'),
+    hint ? hint.text : '');
+  check('and it sits under the address field, where the doubt is',
+    !!hint && hint.underTheAddress);
+
   await page.fill('[name=name]', 'Receipt Probe');
   await page.fill('[name=phone]', '+998 90 111 22 33');
   await page.fill('[name=address]', 'Tashkent, probe 2');

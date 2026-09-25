@@ -2586,7 +2586,20 @@ source and as silence on the page, and no source-level check can tell the
 difference — confirmed by emptying it in flight and watching only that
 assertion go red. It runs at 390px, because that is what this is read on.
 
-**Not done, and deliberate:** the editor's checkout screen still says
-nothing about coverage, and it is the moment the doubt actually bites —
-the customer is typing an address in Nukus and wondering. The brief asked
-for the FAQ and the footer; this would be the next place worth a line.
+**And now the checkout screen too,** which is the moment the doubt
+actually bites: the customer is typing an address in Nukus and wondering
+whether anyone comes that far. `co.deliveryHint` sits inside the address
+label rather than beside it, so it hugs the field it answers for — as a
+sibling the `.co-form` 16px gap would orphan it from the box.
+
+**That assertion rides along in `checks/receipt.js`** rather than getting
+its own check. Reaching the checkout screen costs a 32-photo upload and a
+preview render, `receipt` is the only default-run check already standing
+there, and a second one paying that cost again to read one line would add
+minutes and find nothing new. It asserts the line is visible, is not the
+raw key, and sits *below* the address field — position is the point.
+
+Translation is covered without driving the flow five times:
+`test_i18n_complete` requires the key in every language, and
+`checks/editorlang.js` already proves `applyStatic` retranslates the
+chrome when the language changes.
