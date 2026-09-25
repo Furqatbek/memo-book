@@ -9,6 +9,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from app.domain.geometry import CANVAS_H_PX
 from app.render.compose import compose_page
 
 PREVIEW_DPI = 72
@@ -16,11 +17,16 @@ PREVIEW_SCALE = PREVIEW_DPI / 300  # compose_page scale factor
 
 # The share view (CR-003-1). Bigger than the preview because this image IS
 # the advertisement — it gets pasted into Telegram and looked at on a phone
-# — and still far below print: 144 DPI puts a 210mm page at ~1190px, inside
-# the 1200px ceiling the CR sets so a forwarded link can never yield
-# print-quality copies of somebody's family photographs.
-SHARE_DPI = 144
-SHARE_SCALE = SHARE_DPI / 300
+# — and far below print, so that a forwarded link can never yield usable
+# copies of somebody's family photographs.
+#
+# DERIVED FROM THE CEILING, not from a DPI that happens to land near it. A
+# fixed 144 DPI reads as "inside the 1200px limit" and is not: the page is
+# 216mm tall, so 144 DPI gives 1225px. Deriving it means the constant below
+# is the promise, and the resolution follows.
+SHARE_MAX_EDGE_PX = 1200
+SHARE_SCALE = SHARE_MAX_EDGE_PX / CANVAS_H_PX
+SHARE_DPI = round(SHARE_SCALE * 300, 1)   # ~141, for reading only
 SHARE_JPEG_QUALITY = 82
 PREVIEW_JPEG_QUALITY = 72
 

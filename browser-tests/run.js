@@ -24,6 +24,10 @@ const BASE = process.env.MB_BASE || 'http://127.0.0.1:8000';
    setting the rest of the suite cannot share. Ask for one by name to run it.
    Each entry says what it wants, so nobody has to read this file to find out. */
 const SOLO = {
+  campaign: 'a dev server started with CAMPAIGN_DEADLINE, CAMPAIGN_LABEL and '
+    + 'PRODUCTION_DAYS set — no other check wants a countdown on the screen. '
+    + '`CAMPAIGN_DEADLINE=2099-12-31 CAMPAIGN_LABEL="New Year" '
+    + 'PRODUCTION_DAYS=14 python scripts/devserver.py`',
   sitecheck: 'the marketing site on :8090 — `python -m http.server 8090` '
     + 'from the repo root',
   pricegate: 'PRICES_CONFIRMED=false, which stops every other check that '
@@ -102,6 +106,10 @@ const NEEDS = {
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',
   paycard: 'PAY_CARD_NUMBER + PAY_CARD_HOLDER',
+  growth: 'nothing — it drives the share link and the contributor link in '
+    + 'THREE separate browser contexts, because an owner, a share viewer '
+    + 'and a contributor sharing one cookie jar prove nothing about what '
+    + 'each of them can actually reach (CR-003)',
 };
 
 // autoflow needs auto-confirm ON and ordersadmin needs it OFF: they test the

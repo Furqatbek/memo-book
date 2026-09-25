@@ -24,7 +24,7 @@ from sqlalchemy import select
 
 from app import storage
 from app.models.book import Book
-from app.render.preview import SHARE_DPI
+from app.render.preview import SHARE_MAX_EDGE_PX
 from app.services import share as svc
 from tests.api.test_books import auth, make_book
 from tests.api.test_checkout import CUSTOMER
@@ -121,11 +121,15 @@ class TestWhatAStrangerCanDo:
             storage.get_bytes, f"books/{book_id}/share/page-0.jpg")
         img = Image.open(io.BytesIO(data))
         img.load()
-        # 154mm wide at 144dpi, give or take a rounding pixel.
-        expected = round(1819 * SHARE_DPI / 300)
-        assert abs(img.width - expected) <= 2, (
-            f"share pages are {img.width}px wide, expected about {expected}")
-        assert SHARE_DPI < 300
+        # The CR sets a ceiling of 1200px on the long edge. Asserted against
+        # the ceiling itself rather than against a DPI that happens to land
+        # near it — which is how the first version of this was 25px over
+        # while its own comment said it was inside.
+        assert max(img.width, img.height) <= SHARE_MAX_EDGE_PX, (
+            f"share pages are {img.width}x{img.height}, over the "
+            f"{SHARE_MAX_EDGE_PX}px ceiling")
+        # And not so small that the advertisement looks cheap.
+        assert max(img.width, img.height) >= SHARE_MAX_EDGE_PX - 8
 
 
 class TestWhatAStrangerCannotDo:
