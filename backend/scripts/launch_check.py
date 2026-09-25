@@ -162,25 +162,49 @@ def check_env_is_production(env: dict) -> Finding:
 SITE_PAGES = ["index.html", "ru/index.html", "uz/index.html",
               "uz-cyrl/index.html", "kaa/index.html"]
 PLACEHOLDER_CONTACT = re.compile(r"XXXXXXXX|example\.com|\+998XXX")
+# Every way the site offers to be contacted. Absolute targets, so they are
+# the same string on all five pages — which is what makes them comparable.
+CONTACT_TARGET = re.compile(
+    r'href="(tel:[^"]+|mailto:[^"]+|https://t\.me/[^"]+'
+    r'|https://[^"]*instagram\.com/[^"]+)"')
 
 
 def check_site_contacts() -> Finding:
     guilty: dict[str, int] = {}
+    targets: dict[str, tuple[str, ...]] = {}
     for page in SITE_PAGES:
         path = REPO / page
         if not path.exists():
             continue
-        hits = PLACEHOLDER_CONTACT.findall(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        hits = PLACEHOLDER_CONTACT.findall(text)
         if hits:
             guilty[page] = len(hits)
+        targets[page] = tuple(sorted(set(CONTACT_TARGET.findall(text))))
+
+    # Five pages, one set of contacts. Once the placeholders are gone this
+    # is the failure that actually happens: a number changed on the English
+    # page and nowhere else leaves four pages handing out a dead one — and
+    # unlike a placeholder, a stale real number looks entirely convincing.
+    agreed = next(iter(targets.values()), ())
+    adrift = sorted(p for p, t in targets.items() if t != agreed)
+
+    if guilty:
+        detail = ("placeholders render as working links — a visitor who taps "
+                  "the phone number or Telegram gets a dead end, which reads "
+                  f"worse than no link ({sum(guilty.values())} across "
+                  f"{len(guilty)} pages)")
+    elif adrift:
+        detail = ("the five pages do not agree on how to reach you, so some "
+                  "languages are handing out contacts the others have "
+                  f"already changed: {', '.join(adrift)}")
+    else:
+        detail = f"real, and the same on all {len(targets)} pages"
+
     return Finding(
-        ok=not guilty, blocking=True,
+        ok=not guilty and not adrift, blocking=True,
         what="Contact details on the site",
-        detail=("real" if not guilty else
-                "placeholders render as working links — a visitor who taps "
-                "the phone number or Telegram gets a dead end, which reads "
-                f"worse than no link ({sum(guilty.values())} across "
-                f"{len(guilty)} pages)"),
+        detail=detail,
         fix="replace the tel:, t.me/ and mailto: targets in all five pages")
 
 

@@ -2176,3 +2176,34 @@ the wording pass against a banner nobody could see. Fixed once — and then
 the second row reintroduced it in a subtler form, because reading the
 CONTAINER dragged the hidden row's words in with the visible one. It now
 reads row by row, skipping the hidden ones.
+
+**A106 — the contact details are real.** The five site footers carried
+`+998XXXXXXXXX`, `hello@example.com` and two `t.me/XXXXXXXXX` links since
+the site was written. They are now the founder's own: the phone, a Gmail
+address, `@Eurohand1` on Telegram and `@rs_pixeluz` on Instagram. The
+launch checklist's contacts item turns green, and it is the first blocking
+item on that list to do so.
+
+The handles are shown rather than the bare words "Telegram" and
+"Instagram". Somebody who wants to message on Telegram usually searches the
+username rather than following a link, and "Telegram" on its own gives them
+nothing to search for.
+
+**The check changed shape with the values.** While the details were
+placeholders the only question worth asking was whether they were still
+placeholders. Now that they are real, the failure that actually happens is
+drift: a number changed on the English page and nowhere else leaves four
+languages handing out a dead one — and unlike a placeholder, a stale real
+number looks entirely convincing. `check_site_contacts` now also requires
+all five pages to agree on their `tel:`, `mailto:`, `t.me/` and Instagram
+targets, and only on those: the pages are different languages with
+different copy and different relative links, and a check that demanded more
+would fire on every ordinary edit. Both directions are tested, per A81.
+
+**Two things worth the founder's attention, neither of them ours to
+decide.** `merelyriki@gmail.com` is a personal address on a free provider
+while the business owns `rspixel.uz`; a forwarding alias like
+`hello@rspixel.uz` costs nothing and reads as a company rather than a
+person. And `@Eurohand1` carries no relation to the RS Pixel name, so a
+customer who finds it has no way to tell they have reached the right place.
+Both were used exactly as given.

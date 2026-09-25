@@ -164,6 +164,48 @@ class TestTheSite:
         monkeypatch.setattr(lc, "SITE_PAGES", ["index.html"])
         assert lc.check_site_contacts().ok
 
+    def _pages(self, tmp_path, monkeypatch, bodies: dict):
+        for name, body in bodies.items():
+            path = tmp_path / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body, encoding="utf-8")
+        monkeypatch.setattr(lc, "REPO", tmp_path)
+        monkeypatch.setattr(lc, "SITE_PAGES", list(bodies))
+
+    def test_it_fires_when_the_pages_disagree(self, tmp_path, monkeypatch):
+        """The failure that actually happens once the placeholders are gone:
+        a number changed on one page and nowhere else. A stale real number
+        looks entirely convincing, which is what makes it worse than a
+        placeholder."""
+        self._pages(tmp_path, monkeypatch, {
+            "index.html": '<a href="tel:+998701647664">call</a>',
+            "ru/index.html": '<a href="tel:+998900000000">call</a>',
+        })
+        finding = lc.check_site_contacts()
+        assert not finding.ok
+        assert "ru/index.html" in finding.detail
+
+    def test_it_is_quiet_when_they_agree(self, tmp_path, monkeypatch):
+        same = ('<a href="tel:+998701647664">call</a>'
+                '<a href="mailto:a@b.uz">mail</a>'
+                '<a href="https://t.me/Handle">tg</a>')
+        self._pages(tmp_path, monkeypatch,
+                    {"index.html": same, "ru/index.html": same})
+        assert lc.check_site_contacts().ok
+
+    def test_a_language_page_may_differ_in_everything_else(self, tmp_path,
+                                                           monkeypatch):
+        """Only the contact targets have to match. The pages are different
+        languages with different copy and different relative links, and a
+        check that demanded more would fire on every ordinary edit."""
+        self._pages(tmp_path, monkeypatch, {
+            "index.html": '<a href="editor/">Create</a>'
+                          '<a href="tel:+998701647664">call</a>',
+            "ru/index.html": '<a href="../editor/">Создать</a>'
+                             '<a href="tel:+998701647664">звонок</a>',
+        })
+        assert lc.check_site_contacts().ok
+
 
 class TestTheReportItself:
     def test_it_exits_non_zero_while_anything_blocks(self, capsys):
