@@ -83,8 +83,10 @@ def contributor_id(session_id: str | None) -> str:
 
 
 def contribute_url(token: str) -> str:
-    base = (get_settings().public_base_url or "").rstrip("/")
-    return f"{base}/c/{token}" if base else f"/c/{token}"
+    """Absolute or nothing — see `public_links`."""
+    from app.services.public_links import absolute
+
+    return absolute(f"/c/{token}")
 
 
 def _enabled() -> None:

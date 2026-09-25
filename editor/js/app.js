@@ -2,8 +2,8 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260925n';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925n';
+import * as api from './api.js?v=20260925p';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925p';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
@@ -705,6 +705,15 @@ async function loadCampaign() {
     return;                       /* no banner rather than a wrong one */
   }
   S.campaign = body && body.campaign;
+  /* Whether this deployment can make links that work outside it. Without
+     PUBLIC_BASE_URL a share link is the text `/s/abc`, which is not a link
+     in a chat window — so the buttons hide rather than hand somebody a
+     broken one, exactly as the Telegram offer does (Change 2). */
+  const sharing = body && body.sharing;
+  if (sharing && sharing.available === false) {
+    $('btn-share').classList.add('hidden');
+    $('btn-contrib').classList.add('hidden');
+  }
   renderCampaign();
 }
 

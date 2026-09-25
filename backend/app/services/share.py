@@ -31,7 +31,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import storage
-from app.config import get_settings
 from app.models.book import Book
 from app.models.photo import Photo, PhotoStatus
 from app.services.books import get_book_authed
@@ -55,8 +54,12 @@ def _cover_key(book_id: uuid.UUID) -> str:
 
 
 def share_url(token: str) -> str:
-    base = (get_settings().public_base_url or "").rstrip("/")
-    return f"{base}/s/{token}" if base else f"/s/{token}"
+    """Absolute or nothing — see `public_links`. A relative share link is
+    not a degraded link; it is a piece of text somebody pastes into a
+    group chat and nobody can open."""
+    from app.services.public_links import absolute
+
+    return absolute(f"/s/{token}")
 
 
 async def create(session: AsyncSession, book_id: uuid.UUID,

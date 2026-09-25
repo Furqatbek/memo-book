@@ -92,6 +92,12 @@ async def client(sessionmaker, s3, monkeypatch):
     # `rendered` — seconds each, for a file none of them look at. The tests
     # that are about the video turn it back on for themselves.
     monkeypatch.setenv("FLIP_VIDEO_ENABLED", "false")
+    # Production always has this, and several features REFUSE without it
+    # rather than minting a relative link nobody can open (see
+    # app/services/public_links.py). A test environment that cannot make a
+    # share link is not testing the product anybody deploys; the tests
+    # about the refusal set it back to empty for themselves.
+    monkeypatch.setenv("PUBLIC_BASE_URL", "http://test")
     monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")  # dedicated tests re-enable
     # The shop is shut by default (A74); tests about checkout are testing
     # checkout, so open it here and let the guard's own tests turn it back off.

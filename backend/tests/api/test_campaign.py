@@ -54,6 +54,30 @@ class TestTheCountdown:
         assert now.order_by.isoformat() == "2026-12-17"
         assert now.days_left == 46
 
+    @pytest.mark.parametrize("deadline,production,today,expected", [
+        # The CR asks for this one by name: across a month boundary.
+        ("2026-12-31", 14, datetime(2026, 11, 1, 12, 0, tzinfo=UTC), 46),
+        # And across a year boundary, which is where an off-by-one in a
+        # hand-rolled date calculation would show up.
+        ("2027-01-07", 14, datetime(2026, 12, 20, 9, 0, tzinfo=UTC), 4),
+        # February in a leap year, for the same reason.
+        ("2028-03-01", 14, datetime(2028, 2, 10, 9, 0, tzinfo=UTC), 6),
+        # And the production window itself crossing a month backwards.
+        ("2027-03-05", 20, datetime(2027, 2, 1, 9, 0, tzinfo=UTC), 12),
+    ])
+    async def test_the_arithmetic_holds_across_boundaries(
+            self, db, monkeypatch, deadline, production, today, expected):
+        monkeypatch.setenv("CAMPAIGN_DEADLINE", deadline)
+        monkeypatch.setenv("CAMPAIGN_LABEL", "New Year")
+        monkeypatch.setenv("PRODUCTION_DAYS", str(production))
+        monkeypatch.setenv("MONTHLY_CAPACITY", "0")
+        get_settings.cache_clear()
+        try:
+            w = await svc.current(db, today)
+            assert w.days_left == expected
+        finally:
+            get_settings.cache_clear()
+
     async def test_it_disappears_once_the_order_by_date_has_passed(
             self, db, window):
         """A banner counting down to a date in the past is worse than no
@@ -93,7 +117,7 @@ class TestTheCountdown:
     async def test_the_endpoint_answers_null_rather_than_erroring(
             self, client, db):
         body = (await client.get("/api/v1/campaign")).json()
-        assert body == {"campaign": None}
+        assert body["campaign"] is None
 
     async def test_the_endpoint_carries_the_computed_numbers(
             self, client, db, window):

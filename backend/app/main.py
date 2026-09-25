@@ -64,9 +64,30 @@ class WebAssets(StaticFiles):
         return response
 
 
+def _warn_about_links(settings) -> None:
+    """Say it at startup, once, where an operator will see it.
+
+    Without PUBLIC_BASE_URL this deployment cannot produce a link that
+    works anywhere else — no reminder, no share link, no contributor link,
+    no review request. Those features do not half-work; they mint text
+    like `/s/abc` that somebody pastes into a group chat and nobody can
+    open. In production this is a misconfiguration; in dev it is normal,
+    hence a warning rather than a refusal to boot.
+    """
+    import structlog
+
+    if not (settings.public_base_url or "").strip():
+        structlog.get_logger().warning(
+            "config.no_public_base_url",
+            affects="reminders, share links, contributor links, "
+                    "review requests, flip video links",
+            detail="set PUBLIC_BASE_URL to this deployment's origin")
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(debug=settings.debug)
+    _warn_about_links(settings)
     # The interactive docs and the schema behind them are DEV ONLY (A82).
     #
     # A72 goes to some length to make the admin API unfindable: every

@@ -26,5 +26,21 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 
 @router.get("/campaign")
 async def campaign(session: Session) -> dict:
+    """The campaign, and whether links may be offered at all.
+
+    `sharing` rides along here rather than in an endpoint of its own for
+    one practical reason: the editor asks this once on entry and both
+    answers decide what the bar shows, so a second round trip would buy
+    nothing. It is one boolean, and it is about the same thing — what this
+    deployment is able to promise a customer right now.
+
+    Without PUBLIC_BASE_URL a share link is the text `/s/abc`, which is
+    not a link in a chat window. The editor hides the buttons rather than
+    handing somebody a broken one, the same way the Telegram offer hides
+    itself when no bot is configured (Change 2).
+    """
+    from app.services.public_links import configured
+
     window = await svc.current(session)
-    return {"campaign": window.as_dict() if window else None}
+    return {"campaign": window.as_dict() if window else None,
+            "sharing": {"available": configured()}}

@@ -43,6 +43,7 @@ async def browsers(sessionmaker, s3, monkeypatch):
     monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
     monkeypatch.setenv("PRICES_CONFIRMED", "true")
     monkeypatch.setenv("FLIP_VIDEO_ENABLED", "false")
+    monkeypatch.setenv("PUBLIC_BASE_URL", "http://test")
     get_settings.cache_clear()
     app = create_app()
 

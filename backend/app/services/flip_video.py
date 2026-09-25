@@ -48,8 +48,10 @@ def _key(order_id: uuid.UUID) -> str:
 
 
 def video_url(token: str) -> str:
-    base = (get_settings().public_base_url or "").rstrip("/")
-    return f"{base}/v/{token}" if base else f"/v/{token}"
+    """Absolute or nothing — see `public_links`."""
+    from app.services.public_links import absolute
+
+    return absolute(f"/v/{token}")
 
 
 async def existing(session: AsyncSession, order_id: uuid.UUID) -> FlipVideo | None:

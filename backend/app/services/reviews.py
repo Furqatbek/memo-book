@@ -25,7 +25,6 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.domain.states import OrderStatus
 from app.models.book import Book
 from app.models.order import Order, OrderEvent
@@ -50,8 +49,10 @@ ASK_TEXT = (
 
 
 def review_url(token: str) -> str:
-    base = (get_settings().public_base_url or "").rstrip("/")
-    return f"{base}/r/{token}" if base else f"/r/{token}"
+    """Absolute or nothing — see `public_links`."""
+    from app.services.public_links import absolute
+
+    return absolute(f"/r/{token}")
 
 
 async def delivered_at(session: AsyncSession,
