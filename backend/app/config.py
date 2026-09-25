@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     # and is useless in a Telegram message; with this set, both become
     # absolute.
     public_base_url: str = ""
+    # A seasonal line appended to every draft reminder (Change 4), e.g.
+    # "Order by 25 November for delivery before New Year." Empty for most
+    # of the year: switching it on is a config change and a restart, no
+    # code. It is appended rather than templated so that turning it off
+    # can never leave a half-sentence behind.
+    reminder_seasonal_note: str = ""
     redis_url: str = "redis://localhost:6379/0"
 
     s3_endpoint_url: str = "http://localhost:9000"

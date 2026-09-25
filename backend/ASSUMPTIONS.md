@@ -2920,3 +2920,64 @@ which is not clickable in an email and is not a link at all in a chat
 message. `PUBLIC_BASE_URL` makes them absolute for both channels, and the
 Telegram message is sent without a link rather than with a broken one when
 it is unset.
+
+**Change 4 — three reminders, and who gets credit for the rescue.**
+Day 3 ("your book is waiting — N days left"), day 14 ("still saved"), and
+a new day 25 that names the deadline. Day 25 is the last one that can be
+acted on: a draft expires 30 days after its last edit, so a reminder any
+later arrives after the photographs are gone.
+
+**The number is read off the book, not off the reminder day.** Every edit
+pushes `expires_at` out again, so a book edited since its day-3 reminder
+genuinely has more than 27 days left. `_days_left` subtracts from
+`expires_at`; the spec's "27 days" is what that produces for a book last
+touched three days ago, rather than a constant that would quietly become
+a small lie a customer can check.
+
+**Empty drafts get nothing,** and the query that decides it is the same
+one that fetches the thumbnail — there is no book to come back to, and a
+reminder about one is the definition of spam and the fastest way to have
+the bot reported.
+
+**The thumbnail is one of their own photographs, presigned at delivery.**
+Minting the link when the reminder was queued would hand Telegram an
+expired URL after an outage and three backoffs, which is the same mistake
+the print-file links already avoid.
+
+**Where Change 4 and Change 3 genuinely conflict, and how it was
+resolved.** Change 4 asks that reminder links attribute recovered orders;
+Change 3 established that first landing wins. If a reminder click
+overwrote the session's campaign, a customer won by a New Year advert and
+merely *rescued* by a reminder would be recorded as having come from the
+reminder — stripping the campaign that actually paid for them of the
+sale, and making its cost per acquisition look worse than it is. That is
+precisely the distortion Change 3 exists to prevent.
+
+So: the acquisition stays with first touch, and the rescue is recorded on
+its own event. Every reminder link carries
+`utm_source=reminder&utm_campaign=draft_recovery`, so it reads honestly in
+any analytics; and REMINDER_CLICKED is stamped with that campaign **by
+the server**, because a click on our own reminder is a draft recovery by
+definition and there is nothing to trust the client about. Recovered
+orders are then books with a `reminder_clicked` that later paid — a
+question the funnel table already answers. Both requirements are met
+without either one corrupting the other.
+
+**The tagging lives in one function** (`reminder_query`), because the
+relative fallback used when `PUBLIC_BASE_URL` is unset has to carry the
+same tags — a test caught that it did not, and an untagged link is a
+recovered order that cannot be told from new traffic, which is the one
+thing these tags exist for.
+
+**The seasonal note is appended, never woven in,** so that switching it
+off at the end of a campaign cannot leave half a sentence behind. It is
+config plus a restart, no code: `REMINDER_SEASONAL_NOTE`, empty outside a
+campaign. **Confirm the date against the printer's December load before
+switching it on** — the same caveat as P2-1's cutoff, and the same reason.
+
+**Both channels say the same thing.** The body is composed once in
+`lifecycle`, including the day's wording, the days actually left and the
+seasonal line, so email and Telegram cannot drift into telling the same
+customer two different stories. `build_reminder` keeps a fallback for
+messages queued by an older build and still sitting in the outbox across
+a deploy — delivered rather than dropped.

@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import storage
+from app.config import get_settings
 from app.domain.states import BookStatus, transition_book
 from app.models.book import Book
 from app.models.photo import Photo
@@ -30,6 +31,17 @@ log = structlog.get_logger()
 
 REMINDER_FIRST = timedelta(days=3)
 REMINDER_SECOND = timedelta(days=14)
+REMINDER_LAST = timedelta(days=25)
+
+# (flag, age, what it says). Day 25 is the last one that can still be acted
+# on: a draft expires 30 days after its last edit, so a reminder any later
+# would arrive after the photographs were gone. The urgency climbs because
+# the deadline is real, not because louder is better.
+REMINDER_SCHEDULE = (
+    ("reminder_3d_sent", REMINDER_FIRST, "waiting"),
+    ("reminder_14d_sent", REMINDER_SECOND, "still_saved"),
+    ("reminder_25d_sent", REMINDER_LAST, "expiring"),
+)
 # "Abandoned" is a funnel word, not a lifecycle one: the book is untouched
 # and still perfectly editable for the rest of its 30 days. It is recorded
 # so the drop-off between starting a book and finishing one can be measured
@@ -78,16 +90,59 @@ def _edit_url(book_id: uuid.UUID) -> str:
     return f"/editor/{book_id}"
 
 
-def _reminder_text(url: str) -> str:
-    """Short, because it arrives in a chat rather than an inbox."""
-    body = "Your photo book is still waiting — you left it half-finished."
-    return f"{body}\n\n{url}" if url else body
+async def _first_thumb(session: AsyncSession, book_id: uuid.UUID) -> str | None:
+    """The key of one of this book's photo thumbnails, or None if it has no
+    photographs at all — which is also the "is this worth reminding about?"
+    test, so the two questions are answered by one query."""
+    return (await session.execute(
+        select(Photo.thumb_key)
+        .where(Photo.book_id == book_id, Photo.thumb_key.is_not(None))
+        .order_by(Photo.uploaded_at.asc())
+        .limit(1)
+    )).scalar_one_or_none()
+
+
+def _days_left(book: Book, now: datetime) -> int:
+    """Read off the book's own expiry rather than counted from the reminder
+    day, because every edit pushes `expires_at` out again — a book edited
+    since the day-3 reminder has more than 27 days left, and telling it
+    otherwise is the kind of small lie a customer can check."""
+    expires = book.expires_at
+    if expires is not None and expires.tzinfo is None:
+        expires = expires.replace(tzinfo=UTC)
+    return max(0, (expires - now).days) if expires else 0
+
+
+def _reminder_body(kind: str, days_left: int) -> str:
+    if kind == "waiting":
+        return (f"Your book is waiting — {days_left} "
+                f"{'day' if days_left == 1 else 'days'} left to finish it.")
+    if kind == "still_saved":
+        return "Still saved. Want to finish it?"
+    return (f"Your book expires in {days_left} "
+            f"{'day' if days_left == 1 else 'days'} — after that the "
+            f"photographs are deleted.")
+
+
+def _reminder_text(url: str, kind: str = "waiting", days_left: int = 0) -> str:
+    """Short, because it arrives in a chat rather than an inbox.
+
+    The seasonal note is APPENDED rather than woven in, so that turning it
+    off at the end of a campaign cannot leave half a sentence behind.
+    """
+    parts = [_reminder_body(kind, days_left)]
+    note = (get_settings().reminder_seasonal_note or "").strip()
+    if note:
+        parts.append(note)
+    if url:
+        parts.append(url)
+    return "\n\n".join(parts)
 
 
 def _reminder_url(book_id: uuid.UUID, day: int) -> str:
     """The same link, marked with which reminder it came from, so a click
     can be attributed to the day-3 or the day-14 message (Change 3)."""
-    return f"{_edit_url(book_id)}?r={day}"
+    return _edit_url(book_id) + telegram_recovery.reminder_query(day)
 
 
 async def queue_reminders(session: AsyncSession,
@@ -95,8 +150,7 @@ async def queue_reminders(session: AsyncSession,
     now = now or datetime.now(UTC)
     queued = 0
 
-    for flag, delta in (("reminder_3d_sent", REMINDER_FIRST),
-                        ("reminder_14d_sent", REMINDER_SECOND)):
+    for flag, delta, kind in REMINDER_SCHEDULE:
         # Either channel will do. Telegram is preferred where we have it
         # (Change 2): in this market a message there gets read and an email
         # may not, and the whole reason to offer it is that a reminder
@@ -111,14 +165,28 @@ async def queue_reminders(session: AsyncSession,
             )
         )).scalars().all()
         for book in books:
-            url = telegram_recovery.editor_url(book.id, delta.days)
+            # An empty draft gets nothing. There is no book to come back
+            # to, and a reminder about one is the definition of spam — and
+            # the fastest way to have this bot reported.
+            thumb = await _first_thumb(session, book.id)
+            if thumb is None:
+                continue
+            # Absolute where we can build one. Telegram gets nothing rather
+            # than a relative path, which is not a link in a chat window;
+            # email keeps the relative fallback, which at least names the
+            # book, and becomes clickable the moment PUBLIC_BASE_URL is set.
+            absolute = telegram_recovery.editor_url(book.id, delta.days)
+            days_left = _days_left(book, now)
             if book.telegram_chat_id is not None:
                 channel = "telegram"
                 outbox.enqueue(session, outbox.TOPIC_BOOK_REMINDER_TG, {
                     "book_id": str(book.id),
                     "chat_id": book.telegram_chat_id,
                     "days_since_edit": delta.days,
-                    "text": _reminder_text(url),
+                    "text": _reminder_text(absolute, kind, days_left),
+                    # Their own photograph, presigned AT DELIVERY so a
+                    # message that waited out an outage still opens.
+                    "photo_key": thumb,
                 })
             else:
                 channel = "email"
@@ -126,7 +194,12 @@ async def queue_reminders(session: AsyncSession,
                     "book_id": str(book.id),
                     "email": book.email,
                     "days_since_edit": delta.days,
-                    "edit_url": url or _reminder_url(book.id, delta.days),
+                    "days_left": days_left,
+                    "text": _reminder_text(
+                        absolute or _reminder_url(book.id, delta.days),
+                        kind, days_left),
+                    "photo_key": thumb,
+                    "edit_url": absolute or _reminder_url(book.id, delta.days),
                 })
             setattr(book, flag, True)  # flag + message commit atomically (R7)
             # Repeatable by design: day 3 and day 14 are two sends, and the

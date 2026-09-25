@@ -67,6 +67,21 @@ async def link_of(client, book) -> dict:
     return resp.json()
 
 
+async def give_photo(db, book) -> None:
+    """A draft with nothing in it gets no reminders (Change 4)."""
+    from app.models.photo import Photo
+
+    bid = uuid.UUID(book["book_id"])
+    db.add(Photo(id=uuid.uuid4(), book_id=bid, status="ready",
+                 original_key=f"books/{bid}/orig/a",
+                 display_key=f"books/{bid}/disp/a",
+                 thumb_key=f"books/{bid}/thumb/a",
+                 mime_original="image/jpeg", bytes_original=1,
+                 orig_width=100, orig_height=100,
+                 uploaded_at=datetime.now(UTC), sha256=uuid.uuid4().hex))
+    await db.commit()
+
+
 async def book_row(db, book) -> Book:
     return (await db.execute(
         select(Book).where(Book.id == uuid.UUID(book["book_id"])))).scalar_one()
@@ -293,6 +308,7 @@ class TestRemindersPreferTelegram:
         token = (await link_of(client, book))["deep_link"].split("start=")[1]
         await client.post(HOOK, json=start(token, update_id=500), headers=HDRS)
 
+        await give_photo(db, book)
         row = await book_row(db, book)
         row.email = "a@example.com"          # both channels available
         row.updated_at = datetime.now(UTC) - timedelta(days=4)
@@ -313,6 +329,7 @@ class TestRemindersPreferTelegram:
         book = await make_book(client, 16)
         token = (await link_of(client, book))["deep_link"].split("start=")[1]
         await client.post(HOOK, json=start(token, update_id=600), headers=HDRS)
+        await give_photo(db, book)
         row = await book_row(db, book)
         row.updated_at = datetime.now(UTC) - timedelta(days=4)
         await db.commit()
@@ -326,14 +343,18 @@ class TestRemindersPreferTelegram:
         book = await make_book(client, 16)
         token = (await link_of(client, book))["deep_link"].split("start=")[1]
         await client.post(HOOK, json=start(token, update_id=700), headers=HDRS)
+        await give_photo(db, book)
         row = await book_row(db, book)
         row.updated_at = datetime.now(UTC) - timedelta(days=4)
         await db.commit()
         await queue_reminders(db)
         msg = (await db.execute(select(OutboxMessage).where(
             OutboxMessage.topic == "book.reminder.telegram"))).scalars().first()
-        assert msg.payload["text"].startswith("Your photo book")
+        assert msg.payload["text"].startswith("Your book is waiting")
         assert "https://rspixel.uz/editor/" in msg.payload["text"]
+        # Recovered drafts have to be tellable from new traffic.
+        assert "utm_source=reminder" in msg.payload["text"]
+        assert "utm_campaign=draft_recovery" in msg.payload["text"]
 
     async def test_it_goes_through_the_outbox_and_not_inline(
             self, client, bot, db):
@@ -346,6 +367,7 @@ class TestRemindersPreferTelegram:
         token = (await link_of(client, book))["deep_link"].split("start=")[1]
         await client.post(HOOK, json=start(token, update_id=800), headers=HDRS)
         before = len(bot)
+        await give_photo(db, book)
         row = await book_row(db, book)
         row.updated_at = datetime.now(UTC) - timedelta(days=4)
         await db.commit()

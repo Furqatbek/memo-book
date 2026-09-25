@@ -260,6 +260,18 @@ def send_to(chat_id, text: str, reply_markup: dict | None = None) -> None:
     _call("sendMessage", body)
 
 
+def send_photo_to(chat_id, photo_url: str, caption: str) -> None:
+    """A reminder with the customer's own photograph on it (Change 4).
+
+    Telegram fetches the URL from its own servers, so it has to be a
+    publicly reachable link — a presigned one, minted at delivery time like
+    every other link that leaves the building, so a message that waited out
+    an outage and three backoffs still opens.
+    """
+    _call("sendPhoto", {"chat_id": chat_id, "photo": photo_url,
+                        "caption": caption})
+
+
 # What to call the file in a sentence. The bytes already said which of the
 # three it is (A100); this is just the word for it.
 RECEIPT_TYPE_LABELS = {

@@ -39,6 +39,23 @@ log = structlog.get_logger()
 TOKEN_TTL = timedelta(days=14)
 TOKEN_BYTES = 24
 
+# How a recovered draft is labelled wherever it is counted.
+REMINDER_SOURCE = "reminder"
+REMINDER_MEDIUM = "lifecycle"
+REMINDER_CAMPAIGN = "draft_recovery"
+
+
+def reminder_query(day: int) -> str:
+    """The query string every reminder link carries, wherever it is built.
+
+    One place, because the relative fallback used when PUBLIC_BASE_URL is
+    unset has to carry the same tags — a link missing them is a recovered
+    order that cannot be told from new traffic, which is the one thing
+    these tags exist for.
+    """
+    return (f"?r={day}&utm_source={REMINDER_SOURCE}"
+            f"&utm_medium={REMINDER_MEDIUM}&utm_campaign={REMINDER_CAMPAIGN}")
+
 
 def bot_username() -> str:
     return (get_settings().telegram_bot_username or "").lstrip("@")
@@ -162,4 +179,12 @@ def editor_url(book_id: uuid.UUID, day: int | None = None) -> str:
     if not base:
         return ""
     url = f"{base}/editor/{book_id}"
-    return f"{url}?r={day}" if day else url
+    if not day:
+        return url
+    # `r` is ours, for telling a day-3 click from a day-25 one. The utm
+    # pair is there so the link reads honestly in anybody else's analytics
+    # too — but it is NOT what attributes the recovery: see the note on
+    # REMINDER_CLICKED in app/api/events.py. First touch still owns the
+    # acquisition, or a reminder would quietly steal credit for a sale the
+    # original campaign paid to win (Change 4).
+    return url + reminder_query(day)

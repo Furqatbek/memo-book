@@ -44,6 +44,8 @@ class Book(Base):
 
     reminder_3d_sent: Mapped[bool] = mapped_column(sa.Boolean, default=False)
     reminder_14d_sent: Mapped[bool] = mapped_column(sa.Boolean, default=False)
+    # Day 25: the last reminder that can still be acted on (Change 4).
+    reminder_25d_sent: Mapped[bool] = mapped_column(sa.Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))

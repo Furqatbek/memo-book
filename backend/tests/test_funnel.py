@@ -219,3 +219,62 @@ class TestAttributionReachesTheMoney:
     async def test_a_book_with_no_events_attributes_to_nothing(self, db):
         sid, attribution = await funnel.book_tracking(db, uuid.uuid4())
         assert sid is None and attribution == {}
+
+
+class TestRecoveryAttribution:
+    """Change 4 asks that reminder links attribute recovered orders; Change
+    3 says first touch wins. Both are satisfied, and the reason matters.
+
+    If a reminder click overwrote the session's campaign, a customer
+    originally won by a New Year advert and merely RESCUED by a reminder
+    would be recorded as having come from the reminder — stripping the
+    campaign that actually paid for them of the sale, and making its cost
+    per acquisition look worse than it is. So the acquisition stays with
+    first touch and the rescue is recorded on its own event.
+    """
+
+    async def test_a_reminder_click_is_stamped_by_the_server(self, client, db):
+        book = await make_book(client, 16)
+        resp = await client.post("/api/v1/events", json={
+            "type": "reminder_clicked", "day": 3})
+        assert resp.status_code == 202
+        row = [r for r in (await db.execute(
+            select(FunnelEvent).where(
+                FunnelEvent.event_type == EventType.REMINDER_CLICKED.value))
+        ).scalars()][0]
+        assert row.source == "reminder"
+        assert row.campaign == "draft_recovery"
+        assert row.properties == {"day": 3}
+
+    async def test_it_does_not_need_the_client_to_say_so(self, client, db):
+        """The page is never asked what campaign it came from. A click on
+        our own reminder IS a draft recovery by definition, so there is
+        nothing to trust the caller about and nothing to forge."""
+        await client.post("/api/v1/events",
+                          json={"type": "reminder_clicked", "day": 25,
+                                "book_id": None})
+        row = [r for r in (await db.execute(
+            select(FunnelEvent).where(
+                FunnelEvent.event_type == EventType.REMINDER_CLICKED.value))
+        ).scalars()][0]
+        assert row.campaign == "draft_recovery"
+
+    async def test_the_books_own_acquisition_is_left_alone(self, client, db):
+        """The point. The reminder rescued the sale; the advert won the
+        customer, and still owns them."""
+        book = await make_book(client, 16)
+        bid = uuid.UUID(book["book_id"])
+        started = (await rows_for(db, bid))[0]
+        started.source, started.campaign = "instagram", "new-year-2026"
+        await db.commit()
+
+        await client.post("/api/v1/events",
+                          json={"type": "reminder_clicked", "day": 25})
+        _sid, attribution = await funnel.book_tracking(db, bid)
+        assert attribution["campaign"] == "new-year-2026"
+
+        await funnel.emit_for_book(db, EventType.PAYMENT_SUCCEEDED, bid)
+        await db.commit()
+        paid = [r for r in await rows_for(db, bid)
+                if r.event_type == EventType.PAYMENT_SUCCEEDED.value][0]
+        assert paid.campaign == "new-year-2026"

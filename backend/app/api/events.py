@@ -33,6 +33,7 @@ from app.db.session import get_session
 from app.domain.events import CLIENT_REPORTABLE, EventType
 from app.rate_limit import rate_limit
 from app.services import funnel
+from app.services import telegram_recovery
 from app.services.books import get_book_authed
 
 router = APIRouter(prefix="/api/v1/events", tags=["events"],
@@ -79,6 +80,17 @@ async def record(body: EventIn, request: Request, session: Session,
         book_id = book.id
 
     sid, attribution = tracking_of(request)
+    if event is EventType.REMINDER_CLICKED:
+        # Stamped by the server, not taken from the link and not from the
+        # cookie. A reminder click IS a draft recovery by definition, so
+        # there is nothing to trust the caller about — and it must not
+        # overwrite the session's own attribution, because the campaign
+        # that originally paid to acquire this customer still owns that
+        # sale. First touch keeps the acquisition; this records the rescue
+        # (Change 4).
+        attribution = {"source": telegram_recovery.REMINDER_SOURCE,
+                       "medium": telegram_recovery.REMINDER_MEDIUM,
+                       "campaign": telegram_recovery.REMINDER_CAMPAIGN}
     properties = {"day": body.day} if body.day else {}
     await funnel.emit(session, event, session_id=sid, book_id=book_id,
                       properties=properties, attribution=attribution)

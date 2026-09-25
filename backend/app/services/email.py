@@ -12,14 +12,29 @@ def send_email(to: str, subject: str, text: str) -> None:
     raise EmailError("email transport is not configured")
 
 
+SUBJECTS = {
+    3: "Your photo book is waiting for you",
+    14: "Your photo book is still saved",
+    25: "Your photo book expires soon",
+}
+
+
 def build_reminder(payload: dict) -> tuple[str, str]:
+    """Both channels say the same thing (Change 4).
+
+    The body is composed once in `lifecycle` — including the day's wording,
+    the days actually left and any seasonal line — so email and Telegram
+    cannot drift into telling the same customer two different stories.
+    """
     days = payload["days_since_edit"]
+    subject = SUBJECTS.get(days, "Your photo book is waiting for you")
+    body = payload.get("text")
+    if body:
+        return subject, body
+    # A message queued by an older build, still in the outbox across a
+    # deploy. Delivered rather than dropped.
     ref = payload["book_id"][:8]
-    subject = "Your photo book is waiting for you"
-    text = (
+    return subject, (
         f"You started a photo book ({ref}…) and last edited it {days} days ago.\n"
-        f"Drafts are kept for 30 days after the last change — after that the "
-        f"photos are deleted.\n"
         f"Open your book to keep working on it: {payload['edit_url']}"
     )
-    return subject, text

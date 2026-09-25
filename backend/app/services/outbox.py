@@ -44,8 +44,17 @@ def _send_telegram_message(payload: dict) -> None:
     notification gets. A customer who blocked the bot makes Telegram answer
     403, `send_to` raises, and the message retries and then gives up like
     any other failure."""
+    from app import storage
     from app.services import telegram
 
+    # Presigned HERE rather than when the reminder was queued: this message
+    # may have waited out an outage and several backoffs, and a link minted
+    # an hour ago would arrive expired.
+    key = payload.get("photo_key")
+    if key:
+        url = storage.presign_get(key, expires_in=REMINDER_PHOTO_EXPIRY_S)
+        telegram.send_photo_to(payload["chat_id"], url, payload["text"])
+        return
     telegram.send_to(payload["chat_id"], payload["text"])
 
 
@@ -55,6 +64,10 @@ def _send_reminder(payload: dict) -> None:
     subject, text = build_reminder(payload)
     send_email(payload["email"], subject, text)
 
+
+# Long enough that Telegram can fetch the picture even if it is slow, and
+# that a reader opening the message tomorrow still sees it.
+REMINDER_PHOTO_EXPIRY_S = 7 * 24 * 3600
 
 BACKOFF_BASE_S = 30
 BACKOFF_CAP_S = 3600
