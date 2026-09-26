@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>RS Pixel — admin</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='4' width='24' height='24' rx='4' fill='%2316181d'/%3E%3Cpath d='M11 20V12h4a3 3 0 010 6h-4l6 2' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="admin.css?v=20260926b">
+  <link rel="stylesheet" href="admin.css?v=20260926d">
   <script src="../editor/config.js"></script>
 </head>
 <body>
@@ -36,6 +36,7 @@
         <button class="tab active" data-tab="orders">Orders</button>
         <button class="tab" data-tab="designs">Cover designs</button>
         <button class="tab" data-tab="telegram">Telegram</button>
+        <button class="tab" data-tab="reviews">Reviews</button>
       </nav>
       <span class="spacer"></span>
       <a class="btn small" href="../editor/" target="_blank" rel="noopener">Open editor</a>
@@ -346,6 +347,40 @@
     </main>
 
     <!-- ============ TELEGRAM (A97) ============ -->
+    <main class="main hidden" id="tab-reviews">
+      <section class="edit-pane">
+        <div class="tg-pane">
+          <h2>What customers wrote back</h2>
+          <!-- CR-003-9. This page READS and COPIES. It deliberately cannot
+               edit or publish, because the three rules around reviews are
+               absolute and the shortest way to keep them true is for the
+               last step to be a person who has read the row:
+
+                 never publish without the permission box;
+                 never edit a review's wording;
+                 never invent one.
+
+               The site's review list is a hand-curated literal in
+               assets/reviews.js. All this page does is hand you the exact
+               line to paste into it, for the reviews that granted
+               permission — and refuse to hand you one for the reviews that
+               did not. -->
+          <p class="muted">
+            Sent seven days after a book was delivered — one request per
+            order, never a second. Nothing here is published by pressing
+            anything: copy an approved review into
+            <code>assets/reviews.js</code>, word for word.
+          </p>
+
+          <p id="rv-empty" class="muted hidden">
+            Nothing yet. The first request goes out a week after the first
+            delivered order.
+          </p>
+          <ul id="rv-list" class="rv-list"></ul>
+        </div>
+      </section>
+    </main>
+
     <main class="main hidden" id="tab-telegram">
       <section class="edit-pane">
         <div class="tg-pane">
@@ -390,6 +425,6 @@
     </main>
   </section>
 
-  <script type="module" src="js/app.js?v=20260926b"></script>
+  <script type="module" src="js/app.js?v=20260926d"></script>
 </body>
 </html>

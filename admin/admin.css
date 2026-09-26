@@ -152,6 +152,37 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .status-pill.bad { background: #fdecea; color: var(--danger); }
 .status-pill.good { background: #e6f5ec; color: #1c7a45; }
 .status-pill.ready { background: #e8f0fe; color: var(--primary-dark); }
+
+/* ---------- Reviews (CR-003-9) ---------- */
+
+.rv-list { list-style: none; display: flex; flex-direction: column; gap: 14px;
+           max-width: 760px; }
+.rv-row {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px; display: flex; flex-direction: column; gap: 8px;
+  background: #fff;
+}
+/* A review with no permission is a private message. It is shown — the
+   operator should read what people say — but it must not look like the
+   others, because the one mistake that matters here is publishing it. Muted
+   and struck through with a left rule: legible, clearly not for use. */
+.rv-row.rv-private {
+  background: #fafafa; border-left: 3px solid #b9c0cc;
+}
+.rv-row.rv-private .rv-text { color: var(--muted); }
+.rv-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+/* `pre-wrap` so the paragraphs they typed survive. A review flattened to one
+   line is one somebody reformats before pasting, and reformatting is editing. */
+.rv-text {
+  white-space: pre-wrap; margin: 0; font-size: 14px; line-height: 1.5;
+  border-left: 2px solid var(--line); padding-left: 10px;
+}
+.rv-snippet {
+  margin: 0; padding: 10px; overflow-x: auto;
+  background: #f6f8fa; border: 1px solid var(--line); border-radius: 8px;
+  font-size: 12px; line-height: 1.45; white-space: pre;
+}
+.rv-row > .btn { align-self: flex-start; }
 .status-pill.off { background: #eceef1; color: var(--muted); }
 
 .order-detail { display: flex; flex-direction: column; gap: 14px; max-width: 900px; }

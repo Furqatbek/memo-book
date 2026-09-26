@@ -7,8 +7,9 @@
 
    English only, deliberately: the audience is the founder, not customers.
    The five-language rule is about the people buying books. */
-import * as api from './api.js?v=20260926b';
-import { bindOrders, refreshOrders, resetOrders } from './orders.js?v=20260926b';
+import * as api from './api.js?v=20260926c';
+import { bindOrders, refreshOrders, resetOrders, when }
+  from './orders.js?v=20260926c';
 
 const TRIM_W = 148, TRIM_H = 210, SAFE = 5;   // the front panel, in mm
 
@@ -88,12 +89,137 @@ function showTab(name) {
   for (const el of document.querySelectorAll('.tab')) {
     el.classList.toggle('active', el.dataset.tab === name);
   }
-  for (const id of ['tab-orders', 'tab-designs', 'tab-telegram']) {
+  for (const id of ['tab-orders', 'tab-designs', 'tab-telegram', 'tab-reviews']) {
     $(id).classList.toggle('hidden', id !== `tab-${name}`);
   }
-  // Loaded on arrival rather than at sign-in: most sessions never open this
-  // tab, and the list is only interesting when you are looking at it.
+  // Loaded on arrival rather than at sign-in: most sessions never open these
+  // tabs, and the lists are only interesting when you are looking at them.
   if (name === 'telegram') refreshOperators();
+  if (name === 'reviews') refreshReviews();
+}
+
+/* ---------- Reviews (CR-003-9) ---------- */
+
+/* A READING surface. It cannot edit and it cannot publish, and both of those
+ * are the feature rather than an omission:
+ *
+ *   never publish without the permission box;
+ *   never edit a review's wording;
+ *   never invent one.
+ *
+ * The site's list is a hand-curated literal in assets/reviews.js. What this
+ * page adds is the one genuinely tedious step — producing the exact entry to
+ * paste — and it refuses to produce one for a review that did not grant
+ * permission. A "copy" button that worked on those would be the rule broken
+ * by convenience, which is how it would actually get broken.
+ */
+async function refreshReviews() {
+  let body;
+  try {
+    body = await api.reviews();
+  } catch (err) {
+    return adminError(err, 'Could not load reviews.');
+  }
+  const rows = body.reviews || [];
+  $('rv-empty').classList.toggle('hidden', rows.length > 0);
+
+  const list = $('rv-list');
+  list.innerHTML = '';
+  for (const r of rows) {
+    list.append(reviewRow(r));
+  }
+}
+
+/* The entry to paste into assets/reviews.js, built from what they actually
+ * wrote. Two decisions in here matter more than the formatting:
+ *
+ * QUOTED WITH JSON.stringify. Their own words, in Russian or Uzbek, very
+ * often contain an apostrophe — and reviews.js is a file of single-quoted
+ * literals. Hand-quoting would break the file that publishes the reviews.
+ * It also escapes the newlines, so a two-paragraph review survives.
+ *
+ * THE FIELDS WE DO NOT KNOW ARE `null`, NOT PLACEHOLDER TEXT. `usable()` in
+ * reviews.js requires name, photo, book and text, and drops an entry missing
+ * any of them. So a snippet pasted unedited publishes NOTHING — which is the
+ * right failure. The first version of this emitted
+ * `book: "PAGES pages · WHAT IT WAS ABOUT"`, which is truthy: paste and
+ * forget, and that string goes on the live site under a customer's name.
+ */
+function reviewSnippet(r) {
+  const q = (v) => JSON.stringify(v == null ? '' : String(v));
+  const lines = ['  {', `    name:  ${q(r.display_name || '')},`];
+  if (r.city) lines.push(`    city:  ${q(r.city)},`);
+  // Even when they sent a photo we cannot know what you will name the file.
+  lines.push('    photo: null,   // REQUIRED: save their photo into '
+             + 'assets/reviews/ and put "reviews/<filename>" here');
+  lines.push('    book:  null,   // REQUIRED: e.g. "64 pages · a year in '
+             + 'Samarkand"');
+  lines.push(`    lang:  ${q(r.lang || 'ru')},`);
+  lines.push(`    text:  ${q(r.text || '')} },`);
+  return lines.join('\n');
+}
+
+function reviewRow(r) {
+  const li = h('li', { class: `rv-row${r.may_publish ? '' : ' rv-private'}` });
+
+  li.append(h('div', { class: 'rv-head' },
+    h('b', {}, r.display_name || 'No name given'),
+    r.city ? h('span', { class: 'muted small' }, r.city) : null,
+    h('span', { class: 'muted small' }, r.human_ref),
+    h('span', { class: 'muted small' }, when(r.submitted_at)),
+    h('span', {
+      class: `status-pill ${r.may_publish ? 'good' : 'off'}`,
+      // Said in full, because this is the single fact the whole page turns
+      // on and a pill alone is a thing people learn to stop reading.
+      title: r.may_publish
+        ? 'They ticked the box: this may be published, with the name above.'
+        : 'They did NOT tick the box. This is a private message to us and '
+          + 'must never appear on the site.',
+    }, r.may_publish ? 'May publish' : 'Private')));
+
+  /* Their words, exactly, in a block that preserves the line breaks they
+     typed. Not truncated: a review shown as a fragment is one somebody
+     "tidies" before pasting. */
+  li.append(h('p', { class: 'rv-text' }, r.text || ''));
+
+  if (r.lang) {
+    li.append(h('p', { class: 'muted small' },
+      `Written in: ${r.lang} — keep it in that language; the site marks it up `
+      + 'so a screen reader reads it correctly.'));
+  }
+
+  if (r.photo_url) {
+    li.append(h('a', {
+      class: 'btn small', href: r.photo_url, target: '_blank', rel: 'noopener',
+    }, 'Their photo'));
+  }
+
+  if (r.may_publish) {
+    const pre = h('pre', { class: 'rv-snippet' }, reviewSnippet(r));
+    const copy = h('button', { class: 'btn small', type: 'button' }, 'Copy entry');
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(reviewSnippet(r));
+        toast('Entry copied. Paste it into assets/reviews.js.');
+      } catch (e) {
+        // No clipboard permission: the text is on screen to select anyway.
+        toast('Select the text above and copy it.', 'warn');
+      }
+    });
+    li.append(h('p', { class: 'muted small' },
+      'Paste into assets/reviews.js, then fill in the two nulls. Until you '
+      + 'do, the entry is dropped and nothing appears on the site — which is '
+      + 'deliberate: a half-filled review must never publish itself. Three '
+      + 'complete reviews are needed before the section replaces its honest '
+      + 'note.'));
+    li.append(pre);
+    li.append(copy);
+  } else {
+    li.append(h('p', { class: 'muted small' },
+      'No permission, so there is nothing to copy. Do not put this on the '
+      + 'site, even reworded.'));
+  }
+  return li;
 }
 
 /* ---------- Telegram (A97) ---------- */

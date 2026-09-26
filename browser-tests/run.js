@@ -41,6 +41,7 @@ const SOLO = {
 const NEEDS = {
   pricegate: 'PRICES_CONFIRMED=false (the dev server sets it true)',
   admincheck: 'ADMIN_TOKEN=dev-admin (the dev server sets this by default)',
+  reviewsadmin: 'ADMIN_TOKEN=dev-admin — it serves its own review rows through a route intercept, because reaching a real one needs an order walked to delivered plus seven days, and a fixture review living in the repository is an invented review (CR-003-9)',
   adminwiring: 'ADMIN_TOKEN=dev-admin (it drives the console as an operator)',
   attention: 'ADMIN_TOKEN=dev-admin (it signs into the console)',
   // These two seed their own catalogue through the admin API rather than

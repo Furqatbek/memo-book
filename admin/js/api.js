@@ -145,3 +145,8 @@ export const resendToPrinter = (ref) =>
    from the orders list: a message that failed to reach the printer leaves the
    order looking perfectly healthy. */
 export const attention = () => request('GET', `${V}/attention`);
+
+/* What customers wrote back (CR-003-9). Read-only by design: there is no
+   endpoint that publishes a review, because publishing means a person
+   copying it into assets/reviews.js word for word. */
+export const reviews = () => request('GET', `${V}/reviews`);

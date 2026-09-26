@@ -98,7 +98,7 @@ function money(minor, currency) {
   return `${whole.toLocaleString('en-US').replace(/,/g, ' ')} ${currency || 'UZS'}`;
 }
 
-function when(iso) {
+export function when(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '—'
