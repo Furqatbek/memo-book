@@ -23,6 +23,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 
+from app.config import get_settings
 from app.domain.events import EventType
 from app.models.book import Book
 from app.models.funnel_event import FunnelEvent
@@ -387,3 +388,78 @@ async def test_it_runs_as_part_of_the_nightly_job(client, db, admin_on):
     result = await run_nightly(db)
     assert result["review_requests"] == 1
     assert (await db.execute(select(ReviewRequest))).scalars().all()
+
+
+class TestItCannotTakeTheNightlyJobDownWithIt:
+    """A review request is the least important thing in `run_nightly`, and it
+    was able to stop all of it.
+
+    `review_url` refuses to mint a relative link — correctly, because "/r/abc"
+    is a piece of text and not a link in a chat window. But that refusal was
+    raised from inside `ask()`, which runs in the nightly job, so on a
+    deployment whose only fault was one unset variable the whole job died:
+    no draft expiry, no reminders, no stall watchdog, no outbox delivery
+    pass. Found by asking why a customer had not been asked for a review.
+
+    The reminder path had always got this right — `editor_url` returns "" and
+    the message goes out without a link. The new code did not, and nothing
+    made the two agree.
+    """
+
+    async def test_the_job_finishes_with_no_public_base_url(
+            self, client, db, admin_on, monkeypatch):
+        ref = await delivered_order(client, db, days_ago=8)
+        assert ref
+
+        monkeypatch.setenv("PUBLIC_BASE_URL", "")
+        get_settings.cache_clear()
+        try:
+            from app.services.lifecycle import run_nightly
+
+            result = await run_nightly(db)
+        finally:
+            get_settings.cache_clear()
+        # Everything else in the job still ran and reported.
+        assert result["review_requests"] == 0
+        assert "expired" in result
+        assert "reminders_queued" in result
+        assert "outbox_delivered" in result
+
+    async def test_and_no_row_is_written_so_they_are_asked_later(
+            self, client, db, admin_on, monkeypatch):
+        """The important half. A row would mark them as asked for ever, and
+        the one thing worse than a late review request is a customer who is
+        never asked because of a setting that has since been fixed."""
+        ref = await delivered_order(client, db, days_ago=8)
+        order = await load(db, ref)
+
+        monkeypatch.setenv("PUBLIC_BASE_URL", "")
+        get_settings.cache_clear()
+        assert await svc.ask(db, order) is False
+        assert await svc.existing_for_order(db, order.id) is None
+
+        # And once the setting arrives, they are asked normally. Set back
+        # rather than just cache-cleared: monkeypatch holds the empty value
+        # until teardown, so clearing the cache alone re-reads the same "".
+        monkeypatch.setenv("PUBLIC_BASE_URL", "http://test")
+        get_settings.cache_clear()
+        assert await svc.ask(db, order) is True
+        assert await svc.existing_for_order(db, order.id) is not None
+
+    async def test_no_message_is_queued_without_a_link(self, client, db,
+                                                       admin_on, monkeypatch):
+        """Not a message saying "how is your book?" with nothing to press.
+        Either the ask is actionable or it does not go."""
+        from app.models.outbox import OutboxMessage
+
+        ref = await delivered_order(client, db, days_ago=8)
+        order = await load(db, ref)
+        monkeypatch.setenv("PUBLIC_BASE_URL", "")
+        get_settings.cache_clear()
+        try:
+            await svc.ask(db, order)
+        finally:
+            get_settings.cache_clear()
+        texts = [m.payload.get("text", "") for m in (await db.execute(
+            select(OutboxMessage))).scalars().all()]
+        assert not [x for x in texts if "honest review" in x]

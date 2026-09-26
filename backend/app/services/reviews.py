@@ -55,6 +55,12 @@ def review_url(token: str) -> str:
     return absolute(f"/r/{token}")
 
 
+def links_configured() -> bool:
+    from app.services.public_links import configured
+
+    return configured()
+
+
 async def delivered_at(session: AsyncSession,
                        order_id: uuid.UUID) -> datetime | None:
     """When this order was marked delivered, from its own audit trail.
@@ -106,6 +112,22 @@ async def ask(session: AsyncSession, order: Order,
     from app.services import funnel, outbox
 
     if await existing_for_order(session, order.id) is not None:
+        return False
+
+    # The ask is a LINK, and a link needs an origin. Without PUBLIC_BASE_URL
+    # `review_url` refuses rather than minting "/r/abc" — correctly, because
+    # that is a piece of text and not a link in a chat window.
+    #
+    # Checked HERE, before anything else, because this runs inside the
+    # nightly job: letting that refusal escape took down expiry, reminders,
+    # the stall watchdog and the outbox pass with it, on a deployment whose
+    # only fault was one unset variable. A review request is the least
+    # important thing in that job and it was able to stop all of it.
+    #
+    # No row is written, so these orders are asked properly once the setting
+    # arrives rather than being permanently marked as asked.
+    if not links_configured():
+        log.warning("review.no_public_base_url", order=order.human_ref)
         return False
 
     book = (await session.execute(
