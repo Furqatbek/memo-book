@@ -488,6 +488,19 @@ select {
 .badge.warn { background: #8a6d00; }
 .badge.err { background: var(--danger); }
 .badge.ok { background: var(--primary); left: auto; right: 4px; }
+/* A button and the switch that undoes it, joined so they read as one
+   control. The "×" is hidden until there is a live link, and `display:
+   none` on it means the pair takes exactly the width of the button alone —
+   which is what keeps a phone bar readable. */
+.btn-pair { display: inline-flex; align-items: stretch; gap: 3px; }
+/* Narrow, so it reads as an affordance on the button rather than a second
+   action competing with it. `.hidden` is already display:none !important
+   globally, so when no link is live the pair is exactly the button's width. */
+.btn-pair > .pair-off {
+  padding-left: 8px; padding-right: 8px;
+  font-size: 1rem; line-height: 1;
+}
+
 /* Somebody else's photograph (CR-003-6). Along the BOTTOM so it cannot
    collide with the status badges at the top, which say whether the picture
    can be used at all — that question outranks who sent it. */

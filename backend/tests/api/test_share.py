@@ -288,6 +288,53 @@ class TestCounting:
         assert auth(book)["X-Edit-Token"] == row.edit_token
 
 
+class TestTheOwnerCanTurnItOff:
+    """The gap this closes: for a while the DELETE endpoint existed, was
+    tested, and had no caller — so a customer could create a share link and
+    could not revoke one. The editor decides whether to offer the
+    off-switch from the book payload, so that is what has to be right."""
+
+    async def test_the_book_says_whether_a_link_is_live(self, client, db):
+        book = await make_book(client, 16)
+        headers = auth(book)
+        fresh = (await client.get(f"/api/v1/books/{book['book_id']}",
+                                  headers=headers)).json()
+        assert fresh["shared"] is False
+        assert fresh["share_view_count"] == 0
+
+        await client.post(f"/api/v1/books/{book['book_id']}/share",
+                          headers=headers)
+        after = (await client.get(f"/api/v1/books/{book['book_id']}",
+                                  headers=headers)).json()
+        assert after["shared"] is True
+
+    async def test_and_says_so_again_once_it_is_revoked(self, client, db):
+        book_id, headers, _ = await shared_book(client, db, 16)
+        await client.delete(f"/api/v1/books/{book_id}/share", headers=headers)
+        body = (await client.get(f"/api/v1/books/{book_id}",
+                                 headers=headers)).json()
+        assert body["shared"] is False
+
+    async def test_the_view_count_reaches_the_owner(self, client, db):
+        """It is the owner's number and it is real — incremented by the view
+        endpoint and by nothing else. Shown to nobody else."""
+        book_id, headers, token = await shared_book(client, db, 16)
+        for _ in range(2):
+            await client.get(f"/api/v1/shared/{token}")
+        body = (await client.get(f"/api/v1/books/{book_id}",
+                                 headers=headers)).json()
+        assert body["share_view_count"] == 2
+
+    async def test_the_token_itself_never_comes_back(self, client, db):
+        """A boolean is all the editor needs. The token is a credential, and
+        a payload that carried it would put it in every browser log and
+        every error report that captured a response."""
+        book_id, headers, token = await shared_book(client, db, 16)
+        body = (await client.get(f"/api/v1/books/{book_id}",
+                                 headers=headers)).text
+        assert token not in body
+
+
 class TestTheUrl:
     def test_share_url_needs_no_trailing_slash_juggling(self, monkeypatch):
         from app.config import get_settings

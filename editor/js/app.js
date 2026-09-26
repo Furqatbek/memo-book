@@ -2,13 +2,13 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260926a';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260926a';
+import * as api from './api.js?v=20260926b';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260926b';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
   from './cover-templates.js?v=20260824';
-import { makeJobs, runJobs } from './upload.js?v=20260926a';
+import { makeJobs, runJobs } from './upload.js?v=20260926b';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
 /* Every interior page is bound along one edge, and paper curves into the
@@ -609,6 +609,9 @@ document.addEventListener('visibilitychange', () => {
 
 function renderAll() {
   applyLocked();
+  // Which links are live, so the off-switches follow the book rather than
+  // only appearing in the tab that happened to mint one.
+  renderLinkState();
   updatePageLabel();
   renderTray();
   renderCanvas();
@@ -3373,6 +3376,66 @@ async function shareBook() {
       copied = true;
     } catch (e) { /* no clipboard permission: fall through to showing it */ }
     toast(copied ? t('share.copied') : r.share_url);
+    S.book.shared = true;
+    renderLinkState();
+  } catch (e) {
+    await handleActionError(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* Which off-switches to show. Driven by the SERVER's answer, not by what
+ * this tab happens to remember: a link minted on a phone yesterday must be
+ * revocable from a laptop today, and the only thing that knows it exists is
+ * the book payload. */
+function renderLinkState() {
+  const shared = !!(S.book && S.book.shared);
+  const contrib = !!(S.book && S.book.has_contributor_link);
+  $('btn-share-off').classList.toggle('hidden', !shared || S.locked);
+  $('btn-contrib-off').classList.toggle('hidden', !contrib || S.locked);
+}
+
+/* Turn the share link off.
+ *
+ * Confirmed first, and the wording matters more than usual: this is
+ * irreversible in the way that counts — the link the owner already sent to
+ * their family stops opening, and pressing "share" again mints a DIFFERENT
+ * one. Somebody who wanted to "refresh" the link needs to know that.
+ */
+async function revokeShare() {
+  if (!confirm(t('share.offConfirm'))) return;
+  const btn = $('btn-share-off');
+  btn.disabled = true;
+  try {
+    await api.revokeShare(S.creds);
+    S.book.shared = false;
+    S.book.share_view_count = 0;
+    renderLinkState();
+    toast(t('share.offDone'));
+  } catch (e) {
+    await handleActionError(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* Turn the contributor link off.
+ *
+ * The confirmation says what people are actually afraid of here: the
+ * photographs their friends already sent STAY. Without that sentence the
+ * safe action looks dangerous and nobody presses it — and a link nobody
+ * dares turn off is a link that stays live for ever.
+ */
+async function revokeContributorLink() {
+  if (!confirm(t('contrib.offConfirm'))) return;
+  const btn = $('btn-contrib-off');
+  btn.disabled = true;
+  try {
+    await api.revokeContributorLink(S.creds);
+    S.book.has_contributor_link = false;
+    renderLinkState();
+    toast(t('contrib.off'));
   } catch (e) {
     await handleActionError(e);
   } finally {
@@ -3399,6 +3462,8 @@ async function contributorLink() {
       copied = true;
     } catch (e) { /* no clipboard permission: show the link instead */ }
     toast(copied ? t('contrib.copied') : r.url);
+    S.book.has_contributor_link = true;
+    renderLinkState();
   } catch (e) {
     await handleActionError(e);
   } finally {
@@ -3926,7 +3991,9 @@ function bind() {
   $('tab-stickers').addEventListener('click', () => setTrayTab('stickers'));
   $('btn-autofill').addEventListener('click', autoFill);
   $('btn-share').addEventListener('click', shareBook);
+  $('btn-share-off').addEventListener('click', revokeShare);
   $('btn-contrib').addEventListener('click', contributorLink);
+  $('btn-contrib-off').addEventListener('click', revokeContributorLink);
   $('btn-preview').addEventListener('click', openPreview);
   $('tier-select').addEventListener('change', (e) => changeTier(Number(e.target.value)));
   $('btn-view-order').addEventListener('click', () => {

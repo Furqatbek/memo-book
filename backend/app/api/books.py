@@ -5,6 +5,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.tracking import record
@@ -48,6 +49,14 @@ def _book_response(book: Book) -> dict:
         "created_at": book.created_at,
         "updated_at": book.updated_at,
         "expires_at": book.expires_at,
+        # Whether a share link is live, and how many people have opened it.
+        # A boolean rather than the token: the editor only needs to know
+        # there is something to turn off.
+        "shared": bool(book.share_token),
+        "share_view_count": book.share_view_count or 0,
+        # Filled in by the GET handler, which can ask the contributor table.
+        # Defaults false here so a freshly created book is honest about it.
+        "has_contributor_link": False,
     }
 
 
@@ -69,7 +78,16 @@ async def create_book(body: CreateBookRequest, request: Request, session: Sessio
 async def get_book(book_id: uuid.UUID, session: Session, x_edit_token: EditToken):
     book = await svc.get_book_authed(session, book_id, x_edit_token)
     photos = await photo_svc.list_photos(session, book_id, x_edit_token)
+    # The contributor link lives in its own table, so it needs its own look
+    # — and it is asked for HERE rather than in `_book_response`, which is
+    # also used by the create path where no link can exist yet.
+    from app.models.contributor import ContributorLink
+
+    has_contributor = (await session.execute(
+        select(ContributorLink.book_id).where(
+            ContributorLink.book_id == book_id))).scalar_one_or_none() is not None
     return {**_book_response(book),
+            "has_contributor_link": has_contributor,
             "photos": [photo_svc.serialize_photo(p) for p in photos]}
 
 

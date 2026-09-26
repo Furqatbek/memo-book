@@ -38,6 +38,17 @@ class BookResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     expires_at: datetime
+    # Which links are currently live (CR-003-1, CR-003-6). BOOLEANS, never
+    # the tokens: the share token is a credential and the contributor token
+    # is only ever stored as a hash, so neither can or should come back
+    # here. The editor needs exactly this much to decide whether to offer
+    # "turn it off" — without it the owner could create a link and had no
+    # way to revoke one.
+    shared: bool = False
+    has_contributor_link: bool = False
+    # Real views of the share link, for the owner. Never invented: it is
+    # incremented by the view endpoint and by nothing else.
+    share_view_count: int = 0
 
 
 class CreateBookResponse(BookResponse):

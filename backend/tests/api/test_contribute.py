@@ -111,6 +111,37 @@ class TestTheLink:
             get_settings.cache_clear()
 
 
+class TestTheOwnerCanTurnItOff:
+    async def test_the_book_says_whether_a_link_is_live(self, client, db):
+        book_id, headers, _ = await with_link(client, db)
+        body = (await client.get(f"/api/v1/books/{book_id}",
+                                 headers=headers)).json()
+        assert body["has_contributor_link"] is True
+
+        await client.delete(f"/api/v1/books/{book_id}/contributor-link",
+                            headers=headers)
+        after = (await client.get(f"/api/v1/books/{book_id}",
+                                  headers=headers)).json()
+        assert after["has_contributor_link"] is False
+
+    async def test_a_book_that_never_had_one_says_so(self, client, db):
+        book = await make_book(client, 16)
+        body = (await client.get(f"/api/v1/books/{book['book_id']}",
+                                 headers={"X-Edit-Token": book["edit_token"]})).json()
+        assert body["has_contributor_link"] is False
+
+    async def test_revoking_twice_is_not_an_error(self, client, db):
+        """The editor hides the off-switch after the first press, but a
+        second tab may still be showing it."""
+        book_id, headers, _ = await with_link(client, db)
+        first = await client.delete(
+            f"/api/v1/books/{book_id}/contributor-link", headers=headers)
+        second = await client.delete(
+            f"/api/v1/books/{book_id}/contributor-link", headers=headers)
+        assert first.status_code == 204
+        assert second.status_code == 204
+
+
 class TestWhatAContributorCanSee:
     async def test_the_view_is_four_harmless_facts(self, client, db):
         _, _, token = await with_link(client, db)

@@ -117,6 +117,38 @@ async function newBook(page) {
     (document.querySelector('meta[name="robots"]') || {}).content || '');
   check('  and it is noindex', robots.includes('noindex'), robots);
 
+  console.log('\nTURNING SHARING OFF');
+  /* The gap this covers: the DELETE endpoint existed and was tested, and
+     nothing in the editor called it — so a customer could create a share
+     link and could not revoke one. Driven through the real button, with the
+     confirm dialog accepted the way a customer accepts it. */
+  await owner.waitForSelector('#btn-share-off:not(.hidden)', { timeout: 15000 });
+  check('  the off-switch appears once a link is live', true);
+
+  owner.once('dialog', (d) => d.accept());
+  await owner.click('#btn-share-off');
+  await owner.waitForFunction(
+    () => document.getElementById('btn-share-off').classList.contains('hidden'),
+    { timeout: 15000 });
+  check('  and disappears once it is off', true);
+
+  const deadShare = await viewer.goto(`${BASE}/s/${token}`,
+                                      { waitUntil: 'domcontentloaded' });
+  check('  the link a stranger held stops opening', deadShare.status() === 404,
+    String(deadShare.status()));
+
+  /* And a NEW link, not the old one back. */
+  await owner.click('#btn-share');
+  await owner.waitForSelector('#btn-share-off:not(.hidden)', { timeout: 15000 });
+  const fresh = await owner.evaluate(async () => {
+    const c = JSON.parse(localStorage.getItem('mb-book'));
+    const r = await fetch(`/api/v1/books/${c.book_id}/share`,
+                          { method: 'POST',
+                            headers: { 'X-Edit-Token': c.edit_token } });
+    return (await r.json()).share_token;
+  });
+  check('  sharing again mints a different token', fresh !== token);
+
   console.log('\nTHE CONTRIBUTOR LINK');
   const contribUrl = await owner.evaluate(async () => {
     const c = JSON.parse(localStorage.getItem('mb-book'));
@@ -163,6 +195,30 @@ async function newBook(page) {
     JSON.stringify(flagged));
   check('  with the name they gave', flagged.includes('Bek'),
     JSON.stringify(flagged));
+
+  console.log('\nTURNING THE CONTRIBUTOR LINK OFF');
+  await owner.waitForSelector('#btn-contrib-off:not(.hidden)', { timeout: 15000 });
+  owner.once('dialog', (d) => d.accept());
+  await owner.click('#btn-contrib-off');
+  await owner.waitForFunction(
+    () => document.getElementById('btn-contrib-off').classList.contains('hidden'),
+    { timeout: 15000 });
+  const deadContrib = await friend.goto(
+    contribUrl.replace(/^https?:\/\/[^/]+/, BASE),
+    { waitUntil: 'domcontentloaded' });
+  check('  the friend’s link stops opening', deadContrib.status() === 404,
+    String(deadContrib.status()));
+
+  /* The thing people are actually afraid of: it must NOT delete the
+     photographs their friends already sent. */
+  const stillThere = await owner.evaluate(async () => {
+    const c = JSON.parse(localStorage.getItem('mb-book'));
+    const r = await fetch(`/api/v1/books/${c.book_id}/photos`,
+                          { headers: { 'X-Edit-Token': c.edit_token } });
+    return (await r.json()).photos.filter((p) => p.contributed).length;
+  });
+  check('  and the contributed photos stay', stillThere >= 1,
+    `${stillThere} still in the pool`);
 
   console.log('\nerrors:', errors.length ? errors : 'none');
   const ignored = noise.length + viewerNoise.length + friendNoise.length;

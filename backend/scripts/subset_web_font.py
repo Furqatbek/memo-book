@@ -58,8 +58,28 @@ def i18n_strings() -> list[str]:
     """
     src = I18N.read_text(encoding="utf-8")
     table = src[src.index("const STRINGS = {"):src.index("export const LANG_NAMES")]
-    return [v.replace("\\'", "'")
+    return [_unescape(v)
             for v in re.findall(r":\s*'((?:[^'\\]|\\.)*)'", table)]
+
+
+# What a JS escape MEANS, not the two characters that spell it. Unescaping
+# only `\'` used to be enough, and then a confirmation string needed `\n` for
+# a readable second paragraph — at which point the scanner demanded a
+# BACKSLASH glyph from the display face. No reader ever sees that backslash,
+# and the subset does not carry one, so the test failed over a character that
+# does not exist on screen. A newline is unprintable and drops out below.
+_ESCAPES = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f",
+            "'": "'", '"': '"', "\\": "\\", "/": "/"}
+
+
+def _unescape(raw: str) -> str:
+    def one(match: re.Match) -> str:
+        body = match.group(1)
+        if body[0] == "u":
+            return chr(int(body[1:], 16))
+        return _ESCAPES.get(body, body)
+
+    return re.sub(r"\\(u[0-9a-fA-F]{4}|.)", one, raw, flags=re.S)
 
 
 def html_literals() -> list[str]:
