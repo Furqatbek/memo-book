@@ -8,7 +8,7 @@
    from the state machine. Nothing here decides what an order may become —
    if this file and the machine ever disagreed, the machine would refuse and
    the page would be lying about what is possible. */
-import * as api from './api.js?v=20260825';
+import * as api from './api.js?v=20260926e';
 
 const S = {
   orders: [],

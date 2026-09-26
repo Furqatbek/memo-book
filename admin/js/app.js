@@ -7,9 +7,9 @@
 
    English only, deliberately: the audience is the founder, not customers.
    The five-language rule is about the people buying books. */
-import * as api from './api.js?v=20260926c';
+import * as api from './api.js?v=20260926e';
 import { bindOrders, refreshOrders, resetOrders, when }
-  from './orders.js?v=20260926c';
+  from './orders.js?v=20260926e';
 
 const TRIM_W = 148, TRIM_H = 210, SAFE = 5;   // the front panel, in mm
 
@@ -89,13 +89,15 @@ function showTab(name) {
   for (const el of document.querySelectorAll('.tab')) {
     el.classList.toggle('active', el.dataset.tab === name);
   }
-  for (const id of ['tab-orders', 'tab-designs', 'tab-telegram', 'tab-reviews']) {
+  for (const id of ['tab-orders', 'tab-designs', 'tab-telegram', 'tab-reviews',
+                    'tab-funnel']) {
     $(id).classList.toggle('hidden', id !== `tab-${name}`);
   }
   // Loaded on arrival rather than at sign-in: most sessions never open these
   // tabs, and the lists are only interesting when you are looking at them.
   if (name === 'telegram') refreshOperators();
   if (name === 'reviews') refreshReviews();
+  if (name === 'funnel') refreshFunnel();
 }
 
 /* ---------- Reviews (CR-003-9) ---------- */
@@ -220,6 +222,228 @@ function reviewRow(r) {
       + 'site, even reworded.'));
   }
   return li;
+}
+
+/* ---------- Where people stop (Change 3) ----------
+ *
+ * The report endpoint has existed since Change 3 and was read with curl. This
+ * is the same payload on screen, and it earns its place by making two facts
+ * impossible to miss rather than by drawing a nicer shape:
+ *
+ *   the top of the funnel is CLIENT-REPORTED, so it is a floor and not a
+ *   count — an ad-blocker eats some of those rows;
+ *   a rate with nothing above it reads "no data", never 0%.
+ *
+ * Both come straight out of the payload (`counting`, and `null` rates), and a
+ * chart that renders them as a confident number and a confident zero is a
+ * chart that lies about how much we know. So the caveat line is BUILT from
+ * `counting` rather than typed here: if the server changes which steps come
+ * from a browser, this follows without anybody remembering to.
+ */
+
+/* Everything in the payload that is not a funnel step. The step keys are the
+   remainder, in FUNNEL_ORDER — Python dicts and JSON objects both keep
+   insertion order, so the order of the funnel is the server's to decide and
+   adding a step needs no change here. */
+const FN_META = new Set(['conversion_rates', 'by_campaign', 'window', 'counting']);
+
+const FN_LABELS = {
+  site_visit: 'Saw the site',
+  editor_opened: 'Opened the editor',
+  book_started: 'Started a book',
+  first_photo_uploaded: 'Uploaded a first photo',
+  half_designed: 'Got half-designed',
+  design_completed: 'Finished the design',
+  preview_viewed: 'Looked at the preview',
+  checkout_opened: 'Opened checkout',
+  checkout_submitted: 'Submitted checkout',
+  payment_succeeded: 'Paid',
+};
+
+// A step the server added and this file has not been taught yet still reads
+// as something: "flip_video_generated" -> "Flip video generated".
+function fnLabel(key) {
+  if (FN_LABELS[key]) return FN_LABELS[key];
+  const words = key.replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function fnSteps(body) {
+  return Object.keys(body).filter((k) => !FN_META.has(k));
+}
+
+/* A rate, or the honest absence of one.
+ *
+ * `null` means the denominator was zero: nobody reached the step above, so
+ * there is no rate to report. "0%" would be a claim that people arrived and
+ * none of them converted — a different fact, and the one that sends you
+ * rewriting a screen nobody reached.
+ *
+ * An actual zero therefore has to still read as "0%", which is why it is
+ * spelled out rather than falling through the small-number branch as
+ * "0.0%": the two have to look different from each other, not from nothing. */
+function fnPct(rate) {
+  if (rate === null || rate === undefined) return 'no data';
+  if (rate === 0) return '0%';
+  return `${(rate * 100).toFixed(rate < 0.1 ? 1 : 0)}%`;
+}
+
+async function refreshFunnel() {
+  const query = {
+    from: $('fn-from').value,
+    to: $('fn-to').value,
+    campaign: $('fn-campaign').value,
+  };
+  let body;
+  try {
+    body = await api.funnel(query);
+  } catch (err) {
+    return adminError(err, 'Could not load the funnel.');
+  }
+
+  const steps = fnSteps(body);
+  // The server already computed every rate, including the null it uses for a
+  // zero denominator. Recomputing any of them here would be a second opinion
+  // that can disagree with the one the payload documents.
+  const rates = body.conversion_rates || {};
+
+  // Shown as soon as ANY step has a row — not just the top one, which is the
+  // step most likely to have been eaten by an ad-blocker. With nothing at
+  // all the steps are hidden too: ten zeroes and nine identical "nobody
+  // reached the step above" lines say less than one sentence does.
+  const any = steps.some((k) => (body[k] || 0) > 0);
+  $('fn-empty').classList.toggle('hidden', any);
+  $('fn-steps').classList.toggle('hidden', !any);
+  renderFunnelCaveat(body, steps);
+
+  const list = $('fn-steps');
+  list.innerHTML = '';
+  let previous = null;
+  for (const key of steps) {
+    const n = body[key] || 0;
+    const stepRate = previous ? rates[`${previous.key}_to_${key}`] : undefined;
+    list.append(fnRow(key, n, previous, stepRate,
+                      rates[`${key}_of_site_visit`]));
+    previous = { key, n };
+  }
+
+  renderFunnelCampaigns(body, steps);
+}
+
+function renderFunnelCaveat(body, steps) {
+  const counting = body.counting || {};
+  // Which steps the server says come from a browser — read off the payload,
+  // so this cannot claim a different set from the one being counted.
+  const reported = steps.filter(
+    (k) => typeof counting[k] === 'string' && counting[k].includes('client'));
+  const win = body.window || {};
+  const when = (win.from || win.to)
+    ? `${win.from ? shortDate(win.from) : 'the beginning'} to `
+      + `${win.to ? shortDate(win.to) : 'now'}`
+    : 'all time';
+
+  const parts = [`Window: ${when} (dates are read as UTC, so a day here `
+                 + 'starts at 05:00 in Tashkent).'];
+  if (reported.length) {
+    parts.push(`${reported.map(fnLabel).join(', ')} `
+      + `${reported.length === 1 ? 'is' : 'are'} reported by the browser: an `
+      + 'ad-blocker or a lost connection eats some of them, so those are a '
+      + 'floor and not a count, and every rate measured against them reads '
+      + 'BETTER than it is. Everything below is server-observed.');
+  }
+  parts.push('A step with nothing above it says "no data" rather than 0% — '
+             + 'nobody arrived and nobody converted are different facts.');
+  $('fn-caveat').textContent = parts.join(' ');
+}
+
+function fnRow(key, n, previous, stepRate, ofTop) {
+  const li = h('li', { class: 'fn-step' });
+  const share = ofTop === null || ofTop === undefined ? null : ofTop;
+  li.append(h('div', { class: 'fn-line' },
+    h('b', {}, fnLabel(key)),
+    h('span', { class: 'fn-n' }, String(n)),
+    h('span', { class: 'muted small' }, share === null
+      ? 'share of the top: no data'
+      : `${fnPct(share)} of the top`)));
+
+  // The bar is the share of the top step. Capped for DRAWING only; the
+  // number beside it is never capped, because a step that reads over 100%
+  // is the under-count above it showing itself and must stay visible.
+  li.append(h('div', { class: 'fn-bar' },
+    h('span', {
+      class: 'fn-fill', style: `width:${Math.min(share ?? 0, 1) * 100}%`,
+    })));
+
+  if (previous) {
+    li.append(h('div', { class: 'muted small' },
+      fnDropText(previous, n, stepRate)));
+  }
+  return li;
+}
+
+/* What happened between the step above and this one. Three cases, and the
+   third is the one a tidier chart would hide: a step can legitimately exceed
+   the one above it, because the steps above it are client-reported and
+   under-counted. Rendering that as a negative drop-off, or clamping it to
+   zero, would bury the only signal we get that the top is missing rows. */
+function fnDropText(previous, n, stepRate) {
+  if (stepRate === null || stepRate === undefined) {
+    return `No data: nobody reached "${fnLabel(previous.key)}" in this window.`;
+  }
+  if (n > previous.n) {
+    return `${fnPct(stepRate)} of "${fnLabel(previous.key)}" — MORE than the `
+      + 'step above, which is only possible because that step is '
+      + 'client-reported and under-counted. Trust this number, not the rate.';
+  }
+  const lost = previous.n - n;
+  if (!lost) return `${fnPct(stepRate)} carried on — nobody stopped here.`;
+  return `${fnPct(stepRate)} carried on — ${lost} `
+    + `${lost === 1 ? 'person' : 'people'} stopped here.`;
+}
+
+/* Per campaign, because one number for the whole site cannot tell you which
+   channel paid for itself — which is the arithmetic this instrumentation
+   exists for. */
+function renderFunnelCampaigns(body, steps) {
+  const byCampaign = body.by_campaign || {};
+  const names = Object.keys(byCampaign);
+  $('fn-campaigns').classList.toggle('hidden', names.length === 0);
+
+  // The select is only repopulated from an UNFILTERED answer, which is the
+  // one that lists every campaign in the window. Rebuilding it from a
+  // filtered answer would leave one option and no way back.
+  if (!body.window || !body.window.campaign) {
+    const select = $('fn-campaign');
+    const chosen = select.value;
+    select.innerHTML = '';
+    select.append(h('option', { value: '' }, 'All campaigns'));
+    for (const name of names) {
+      select.append(h('option', { value: name }, name));
+    }
+    select.value = names.includes(chosen) ? chosen : '';
+  }
+
+  /* The paid rate sits SECOND, beside the name, not at the far end past ten
+     step columns. Ten columns do not fit a screen, and the one number this
+     table exists to produce — what a channel actually converts — was the one
+     you had to scroll to find. */
+  const head = $('fn-ch-head');
+  head.innerHTML = '';
+  head.append(h('th', {}, 'Campaign'), h('th', {}, 'Paid / saw the site'));
+  for (const key of steps) head.append(h('th', {}, fnLabel(key)));
+
+  const bodyEl = $('fn-ch-body');
+  bodyEl.innerHTML = '';
+  const last = steps[steps.length - 1];
+  for (const name of names) {
+    const row = byCampaign[name] || {};
+    const counts = row.counts || {};
+    const tr = h('tr', {}, h('td', {}, name),
+      h('td', { class: 'fn-rate' },
+        fnPct((row.conversion_rates || {})[`${last}_of_site_visit`])));
+    for (const key of steps) tr.append(h('td', {}, String(counts[key] || 0)));
+    bodyEl.append(tr);
+  }
 }
 
 /* ---------- Telegram (A97) ---------- */
@@ -736,6 +960,11 @@ function bind() {
   }
   bindOrders(deps);
   $('tg-new-code').addEventListener('click', newLinkCode);
+  $('fn-refresh').addEventListener('click', refreshFunnel);
+  // The campaign picker refetches rather than filtering what is on screen:
+  // the per-campaign counts are computed by the server, and a client-side
+  // filter would have to re-derive the rates and would get them wrong.
+  $('fn-campaign').addEventListener('change', refreshFunnel);
   $('btn-new').addEventListener('click', () => edit(null));
   $('btn-cancel').addEventListener('click', closeEditor);
   $('btn-retire').addEventListener('click', retire);

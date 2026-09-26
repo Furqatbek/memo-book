@@ -77,6 +77,12 @@ const NEEDS = {
   tgremind: 'TELEGRAM_BOT_USERNAME + TELEGRAM_WEBHOOK_SECRET (the dev '
     + 'server sets both) — it takes the deep link out of the editor bar '
     + 'and drives the real /start and /stop through the webhook (Change 2)',
+  funneltab: 'ADMIN_TOKEN=dev-admin (the dev server sets it) — it serves the '
+    + 'report through a route intercept, because the three cases worth '
+    + 'rendering carefully (a zero denominator, a genuine zero, and a step '
+    + 'bigger than the one above it) cannot all be produced by one real '
+    + 'journey. `funnel` is the check that proves the real numbers arrive; '
+    + 'this one proves the page does not lie about them (Change 3)',
   funnel: 'ADMIN_TOKEN=dev-admin (the dev server sets it) — it clicks an '
     + 'advert link with a campaign on it and builds a book in ONE browser '
     + 'context, then reads the funnel report back to prove the whole '

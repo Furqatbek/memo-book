@@ -463,3 +463,122 @@ class TestItCannotTakeTheNightlyJobDownWithIt:
         texts = [m.payload.get("text", "") for m in (await db.execute(
             select(OutboxMessage))).scalars().all()]
         assert not [x for x in texts if "honest review" in x]
+
+
+class TestTheWayBackToTheForm:
+    """CR-003-9: `GET /books/{id}/review-link`, on the order screen.
+
+    The ask goes out once, in a chat message, and a chat message gets
+    scrolled past. This is the same form, reachable from the order screen the
+    customer already has open.
+
+    The whole design of it is one refusal: IT MINTS NOTHING. The timing of
+    the ask is deliberate — a book a week old has been looked through and
+    shown to somebody, a book that arrived this morning has not — and an
+    endpoint that created a request on demand would quietly spend the one ask
+    we get on somebody who was merely curious. So it answers `available:
+    false` until the ask has actually gone out.
+    """
+
+    async def _book_auth(self, db, ref: str) -> tuple[str, dict]:
+        order = await load(db, ref)
+        book = (await db.execute(
+            select(Book).where(Book.id == order.book_id))).scalar_one()
+        return str(book.id), {"X-Edit-Token": book.edit_token}
+
+    async def test_it_mints_nothing_before_the_ask(self, client, db, admin_on):
+        ref = await delivered_order(client, db, days_ago=8)
+        book_id, headers = await self._book_auth(db, ref)
+
+        for _ in range(3):
+            resp = await client.get(f"/api/v1/books/{book_id}/review-link",
+                                    headers=headers)
+            assert resp.status_code == 200
+            assert resp.json() == {"available": False, "url": None,
+                                   "submitted": False}
+
+        # The half that matters: no row, so the nightly job still owns the
+        # decision about when — and how often — this customer is asked.
+        rows = (await db.execute(select(ReviewRequest))).scalars().all()
+        assert rows == []
+
+    async def test_after_the_ask_it_hands_back_that_same_request(
+            self, client, db, admin_on):
+        ref = await delivered_order(client, db, days_ago=8)
+        book_id, headers = await self._book_auth(db, ref)
+        order = await load(db, ref)
+        assert await svc.ask(db, order) is True
+        token = (await svc.existing_for_order(db, order.id)).token
+
+        resp = await client.get(f"/api/v1/books/{book_id}/review-link",
+                                headers=headers)
+        assert resp.json() == {"available": True,
+                               "url": svc.review_url(token),
+                               "submitted": False}
+        # Still one request, after being read.
+        assert len((await db.execute(
+            select(ReviewRequest))).scalars().all()) == 1
+
+    async def test_it_says_when_they_have_already_written(self, client, db,
+                                                          admin_on):
+        """So the editor can offer "edit what you sent" rather than asking
+        somebody who has already answered."""
+        ref = await delivered_order(client, db, days_ago=8)
+        book_id, headers = await self._book_auth(db, ref)
+        order = await load(db, ref)
+        await svc.ask(db, order)
+        token = (await svc.existing_for_order(db, order.id)).token
+        await client.post(f"/api/v1/reviews/{token}",
+                          json={"text": "Good.", "may_publish": True})
+
+        body = (await client.get(f"/api/v1/books/{book_id}/review-link",
+                                 headers=headers)).json()
+        assert body["available"] is True
+        assert body["submitted"] is True
+
+    async def test_a_book_with_no_order_has_nothing_to_offer(self, client):
+        made = await client.post("/api/v1/books", json={"page_count": 16})
+        assert made.status_code == 201, made.text
+        created = made.json()
+        resp = await client.get(
+            f"/api/v1/books/{created['book_id']}/review-link",
+            headers={"X-Edit-Token": created["edit_token"]})
+        assert resp.status_code == 200
+        assert resp.json()["available"] is False
+
+    async def test_somebody_else_gets_a_404_not_a_link(self, client, db,
+                                                       admin_on):
+        """A72/A96: a wrong token is indistinguishable from a missing book.
+        This one publishes words under a customer's name, so there is no
+        version of it that a stranger holding a book id may reach."""
+        ref = await delivered_order(client, db, days_ago=8)
+        book_id, _ = await self._book_auth(db, ref)
+        order = await load(db, ref)
+        await svc.ask(db, order)
+
+        resp = await client.get(f"/api/v1/books/{book_id}/review-link",
+                                headers={"X-Edit-Token": "wrong" * 6})
+        assert resp.status_code == 404
+
+    async def test_with_no_public_base_url_it_answers_no_rather_than_raising(
+            self, client, db, admin_on, monkeypatch):
+        """The same fault that took the nightly job down, on a request path.
+        `review_url` refuses to mint a relative link; this must read that
+        refusal as "there is nothing to offer", not turn it into a 500 on the
+        customer's order screen."""
+        ref = await delivered_order(client, db, days_ago=8)
+        book_id, headers = await self._book_auth(db, ref)
+        order = await load(db, ref)
+        await svc.ask(db, order)
+
+        monkeypatch.setenv("PUBLIC_BASE_URL", "")
+        get_settings.cache_clear()
+        try:
+            resp = await client.get(f"/api/v1/books/{book_id}/review-link",
+                                    headers=headers)
+        finally:
+            monkeypatch.setenv("PUBLIC_BASE_URL", "http://test")
+            get_settings.cache_clear()
+        assert resp.status_code == 200
+        assert resp.json() == {"available": False, "url": None,
+                               "submitted": False}

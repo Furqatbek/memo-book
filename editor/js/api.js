@@ -68,6 +68,11 @@ export async function health() {
 
 const V = '/api/v1';
 
+/* The way back to the review form (CR-003-9). Answers available:false until
+   the ask has actually gone out — it mints nothing. */
+export const reviewLink = (c) =>
+  request('GET', `${V}/books/${c.book_id}/review-link`, { token: c.edit_token });
+
 export const prices = () => request('GET', `${V}/prices`, {});
 
 /* The campaign window (CR-003-7, CR-003-8). Public and identical for

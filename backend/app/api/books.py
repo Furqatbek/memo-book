@@ -168,6 +168,52 @@ async def telegram_link(book_id: uuid.UUID, session: Session,
     }
 
 
+@router.get("/{book_id}/review-link")
+async def review_link(book_id: uuid.UUID, session: Session,
+                      x_edit_token: EditToken) -> dict:
+    """The customer's own way back to the review form (CR-003-9).
+
+    The ask goes out seven days after delivery, once, and a message in a chat
+    gets scrolled past or lost. This is the door back to the same form, on
+    the order screen they already have open.
+
+    It does NOT mint a request. A token exists only because we asked, and the
+    timing of that ask is deliberate — a book a week old has been looked
+    through and shown to somebody, a book that arrived this morning has not.
+    So this answers `available: false` until the ask has gone out, rather
+    than quietly turning a customer's curiosity into the one request they
+    get.
+
+    Behind the edit token, like every other link this book can mint. A
+    customer who looked their order up on another device holds the reference
+    and their phone, not the token, so they see nothing here — which is
+    honest: we cannot prove who they are well enough to hand over a form
+    that publishes words under their name.
+    """
+    from app.models.order import Order
+    from app.models.review import ReviewRequest
+    from app.services import reviews as reviews_svc
+
+    book = await svc.get_book_authed(session, book_id, x_edit_token)
+    order = (await session.execute(
+        select(Order).where(Order.book_id == book.id))).scalar_one_or_none()
+    if order is None or not reviews_svc.links_configured():
+        return {"available": False, "url": None, "submitted": False}
+
+    review = (await session.execute(
+        select(ReviewRequest).where(ReviewRequest.order_id == order.id)
+    )).scalar_one_or_none()
+    if review is None:
+        return {"available": False, "url": None, "submitted": False}
+    return {
+        "available": True,
+        "url": reviews_svc.review_url(review.token),
+        # So the editor can say "edit what you sent" rather than "tell us
+        # what you think" to somebody who already has.
+        "submitted": review.submitted_at is not None,
+    }
+
+
 @router.get("/{book_id}/checkout-eligibility")
 async def checkout_eligibility(book_id: uuid.UUID, session: Session,
                                x_edit_token: EditToken):

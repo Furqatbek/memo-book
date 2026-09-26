@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex">
   <title>RS Pixel — Book editor</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='22' height='24' rx='3' fill='%232456d6'/%3E%3Crect x='9' y='9' width='14' height='9' rx='1.5' fill='white' opacity='.92'/%3E%3Crect x='9' y='21' width='10' height='2.5' rx='1.25' fill='white' opacity='.7'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="editor.css?v=20260926d">
+  <link rel="stylesheet" href="editor.css?v=20260926e">
   <script src="config.js?v=20260826"></script>
 </head>
 <body>
@@ -247,6 +247,12 @@
       </div>
       <div id="pv-soft" class="notice warn hidden"></div>
       <div id="pv-grid" class="pv-grid"></div>
+      <!-- Change 2 / CR-003-2. Offered here as well as in the bar: this is
+           the moment somebody has just looked through their whole book and
+           is deciding, and the bar button is framed as draft recovery. Same
+           mechanism, same one-tap link. -->
+      <a id="pv-tg" class="btn small hidden" target="_blank" rel="noopener"
+         data-i18n="tg.previewBtn"></a>
     </div>
     <footer class="pv-footer">
       <label class="check">
@@ -368,6 +374,17 @@
              data-i18n="tg.orderBtn"></a>
         </div>
         <p id="or-tg-linked" class="save-state hidden" data-i18n="tg.orderLinked"></p>
+        <!-- CR-003-9. The ask goes out once, seven days after delivery, and a
+             message in a chat gets scrolled past. This is the door back to
+             the same form, on a screen they already have open. It appears
+             only once that ask has actually gone out — pressing it must not
+             become the one request they get. -->
+        <div id="or-review" class="card or-tg hidden">
+          <b data-i18n="review.orderTitle"></b>
+          <p class="muted small" data-i18n="review.orderBody"></p>
+          <a id="or-review-link" class="btn" target="_blank" rel="noopener"
+             data-i18n="review.orderBtn"></a>
+        </div>
         <div id="or-files" class="card or-files hidden">
           <b data-i18n="order.files"></b>
           <div class="or-file-links">
@@ -411,6 +428,6 @@
     </div>
   </section>
 
-  <script type="module" src="js/app.js?v=20260926d"></script>
+  <script type="module" src="js/app.js?v=20260926e"></script>
 </body>
 </html>

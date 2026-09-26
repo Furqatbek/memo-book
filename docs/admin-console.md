@@ -1,7 +1,9 @@
 # The admin console
 
-`https://your-domain/admin/` — two sections: **Orders** (the daily job) and
-**Cover designs** (see [`cover-designs.md`](cover-designs.md)).
+`https://your-domain/admin/` — five tabs: **Orders** (the daily job), **Cover
+designs** (see [`cover-designs.md`](cover-designs.md)), **Telegram** (linking
+an operator's account to the bot), **Reviews** (what customers wrote back) and
+**Funnel** (where people stop).
 
 ## Turning it on
 
@@ -64,6 +66,54 @@ it with **Refunded**.
 
 There is no way to delete an order. The history is the record of what
 happened to someone's money, and it stays.
+
+## Reviews — what customers wrote back
+
+Seven days after a book is delivered the customer is asked, once, what they
+thought. Their answers land here.
+
+The tab **reads and copies. It cannot publish.** The site's review list is a
+hand-written literal in `assets/reviews.js`, and the last step is always a
+person who has read the row. Three rules, and none of them bends:
+
+- never publish a review whose author did not tick the permission box;
+- never edit their wording;
+- never invent one.
+
+A review that granted permission gets a **Copy entry** button: it produces the
+exact line to paste into `assets/reviews.js`, with their words quoted safely.
+A review that did not gets no snippet and no button — not a greyed-out one,
+none at all.
+
+The pasted entry has two `null`s in it, for their photo's filename and a short
+description of the book. **Until you fill those in, the entry publishes
+nothing**, deliberately: a half-filled review must never put itself on the
+site. The section on the front page keeps its honest note until three complete
+reviews exist.
+
+## Funnel — where people stop
+
+Every step from "somebody read the front page" to "somebody paid", with the
+drop between each pair and the same split per advertising campaign. Pick a
+window with **From** / **To**, or leave both empty for all time.
+
+Two things it says on its face, because they decide what the numbers mean:
+
+- **The top of the funnel is reported by the browser.** An ad-blocker or a
+  lost connection eats some of those rows, so "Saw the site", "Opened the
+  editor" and "Opened checkout" are a **floor, not a count** — and every rate
+  measured against them reads better than it really is. Everything below is
+  server-observed. This is why a step can show *more* than the step above it,
+  and the page says so rather than clamping it.
+- **A rate with nothing above it reads "no data", never 0%.** Nobody arrived
+  and nobody converted are different facts, and only one of them is a problem
+  with the screen.
+
+The **Paid / saw the site** column in the campaign table is the number worth
+looking at: it is what a channel actually converts, and it is what makes cost
+per order computable from what you spent on that channel.
+
+Dates are read as UTC, so a day here starts at 05:00 in Tashkent.
 
 ## What the console cannot do
 

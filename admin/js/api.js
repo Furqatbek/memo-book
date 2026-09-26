@@ -150,3 +150,20 @@ export const attention = () => request('GET', `${V}/attention`);
    endpoint that publishes a review, because publishing means a person
    copying it into assets/reviews.js word for word. */
 export const reviews = () => request('GET', `${V}/reviews`);
+
+/* ---------- the funnel (Change 3) ----------
+   Not under /admin: it lives at /api/v1/internal/funnel, behind the same
+   X-Admin-Token. Dates go out as plain YYYY-MM-DD and the server reads them
+   as UTC — said out loud in the UI, because an operator in Tashkent picking
+   "today" is picking a window that started at 05:00 local. */
+export function funnel({ from = '', to = '', campaign = '' } = {}) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  // Inclusive to the end of the chosen day. The server compares
+  // occurred_at <= to, so a bare date would cut the last day off at
+  // midnight and quietly lose everything that happened in it.
+  if (to) params.set('to', `${to}T23:59:59`);
+  if (campaign) params.set('campaign', campaign);
+  const q = params.toString();
+  return request('GET', `/api/v1/internal/funnel${q ? `?${q}` : ''}`);
+}

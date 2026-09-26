@@ -2,13 +2,13 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260926d';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260926d';
+import * as api from './api.js?v=20260926e';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260926e';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
   from './cover-templates.js?v=20260824';
-import { makeJobs, runJobs } from './upload.js?v=20260926d';
+import { makeJobs, runJobs } from './upload.js?v=20260926e';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
 /* Every interior page is bound along one edge, and paper curves into the
@@ -659,6 +659,42 @@ async function refreshOrderTelegramOffer() {
     if (!r.available) return;
     if (r.linked) { done.classList.remove('hidden'); return; }
     $('or-tg-link').href = r.deep_link;
+    card.classList.remove('hidden');
+  } catch (e) { /* never break the order screen over an extra */ }
+}
+
+/* The same offer on the PREVIEW screen. They have just looked through the
+ * whole book and are deciding; the bar button behind them is framed as draft
+ * recovery. Reuses the deep link the bar already fetched rather than asking
+ * again — the token is reused until it expires, so a second call would return
+ * the same string for no reason.
+ */
+function refreshPreviewTelegramOffer() {
+  const link = $('pv-tg');
+  const bar = $('btn-tg-remind');
+  // Shown exactly when the bar is: same availability, same not-yet-linked
+  // condition, same href. If the bar has nothing to offer, neither has this.
+  const offer = S.tgAvailable && !bar.classList.contains('hidden');
+  if (offer) link.href = bar.getAttribute('href') || '';
+  link.classList.toggle('hidden', !offer);
+}
+
+/* The customer's way back to the review form (CR-003-9).
+ *
+ * Hidden unless the ask has already gone out, because the server mints
+ * nothing here: the timing of that one request is deliberate, and a customer
+ * tapping a link out of curiosity must not consume it.
+ */
+async function refreshReviewOffer() {
+  const card = $('or-review');
+  card.classList.add('hidden');
+  if (!S.creds) return;          // a lookup on another device holds no token
+  try {
+    const r = await api.reviewLink(S.creds);
+    if (!r.available) return;
+    $('or-review-link').href = r.url;
+    $('or-review-link').textContent =
+      t(r.submitted ? 'review.orderBtnAgain' : 'review.orderBtn');
     card.classList.remove('hidden');
   } catch (e) { /* never break the order screen over an extra */ }
 }
@@ -3588,6 +3624,7 @@ async function openPreview() {
   $('pv-stale').classList.add('hidden');
   $('pv-confirm').checked = false;
   $('pv-checkout').disabled = true;
+  refreshPreviewTelegramOffer();
   renderSoftWarning();
   if (!S.prices) await loadPrices(); else renderPrices();
   $('pv-status').textContent = t('preview.rendering');
@@ -3785,6 +3822,7 @@ function showOrder() {
   $('or-receipt').classList.add('hidden');
   $('receipt-error').classList.add('hidden');
   refreshOrderTelegramOffer();
+  refreshReviewOffer();
   pollOrder();
 }
 

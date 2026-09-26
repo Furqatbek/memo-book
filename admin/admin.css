@@ -376,3 +376,54 @@ input[type=color] {
 
 /* The customer's proof of transfer, beside the payment decision (A100). */
 .od-receipt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Where people stop (Change 3) ----------
+   A funnel drawn as bars, with the caveats in the same type size as the
+   numbers. The temptation in a panel like this is to make the shape pretty
+   and put the "client-reported" note in 10px grey at the bottom; the notes
+   are the difference between a number and a decision, so they sit inline. */
+.fn-pane { max-width: 980px; }
+.fn-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.fn-controls label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; color: var(--muted);
+}
+.fn-controls input, .fn-controls select {
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px;
+  font: inherit; font-size: 13px; color: var(--ink);
+}
+.fn-steps { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.fn-step { display: flex; flex-direction: column; gap: 4px; }
+.fn-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fn-n {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.15rem; font-weight: 700;
+}
+.fn-bar {
+  height: 10px; background: #edeff3; border-radius: 5px; overflow: hidden;
+}
+/* Zero width is a real answer and must still be visible as a bar that is
+   empty rather than as nothing at all — hence the track being drawn. */
+.fn-fill { display: block; height: 100%; background: var(--primary); }
+
+.fn-campaigns { display: flex; flex-direction: column; gap: 8px; }
+/* Ten steps do not fit a phone, and a table that reflows loses which column
+   a number is in. Scroll it sideways instead. */
+.fn-table-wrap { overflow-x: auto; border: 1px solid var(--line);
+                 border-radius: var(--radius); }
+.fn-table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+.fn-table th, .fn-table td {
+  padding: 7px 10px; text-align: right; white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+.fn-table th { background: #f6f8fa; font-size: 11px; color: var(--muted);
+               font-weight: 600; }
+.fn-table th:first-child, .fn-table td:first-child {
+  text-align: left; position: sticky; left: 0; background: #fff;
+}
+.fn-table th:first-child { background: #f6f8fa; }
+/* What the table is for, so it is the one thing that is not grey. */
+.fn-table td.fn-rate { font-weight: 700; }
+.fn-table tbody tr:last-child th, .fn-table tbody tr:last-child td {
+  border-bottom: 0;
+}

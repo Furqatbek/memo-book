@@ -76,6 +76,10 @@ EXEMPT = {
     # calling this in a loop returns the same string rather than leaving a
     # trail of live secrets behind (Change 2).
     "GET /api/v1/books/{book_id}/telegram-link": "edit token",
+    # Edit token, and it mints nothing (CR-003-9): it hands back the
+    # token of a review request that already exists, so calling it in a
+    # loop returns the same string or the same "no".
+    "GET /api/v1/books/{book_id}/review-link": "edit token",
     # Edit token again (CR-003-1). Minting is idempotent — the same token
     # comes back — and the render behind it only runs when the book has
     # actually changed since the last one, which is the same bargain
