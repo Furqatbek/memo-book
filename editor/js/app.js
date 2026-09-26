@@ -2,13 +2,13 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260926b';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260926b';
+import * as api from './api.js?v=20260926c';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260926c';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
   from './cover-templates.js?v=20260824';
-import { makeJobs, runJobs } from './upload.js?v=20260926b';
+import { makeJobs, runJobs } from './upload.js?v=20260926c';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
 /* Every interior page is bound along one edge, and paper curves into the
@@ -74,6 +74,35 @@ const BOOK_TYPES = {
 const $ = (id) => document.getElementById(id);
 
 /* ---------- small helpers ---------- */
+
+/* The close/remove cross, drawn rather than typed.
+ *
+ * NOT because a text "×" falls back — it does not. The tray is set in
+ * --ui (Montserrat, the full font), which carries ×; only headings, prices
+ * and the brand use the EB Garamond subset, which does not. The reason is
+ * narrower: the off-switches beside the share and contributor buttons are
+ * drawn as SVG, because those live in index.html and the font-coverage
+ * scanner requires the display face to cover every text node there whether
+ * or not that face renders it. Two close buttons in one UI drawn two
+ * different ways is the kind of small inconsistency nobody files and
+ * everybody notices, so this is the one shape both use.
+ */
+function cross(px = 10) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('width', String(px));
+  svg.setAttribute('height', String(px));
+  svg.setAttribute('viewBox', '0 0 10 10');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(ns, 'path');
+  path.setAttribute('d', 'M1 1l8 8M9 1l-8 8');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.6');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke-linecap', 'round');
+  svg.append(path);
+  return svg;
+}
 
 function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
@@ -776,7 +805,7 @@ function renderTray() {
           S.uploads = S.uploads.filter((j) => j !== job);
           renderTray();
         },
-      }, '×'));
+      }, cross()));
     } else {
       card.append(h('span', { class: 'spin' }), h('span', { class: 'badge' }, t('tray.processing')));
     }
@@ -849,7 +878,7 @@ function renderTray() {
       card.append(h('button', {
         class: 'ph-del', 'aria-label': t('tool.remove'),
         onclick: (e) => { e.stopPropagation(); removePhoto(p); },
-      }, '×'));
+      }, cross()));
     }
     grid.append(card);
   }

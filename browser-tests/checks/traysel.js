@@ -22,10 +22,27 @@ fs.writeFileSync(EMPTY, Buffer.alloc(0)); // zero-byte -> job fails client-side
   // --- failed-job dismissal ---
   await page.setInputFiles('#file-input', [EMPTY]);
   await page.waitForSelector('#tray-grid .ph-card.failed .ph-del', { timeout: 10000 });
-  await page.click('#tray-grid .ph-card.failed .ph-del');
+
+  /* The remove button holds an SVG, so a real cursor lands on the <path>
+     inside it rather than on the button. Clicked THERE deliberately: a
+     handler that assumed e.target was the button, or a child that swallowed
+     the click, would leave a card nobody can dismiss — and the button would
+     still look perfectly fine. Its name lives in aria-label, since there is
+     no longer any text to read. */
+  const del = await page.$eval('#tray-grid .ph-card.failed .ph-del', (el) => ({
+    child: el.firstElementChild && el.firstElementChild.tagName.toLowerCase(),
+    label: el.getAttribute('aria-label'),
+    text: el.textContent.trim(),
+  }));
+  console.log('remove button:', JSON.stringify(del));
+  if (del.child !== 'svg') throw new Error('the remove button lost its icon');
+  if (!del.label) throw new Error('the remove button has no accessible name');
+  if (del.text) throw new Error(`the remove button renders text: ${del.text}`);
+
+  await page.click('#tray-grid .ph-card.failed .ph-del svg');
   await page.waitForFunction(
     () => !document.querySelector('#tray-grid .ph-card.failed'), undefined, { timeout: 5000 });
-  console.log('failed-card dismissed: ok');
+  console.log('failed-card dismissed by clicking the icon: ok');
 
   // --- real uploads ---
   await page.setInputFiles('#file-input', PHOTOS);
