@@ -67,14 +67,15 @@ async def _get_photo(session: AsyncSession, book: Book, photo_id: uuid.UUID) -> 
 
 
 async def issue_upload_url(session: AsyncSession, book_id: uuid.UUID, edit_token: str,
-                           filename: str, mime: str, size_bytes: int) -> tuple[Photo, str]:
+                           filename: str, mime: str,
+                           size_bytes: int) -> tuple[Photo, dict]:
     book = await get_book_authed(session, book_id, edit_token)
     return await _issue_for_book(book, session, mime, size_bytes)
 
 
 async def issue_contributor_upload_url(
         session: AsyncSession, book: Book, who: str, contributor_name: str | None,
-        mime: str, size_bytes: int) -> tuple[Photo, str]:
+        mime: str, size_bytes: int) -> tuple[Photo, dict]:
     """The same upload, for somebody holding only a contributor link.
 
     IDENTICAL validation to the owner's path — same MIME allow-list, same
@@ -82,19 +83,28 @@ async def issue_contributor_upload_url(
     same ingest and ends up in the same printed book. The contributor caps
     are an EXTRA fence on top, checked first so the commonest refusal is
     the one with the useful message.
+
+    The book's REMAINING contributor allowance is then baked into the
+    upload policy, so a contributor cannot spend more of it than they were
+    granted even by ignoring the size they declared. That is the whole
+    reason this path is worth the extra argument.
     """
     from app.services import contribute
 
     await contribute.check_quota(session, book, who, size_bytes)
+    used = await contribute.usage(session, book.id)
+    remaining = max(1, contribute.MAX_CONTRIBUTED_BYTES - used["bytes"])
     return await _issue_for_book(book, session, mime, size_bytes,
                                  contributed_by=who,
-                                 contributor_name=contributor_name)
+                                 contributor_name=contributor_name,
+                                 policy_max_bytes=remaining)
 
 
 async def _issue_for_book(book: Book, session: AsyncSession, mime: str,
                           size_bytes: int, *, contributed_by: str | None = None,
-                          contributor_name: str | None = None
-                          ) -> tuple[Photo, str]:
+                          contributor_name: str | None = None,
+                          policy_max_bytes: int | None = None
+                          ) -> tuple[Photo, dict]:
     _require_mutable(book)
     if mime not in ALLOWED_MIMES:
         raise DomainError(ErrorCode.VALIDATION_ERROR,
@@ -128,10 +138,17 @@ async def _issue_for_book(book: Book, session: AsyncSession, mime: str,
     session.add(photo)
     await session.commit()
 
-    upload_url = await anyio.to_thread.run_sync(
-        storage.presign_put, photo.original_key, mime
+    # The cap the STORAGE SERVICE will enforce, before any byte lands. The
+    # declared size is not it: a client that lied about the size is exactly
+    # the case this exists for. Whichever ceiling is lower applies — the
+    # global one, or what is left of a contributor's allowance.
+    ceiling = MAX_UPLOAD_BYTES
+    if policy_max_bytes is not None:
+        ceiling = min(ceiling, policy_max_bytes)
+    upload = await anyio.to_thread.run_sync(
+        storage.presign_post, photo.original_key, mime, ceiling
     )
-    return photo, upload_url
+    return photo, upload
 
 
 async def complete_upload(session: AsyncSession, book_id: uuid.UUID, edit_token: str,

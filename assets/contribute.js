@@ -63,14 +63,29 @@
       bytes: file.size,
       contributor_name: (name.value || '').trim() || null,
     }).then(function (issued) {
-      return fetch(issued.upload_url, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type || 'image/jpeg' },
-        body: file,
-      }).then(function (r) {
-        if (!r.ok) throw new Error('The upload did not go through.');
-        return api('/complete', { photo_id: issued.photo_id });
+      /* A form POST with the signed policy, not a PUT. The policy carries a
+         content-length-range, so storage refuses an oversized body before it
+         lands — which matters more here than anywhere else in the product,
+         because this endpoint takes files from whoever was sent a link.
+
+         Every field goes in unmodified and the file goes LAST: S3 stops
+         reading the form at the file part. No Content-Type header on the
+         request either — the browser writes the multipart boundary, and the
+         file's own type rides in the field the policy pins. */
+      var form = new FormData();
+      var fields = (issued.upload && issued.upload.fields) || {};
+      Object.keys(fields).forEach(function (name) {
+        form.append(name, fields[name]);
       });
+      form.append('file', file, 'upload');
+      return fetch(issued.upload.url, { method: 'POST', body: form })
+        .then(function (r) {
+          if (r.status === 413) {
+            throw new Error('That photo is too large for this book.');
+          }
+          if (!r.ok) throw new Error('The upload did not go through.');
+          return api('/complete', { photo_id: issued.photo_id });
+        });
     });
   }
 

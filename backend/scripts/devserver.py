@@ -102,12 +102,17 @@ def main() -> None:
 
     settings = get_settings()
     s3.create_bucket(Bucket=settings.s3_bucket)
-    # The browser PUTs photo bytes straight to storage — it needs CORS there.
+    # The browser sends photo bytes straight to storage, so it needs CORS
+    # there. POST, not PUT: the upload is a signed POST policy now, because
+    # that is the only form in which the size cap is enforced before the
+    # body lands. PUT is kept in the list only so an editor tab left open
+    # across a deploy fails on the server's answer rather than on a CORS
+    # preflight, which is far harder to read in a console.
     s3.put_bucket_cors(
         Bucket=settings.s3_bucket,
         CORSConfiguration={"CORSRules": [{
             "AllowedOrigins": ["*"],
-            "AllowedMethods": ["GET", "PUT", "HEAD"],
+            "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
             "AllowedHeaders": ["*"],
             "MaxAgeSeconds": 600,
         }]},

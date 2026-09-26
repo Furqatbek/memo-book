@@ -2,13 +2,13 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260925p';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260925p';
+import * as api from './api.js?v=20260926a';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260926a';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
   from './cover-templates.js?v=20260824';
-import { makeJobs, runJobs } from './upload.js?v=20260922';
+import { makeJobs, runJobs } from './upload.js?v=20260926a';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
 /* Every interior page is bound along one edge, and paper curves into the
@@ -3755,6 +3755,12 @@ async function pollOrder() {
   if (!S.order || !$('screen-order').classList.contains('active')) return;
   try {
     const r = await api.orderStatus(S.order.ref, S.order.phone);
+    // `S.order` was checked BEFORE the request above, and that says nothing
+    // about now: the customer can start a new book, or look a different
+    // order up, while it is in flight. Reading it again without checking
+    // threw an uncaught TypeError — which killed this loop, so the order
+    // timeline silently stopped updating and only a reload brought it back.
+    if (!S.order) return;
     updateArtifacts(r);
     if (r.status !== S.order.status) {
       S.order.status = r.status;
@@ -3766,6 +3772,11 @@ async function pollOrder() {
     updatePayCard(r);
     updateReceipt(r);
   } catch (e) { /* transient */ }
+  // And again out here, because the `catch` above swallows a failed request
+  // but not a cleared order — this line is outside the try, so a null here
+  // escaped as an unhandled rejection rather than as the "transient" the
+  // comment claims.
+  if (!S.order) return;
   if (!['delivered', 'cancelled'].includes(S.order.status)) {
     S.orderTimer = setTimeout(pollOrder, 3000);
   }

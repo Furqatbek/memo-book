@@ -59,17 +59,29 @@ class TestDisplayUrls:
                      storage.DISPLAY_URL_EXPIRY_S / HOUR)
 
 
-class TestUploadUrls:
-    def test_they_stay_short(self, s3):
-        """A PUT URL is a write credential: anyone holding it can put bytes
-        in our bucket. It is used the instant it is issued, so it has no
-        business outliving the upload."""
-        url = storage.presign_put("books/b/up.jpg", "image/jpeg")
-        assert lifetime_s(url) <= HOUR
+class TestUploadCredentials:
+    def test_the_policy_expires_within_the_hour(self, s3):
+        """An upload credential lets anyone holding it put bytes in our
+        bucket. It is used the instant it is issued, so it has no business
+        outliving the upload."""
+        import base64
+        import json
+
+        post = storage.presign_post("books/b/up.jpg", "image/jpeg", 1_000)
+        policy = json.loads(base64.b64decode(post["fields"]["policy"]))
+        # The expiry is inside the signed document, not in a query string.
+        assert policy["expiration"]
+        assert storage.UPLOAD_URL_EXPIRY_S <= HOUR
 
     def test_a_write_credential_never_lives_as_long_as_a_read_one(self, s3):
-        assert (lifetime_s(storage.presign_put("k", "image/jpeg"))
-                < lifetime_s(storage.presign_get("k")))
+        assert storage.UPLOAD_URL_EXPIRY_S < storage.DISPLAY_URL_EXPIRY_S
+
+    def test_there_is_no_way_left_to_mint_an_unbounded_upload(self):
+        """`presign_put` signed the key and the content type and nothing
+        about length, which is what made a declared size decorative. It is
+        gone rather than deprecated: left in place it is a loaded gun for
+        the next person who needs an upload URL in a hurry."""
+        assert not hasattr(storage, "presign_put")
 
 
 class TestPrintFileUrls:
@@ -91,6 +103,36 @@ class TestPrintFileUrls:
         from app.services.telegram import ARTIFACT_URL_EXPIRY_S as telegram
 
         assert console == telegram == 7 * 24 * HOUR
+
+
+class TestNobodyAsksForMoreThanSigV4Allows:
+    """SigV4 caps a presigned URL at seven days and REJECTS anything longer
+    rather than shortening it. `presign_get` clamps so an invalid URL cannot
+    be minted — but a clamp that fires is a caller that was wrong, so this
+    names the rule instead of leaving the clamp to absorb it silently."""
+
+    def test_the_ceiling_is_the_protocols_own(self):
+        assert storage.MAX_PRESIGN_EXPIRY_S == 7 * 24 * HOUR
+
+    @pytest.mark.parametrize("module,name", [
+        ("app.services.admin_orders", "ARTIFACT_URL_EXPIRY_S"),
+        ("app.services.telegram", "ARTIFACT_URL_EXPIRY_S"),
+        ("app.services.outbox", "REMINDER_PHOTO_EXPIRY_S"),
+        ("app.services.share", "VIEW_URL_EXPIRY_S"),
+        ("app.services.flip_video", "URL_EXPIRY_S"),
+    ])
+    def test_every_expiry_constant_is_within_it(self, module, name):
+        import importlib
+
+        value = getattr(importlib.import_module(module), name)
+        assert value <= storage.MAX_PRESIGN_EXPIRY_S, (
+            f"{module}.{name} is {value}s; SigV4 refuses anything over "
+            f"{storage.MAX_PRESIGN_EXPIRY_S}s. Anything that must outlive a "
+            "week needs a route of ours that re-signs on each visit.")
+
+    def test_the_clamp_catches_one_that_slips_through(self, s3):
+        url = storage.presign_get("k", 99 * 24 * HOUR)
+        assert lifetime_s(url) <= storage.MAX_PRESIGN_EXPIRY_S
 
 
 class TestTheOrderingHolds:

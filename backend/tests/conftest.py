@@ -71,9 +71,18 @@ def s3():
     from app import storage as storage_mod
 
     with mock_aws():
+        from botocore.config import Config as BotoConfig
+
         client = boto3.client(
             "s3", region_name="us-east-1",
             aws_access_key_id="test", aws_secret_access_key="test",
+            # The SAME signature version app/storage.py configures. Left to
+            # boto's default this fixture signed presigned POST policies as
+            # SigV2 while production signed them as SigV4 — so the tests
+            # were exercising a credential format the deployment never
+            # issues, which is the one difference a test double must not
+            # have from the thing it stands in for.
+            config=BotoConfig(signature_version="s3v4"),
         )
         client.create_bucket(Bucket="memobook")
         storage_mod.set_client(client)

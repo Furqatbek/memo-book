@@ -223,14 +223,42 @@ export const devPay = (ref, amountMinor, secret) =>
   });
 
 /* Raw PUT of the photo bytes to the presigned URL — storage, not the API. */
-export async function putObject(url, file, mime) {
-  const resp = await fetch(url, {
-    method: 'PUT',
-    // The extra header is unsigned and ignored by S3/MinIO; it stops
-    // ngrok's free-tier browser interstitial from swallowing the upload
-    // when storage is exposed through a tunnel.
-    headers: { 'Content-Type': mime, 'ngrok-skip-browser-warning': '1' },
-    body: file,
+/* Upload the bytes with a signed POST policy.
+ *
+ * A form POST rather than a PUT, and the difference is the point: the
+ * policy the server signed carries a content-length-range, so storage
+ * refuses an oversized body BEFORE it lands. A presigned PUT signed the key
+ * and the content type and nothing about length, which made the size the
+ * browser declared decorative.
+ *
+ * Two rules come from the S3 POST contract rather than from taste:
+ *   - every field the server sent goes in, unmodified;
+ *   - the file is LAST. S3 stops reading the form at the file part, so a
+ *     field after it is a field the policy never sees.
+ *
+ * No Content-Type header is set on the request: the browser must write its
+ * own multipart boundary, and overriding it breaks the body. The file's own
+ * type rides in the `Content-Type` FIELD, which is what the policy pins.
+ */
+export async function postObject(target, file, mime) {
+  const form = new FormData();
+  for (const [name, value] of Object.entries(target.fields || {})) {
+    form.append(name, value);
+  }
+  form.append('file', file, 'upload');
+  const resp = await fetch(target.url, {
+    method: 'POST',
+    // Unsigned and ignored by S3/MinIO; it stops ngrok's free-tier browser
+    // interstitial from swallowing the upload when storage is behind a
+    // tunnel.
+    headers: { 'ngrok-skip-browser-warning': '1' },
+    body: form,
   });
-  if (!resp.ok) throw new ApiError(resp.status, 'UPLOAD_FAILED', null, {});
+  // 204 is the success S3 gives a POST with no success_action_redirect.
+  // 413 is the policy doing its job on a body that exceeded the range.
+  if (!resp.ok) {
+    throw new ApiError(resp.status,
+                       resp.status === 413 ? 'UPLOAD_TOO_LARGE' : 'UPLOAD_FAILED',
+                       null, {});
+  }
 }

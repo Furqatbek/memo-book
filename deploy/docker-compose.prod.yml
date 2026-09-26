@@ -161,7 +161,11 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      # Browsers PUT photo bytes straight to storage; allow the editor origins.
+      # Browsers send photo bytes straight to storage; allow the editor
+      # origins. The upload is a signed POST policy rather than a PUT —
+      # that is the only form in which the size cap is enforced before
+      # the body lands — and MinIO's allow-origin covers every method
+      # it serves, so this needs no separate entry for it.
       MINIO_API_CORS_ALLOW_ORIGIN: ${STORAGE_CORS_ORIGINS}
     volumes:
       - minio_data:/data

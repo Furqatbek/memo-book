@@ -208,7 +208,7 @@ On surplus (20 photos / 16 pages): `eligible: true, suggested_tier: 32`
 Bytes go **directly to object storage** via a presigned URL — never through
 the API.
 
-### 1. Request an upload URL — `POST /api/v1/books/{book_id}/photos/upload-url`
+### 1. Request an upload target — `POST /api/v1/books/{book_id}/photos/upload-url`
 
 ```bash
 curl -X POST $API/api/v1/books/$BOOK/photos/upload-url \
@@ -216,17 +216,35 @@ curl -X POST $API/api/v1/books/$BOOK/photos/upload-url \
      -d '{"filename": "IMG_1204.HEIC", "mime": "image/heic", "bytes": 2048000}'
 ```
 
-`200` → `{ "upload_url": "https://…signed, 15-min expiry…",
+`200` → `{ "upload": { "url": "https://storage…", "fields": { … } },
 "photo_id": "…", "storage_key": "books/…/orig/…" }`.
-Allowed mimes: `image/jpeg`, `image/png`, `image/heic`, `image/heif`;
-max 25MB. Errors: `VALIDATION_ERROR`, `RATE_LIMITED`.
+Allowed mimes: `image/jpeg`, `image/png`, `image/heic`, `image/heif`,
+`image/x-adobe-dng`. Errors: `VALIDATION_ERROR`, `RATE_LIMITED`.
+
+`upload.fields` is a **signed POST policy**, and the size cap is a
+condition inside it — so the storage service refuses an oversized body
+before it lands. A presigned PUT (what this used to return) signs the
+bucket, the key and the content type and says nothing about length, which
+made the `bytes` you declare above decorative: a client could promise one
+megabyte and send five gigabytes. `bytes` is still validated, but it is no
+longer what protects anything.
 
 ### 2. Upload the bytes (client → storage)
 
+A multipart form POST. Every field from `upload.fields` goes in unmodified,
+and **the file goes last** — S3 stops reading the form at the file part, so
+a field after it is a field the policy never sees. Do not set a
+`Content-Type` header on the request: the client must write its own
+multipart boundary.
+
 ```bash
-curl -X PUT "$UPLOAD_URL" -H 'Content-Type: image/heic' \
-     --data-binary @IMG_1204.HEIC
+curl -X POST "$UPLOAD_URL" \
+     $(echo $FIELDS | jq -r 'to_entries|map("-F\(.key)=\(.value)")|join(" ")') \
+     -F "file=@IMG_1204.HEIC"
 ```
+
+`204` on success. `403` with `EntityTooLarge` is the policy refusing a body
+outside the signed length range.
 
 ### 3. Confirm — `POST /api/v1/books/{book_id}/photos/{photo_id}/complete`
 
@@ -397,12 +415,13 @@ BOOK=$(curl -s -X POST $API/api/v1/books -H 'Content-Type: application/json' \
         -d '{"page_count":16}')
 ID=$(echo $BOOK | jq -r .book_id); TOKEN=$(echo $BOOK | jq -r .edit_token)
 
-# repeat ×16: presign → PUT → complete
+# repeat ×16: presign → POST → complete
 U=$(curl -s -X POST $API/api/v1/books/$ID/photos/upload-url \
      -H "X-Edit-Token: $TOKEN" -H 'Content-Type: application/json' \
      -d '{"filename":"a.jpg","mime":"image/jpeg","bytes":123456}')
-curl -s -X PUT "$(echo $U | jq -r .upload_url)" \
-     -H 'Content-Type: image/jpeg' --data-binary @a.jpg
+curl -s -X POST "$(echo $U | jq -r .upload.url)" \
+     $(echo $U | jq -r '.upload.fields|to_entries|map("-F\(.key)=\(.value)")|join(" ")') \
+     -F "file=@a.jpg"
 curl -s -X POST $API/api/v1/books/$ID/photos/$(echo $U | jq -r .photo_id)/complete \
      -H "X-Edit-Token: $TOKEN"
 

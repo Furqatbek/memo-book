@@ -17,7 +17,7 @@ a time, and each composed frame is handed to ffmpeg and dropped.
 import secrets
 import time
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import anyio
 import structlog
@@ -34,9 +34,18 @@ from app.models.photo import Photo, PhotoStatus
 log = structlog.get_logger()
 
 TOKEN_BYTES = 24
-# The CR's number. Long enough that a link sent with the printing message
-# still opens when the book arrives.
-URL_EXPIRY_S = 30 * 24 * 3600
+# The CR asks for a link that works for thirty days. Those thirty days live
+# in the TOKEN, not in a signature: SigV4 refuses a presigned URL longer
+# than seven days outright, so a 30-day one is not a long link, it is a
+# 400 from the storage service at the moment the customer taps it.
+#
+# `/v/{token}` signs a fresh URL on every visit, which is why the token can
+# outlive any signature — and why the redirect is 302 with no-store rather
+# than something a cache could keep. This is the lifetime of the URL that
+# redirect hands out, and it only has to survive the download.
+URL_EXPIRY_S = 6 * 3600
+# How long the token itself stays good. The CR's thirty days.
+TOKEN_LIFETIME_DAYS = 30
 # The CR's ceiling. Exceeding it is not an error — it is a sign the encode
 # settings drifted, and it is worth a loud line in the log rather than a
 # silent 30MB file somebody tries to send over mobile data.
@@ -229,12 +238,28 @@ VIDEO_MESSAGE = (
     "Post it wherever you like.")
 
 
-async def find(session: AsyncSession, token: str) -> FlipVideo | None:
+async def find(session: AsyncSession, token: str,
+               now: datetime | None = None) -> FlipVideo | None:
+    """The video a token names, or None — including when it has aged out.
+
+    The CR's thirty days are enforced HERE, because this is the only place
+    the token is exchanged for anything. Declaring the lifetime in a
+    constant and never checking it would make the constant a comment.
+    """
     if not token or len(token) > 64:
         return None
-    return (await session.execute(
+    video = (await session.execute(
         select(FlipVideo).where(FlipVideo.token == token)
     )).scalar_one_or_none()
+    if video is None:
+        return None
+    created = video.created_at
+    if created.tzinfo is None:          # SQLite hands these back naive
+        created = created.replace(tzinfo=UTC)
+    if (now or datetime.now(UTC)) - created > timedelta(
+            days=TOKEN_LIFETIME_DAYS):
+        return None
+    return video
 
 
 async def count_download(session: AsyncSession, video: FlipVideo) -> None:

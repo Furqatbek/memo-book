@@ -106,6 +106,7 @@ const NEEDS = {
   ordersadmin: 'AUTO_CONFIRM_ORDERS=false — the opposite of autoflow, so the '
     + 'two cannot pass in the same run',
   paycard: 'PAY_CARD_NUMBER + PAY_CARD_HOLDER',
+  uploadpolicy: 'nothing — it reads the storage requests the editor and the contributor page actually make, to prove the signed POST policy travels with the bytes. It cannot prove an oversized upload is REFUSED: the dev server is moto, which does not enforce content-length-range. Its header says what it does and does not claim, and why',
   growth: 'nothing — it drives the share link and the contributor link in '
     + 'THREE separate browser contexts, because an owner, a share viewer '
     + 'and a contributor sharing one cookie jar prove nothing about what '

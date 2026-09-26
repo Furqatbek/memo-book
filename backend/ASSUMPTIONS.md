@@ -3009,13 +3009,44 @@ is a month of free storage for whatever was pushed at us. A book now has a
 ceiling of 600 photographs: generous for a 96-page book, and the wall
 behind every other limit.
 
-**The structural fix is still open.** The right answer is a presigned
-POST with a `content-length-range` policy, so the cap is enforced by
-storage before a byte lands rather than by us after it has. That changes
-the editor's upload call from a PUT to a multipart form, so it is a
-deliberate piece of work rather than something to slip in beside a feature
-— but until it is done, an oversized body still reaches the bucket and is
-only refused on the way out of it.
+**The structural fix is now done.** Uploads are a presigned POST with a
+`content-length-range` condition in the signed policy, so the cap belongs
+to the storage service and applies before a byte lands. `presign_put` is
+removed rather than deprecated: left in place it is a loaded gun for the
+next person who needs an upload URL in a hurry, and a test asserts it is
+gone. Both clients — the editor and the contributor page — send the fields
+unmodified with the file last, which the S3 POST contract requires and
+which a comment at each site says out loud.
+
+The contributor path signs the tighter policy: the book's REMAINING
+allowance rather than the global ceiling, so a contributor cannot spend
+more of it than they were granted even by ignoring the size they declared.
+
+Three things learned doing it, each of which changed the work:
+
+* **`moto` does not enforce `content-length-range`.** Measured, in both
+  in-process and server mode: a 5 KB body sailed through a 100-byte policy
+  with a 204. It validates nothing else on a POST either — no policy, a
+  tampered policy and a substituted key are all accepted. So the tests
+  assert what the signed policy CONTAINS, which is the part we are
+  responsible for and the part that realistically regresses, and they say
+  in writing that they are not proof an oversized upload is refused. The
+  `head_size` check in `ingest_photo` is therefore still load-bearing and
+  must not be removed.
+* **boto signed the POST policy as SigV2 by default** (`AWSAccessKeyId` +
+  `signature`) — the deprecated form, removed in newer AWS regions. The
+  upload cap rides on that signature, so it was the one credential that
+  should not have been signed the old way. The presigner now sets
+  `s3v4` explicitly. The test double was building its own client without
+  that config, so the suite had been exercising a credential format the
+  deployment never issues.
+* **SigV4 caps a presigned URL at seven days and rejects anything longer.**
+  The flip video asked for thirty, which would have been a 400 from
+  storage at the moment a customer tapped the link. Its thirty days now
+  live in the token — `/v/{token}` signs a fresh URL per visit and
+  `find()` enforces the age — and `presign_get` clamps to the protocol
+  ceiling so an invalid URL cannot be minted. A test asserts no expiry
+  constant anywhere exceeds it, so the clamp should never fire.
 
 **CR-003 Phase 1 — share links, production updates, gift mode.**
 

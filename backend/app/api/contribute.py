@@ -98,13 +98,16 @@ async def contributor_upload_url(token: str, body: ContributorUploadIn,
     if book is None:
         raise _GONE
     who = svc.contributor_id(session_id_of(request))
-    photo, url = await photos_svc.issue_contributor_upload_url(
+    photo, upload = await photos_svc.issue_contributor_upload_url(
         session, book, who, svc.clean_name(body.contributor_name),
         body.mime, body.bytes)
     # No storage key in the answer, unlike the owner's version of this
     # endpoint: a contributor has no use for one and it is the sort of
-    # detail that turns into a way to guess at other keys.
-    return {"upload_url": url, "photo_id": photo.id}
+    # detail that turns into a way to guess at other keys. The key IS inside
+    # `upload.fields`, because the POST policy signs it — but there it is
+    # part of a credential for one object rather than a fact about our
+    # naming scheme.
+    return {"upload": upload, "photo_id": photo.id}
 
 
 class ContributorCompleteIn(BaseModel):
@@ -146,7 +149,7 @@ def _page(view: dict, token: str) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Add your photos — RS Pixel</title>
-<link rel="stylesheet" href="{base}/assets/style.css">
+<link rel="stylesheet" href="{base}/assets/style.css?v=20260926a">
 <!-- No og:image and no book detail in the card. A contributor link is a
      working link sent to one person, not something meant to look good
      when it is forwarded onwards. -->
@@ -178,7 +181,7 @@ def _page(view: dict, token: str) -> str:
     </a>
   </div>
 </main>
-<script src="{base}/assets/contribute.js" data-token="{html.escape(token)}"></script>
+<script src="{base}/assets/contribute.js?v=20260926a" data-token="{html.escape(token)}"></script>
 </body>
 </html>
 """

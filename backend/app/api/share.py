@@ -113,7 +113,7 @@ def _page(book, token: str, cover_url: str) -> str:
 <meta name="robots" content="noindex, nofollow">
 <title>{title} — RS Pixel</title>
 <meta name="description" content="{desc}">
-<link rel="stylesheet" href="{base}/assets/style.css">
+<link rel="stylesheet" href="{base}/assets/style.css?v=20260926a">
 <!-- This card IS the advertisement: the link is going into Telegram, and
      what renders there is what people see before they see anything else.
      The image is THIS book's cover, not a generic one. -->
@@ -140,7 +140,7 @@ def _page(book, token: str, cover_url: str) -> str:
     </a>
   </div>
 </main>
-<script src="{base}/assets/share.js" data-token="{html.escape(token)}"></script>
+<script src="{base}/assets/share.js?v=20260926a" data-token="{html.escape(token)}"></script>
 </body>
 </html>
 """

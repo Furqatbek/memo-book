@@ -92,7 +92,7 @@ def _page(token: str, already: bool) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>How is your book? — RS Pixel</title>
-<link rel="stylesheet" href="{base}/assets/style.css">
+<link rel="stylesheet" href="{base}/assets/style.css?v=20260926a">
 </head>
 <body class="share-body">
 <main class="share-wrap">
@@ -127,7 +127,7 @@ def _page(token: str, already: bool) -> str:
   <p><button class="btn btn-primary" id="r-send" type="button">Send</button></p>
   <div id="r-status" class="share-note" aria-live="polite"></div>
 </main>
-<script src="{base}/assets/review.js" data-token="{html.escape(token)}"></script>
+<script src="{base}/assets/review.js?v=20260926a" data-token="{html.escape(token)}"></script>
 </body>
 </html>
 """

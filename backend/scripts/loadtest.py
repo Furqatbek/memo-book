@@ -35,8 +35,9 @@ async def one_upload(client: httpx.AsyncClient, book: dict, seed: int) -> float:
         json={"filename": f"l{seed}.jpg", "mime": "image/jpeg", "bytes": len(data)},
         headers=headers)).json()
     async with httpx.AsyncClient(timeout=60) as direct:
-        await direct.put(issued["upload_url"], content=data,
-                         headers={"Content-Type": "image/jpeg"})
+        upload = issued["upload"]
+        await direct.post(upload["url"], data=upload["fields"],
+                          files={"file": (f"l{seed}.jpg", data, "image/jpeg")})
     await client.post(
         f"/api/v1/books/{book['book_id']}/photos/{issued['photo_id']}/complete",
         headers=headers)

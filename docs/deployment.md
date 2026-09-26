@@ -40,7 +40,7 @@ first boot, so these must resolve *before* you start the stack:
 |---|---|
 | `rspixel.uz` | The product: site, editor, API — one origin |
 | `api.rspixel.uz` | Same backend, stable name for external editors |
-| `storage.rspixel.uz` | MinIO — browsers upload photos directly here |
+| `storage.rspixel.uz` | MinIO — browsers upload photos directly here, by signed POST |
 | `www.rspixel.uz` | Optional; redirects to the root |
 
 ## Step 2 — Server preparation
@@ -393,6 +393,8 @@ test_deploy_config.py` in the backend suite keeps both properties true.
 | `/ready` returns 503 | A dependency is down — `docker compose ps`, check the failing container's logs |
 | Photo upload stalls at "Processing" | `worker` container down, or `storage.` hostname unreachable from the browser |
 | Upload fails instantly in the browser | Storage CORS: the editor's origin must be listed in `STORAGE_CORS_ORIGINS` |
+| Uploads fail right after a deploy, only in tabs that were already open | Expected. The upload is a signed POST policy now, not a PUT; a tab holding the old editor has no POST target to use. A reload fixes it — code is served `no-cache`, so there is nothing to clear |
+| Every upload returns 403 `EntityTooLarge` | The size cap is now a condition in the signed policy, and MinIO is enforcing it. Check `MAX_UPLOAD_BYTES` against what the editor actually sends after it downscales |
 | Order paid but no Telegram message | Wrong bot token/chat id — `docker compose logs outbox`; retries resume once fixed |
 | Webhook returns 403 | `X-Dev-Signature` doesn't match `DEV_PAYMENT_SECRET` |
 | Webhook returns 400 AMOUNT_MISMATCH | `amount_minor` differs from the order total |

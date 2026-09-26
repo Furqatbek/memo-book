@@ -224,6 +224,48 @@ class TestTheLink:
             resp = await client.get(f"/v/{bad}", follow_redirects=False)
             assert resp.status_code == 404
 
+    async def test_the_token_stops_working_after_thirty_days(
+            self, client, db, videos_on):
+        """The CR asks for a thirty-day link. Those thirty days live in the
+        TOKEN, not in a signature — SigV4 refuses a presigned URL longer
+        than seven days outright — so this is the only place they can be
+        enforced. A constant naming a lifetime that nothing checks is a
+        comment pretending to be code."""
+        from datetime import UTC, datetime, timedelta
+
+        ref = await paid_order(client, db)
+        video = await video_for(db, ref)
+        token = video.token
+
+        assert await svc.find(db, token) is not None
+        video.created_at = datetime.now(UTC) - timedelta(days=31)
+        await db.commit()
+
+        assert await svc.find(db, token) is None
+        resp = await client.get(f"/v/{token}", follow_redirects=False)
+        assert resp.status_code == 404
+
+    async def test_and_is_still_good_on_day_twenty_nine(self, client, db,
+                                                        videos_on):
+        from datetime import UTC, datetime, timedelta
+
+        ref = await paid_order(client, db)
+        video = await video_for(db, ref)
+        video.created_at = datetime.now(UTC) - timedelta(days=29)
+        await db.commit()
+        resp = await client.get(f"/v/{video.token}", follow_redirects=False)
+        assert resp.status_code == 302
+
+    async def test_the_url_it_hands_out_is_short_lived(self, client, db,
+                                                       videos_on):
+        """The redirect target is signed per visit and only has to survive
+        the download. A week-long one would be a link that outlives the page
+        that minted it, for no benefit."""
+        from app import storage
+
+        assert svc.URL_EXPIRY_S <= storage.MAX_PRESIGN_EXPIRY_S
+        assert svc.URL_EXPIRY_S < 24 * 3600
+
     async def test_the_token_is_not_the_order_reference(self, client, db,
                                                         videos_on):
         """A human reference is five characters from a small alphabet and

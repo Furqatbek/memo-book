@@ -234,11 +234,15 @@ export async function runJobs(jobs, creds, onChange) {
         let lastError = null;
         for (let attempt = 0; attempt < 3; attempt += 1) {
           try {
-            await api.putObject(issued.upload_url, prepared.blob, prepared.mime);
+            await api.postObject(issued.upload, prepared.blob, prepared.mime);
             lastError = null;
             break;
           } catch (e) {
             lastError = e;
+            // A body the signed policy refused will be refused again, every
+            // time, for the same reason. Retrying it three times just makes
+            // the customer wait longer to be told the same thing.
+            if (e && e.code === 'UPLOAD_TOO_LARGE') break;
             await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
           }
         }

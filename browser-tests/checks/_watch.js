@@ -39,7 +39,16 @@ const RESOURCE_NOISE = /Failed to load resource/i;
  *  them: invisible is not the same as harmless. */
 function watchPage(page, errors) {
   const noise = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
+  /* The STACK, not just the message. A bare "TypeError: Cannot read
+     properties of null (reading 'status')" names a defect and gives you
+     nothing to act on — every check that hit one had to be re-run under a
+     hand-written probe to find out where it came from. The first frame is
+     usually enough to say which file and line. */
+  page.on('pageerror', (e) => {
+    const stack = (e && e.stack) ? String(e.stack).split('\n').slice(0, 3)
+      .map((l) => l.trim()).join(' | ') : '';
+    errors.push(stack || String(e));
+  });
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const text = m.text();

@@ -41,12 +41,16 @@ async def photo_list(client, book):
 
 
 class TestUploadUrl:
-    async def test_presigned_url_issued(self, client):
+    async def test_a_signed_post_target_is_issued(self, client):
         book = await make_book(client)
         resp = await start_upload(client, book)
         assert resp.status_code == 200
         body = resp.json()
-        assert body["upload_url"].startswith("http")
+        assert body["upload"]["url"].startswith("http")
+        # Everything the browser must send back, unmodified. Without the
+        # policy and its signature the POST is just an anonymous upload
+        # attempt, and storage refuses it.
+        assert {"key", "policy"} <= set(body["upload"]["fields"])
         assert body["storage_key"].endswith(body["photo_id"])
 
     async def test_unsupported_mime_rejected(self, client):

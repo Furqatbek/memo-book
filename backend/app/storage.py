@@ -23,6 +23,18 @@ UPLOAD_URL_EXPIRY_S = 15 * 60
 # which are handled separately and deliberately.
 DISPLAY_URL_EXPIRY_S = 24 * 60 * 60
 
+# SigV4's hard ceiling on a presigned URL: seven days, and S3 rejects the
+# request outright rather than shortening it. Anything that has to outlive a
+# week must therefore be reached through a route of OURS that signs a fresh
+# URL on each visit — which is how the flip-video link works, and why its
+# thirty days live in the token rather than in the signature.
+#
+# `presign_get` clamps to this so an invalid URL cannot be minted at all.
+# A test asserts no caller asks for more, so the clamp should never fire;
+# it is there because a silently-truncated link is easier to debug than a
+# 400 from the storage service at delivery time.
+MAX_PRESIGN_EXPIRY_S = 7 * 24 * 60 * 60
+
 _client = None
 _presign_client = None
 
@@ -35,7 +47,15 @@ def _make_client(endpoint: str):
         aws_access_key_id=s.s3_access_key,
         aws_secret_access_key=s.s3_secret_key,
         region_name=s.s3_region,
-        config=BotoConfig(retries={"max_attempts": 2}),
+        # SigV4 explicitly. Left to boto's default, `generate_presigned_post`
+        # produced a SigV2 policy (`AWSAccessKeyId` + `signature`), which is
+        # the deprecated form: AWS has removed it in newer regions and it is
+        # not what any current S3-compatible service is tested against. The
+        # upload cap rides on that policy, so the one credential that must
+        # not be silently ignored is the one that was being signed the old
+        # way.
+        config=BotoConfig(retries={"max_attempts": 2},
+                          signature_version="s3v4"),
     )
 
 
@@ -69,10 +89,40 @@ def bucket() -> str:
     return get_settings().s3_bucket
 
 
-def presign_put(key: str, content_type: str) -> str:
-    return _presigner().generate_presigned_url(
-        "put_object",
-        Params={"Bucket": bucket(), "Key": key, "ContentType": content_type},
+def presign_post(key: str, content_type: str, max_bytes: int,
+                 min_bytes: int = 1) -> dict:
+    """A one-shot upload credential that CANNOT exceed `max_bytes`.
+
+    This replaces a presigned PUT, and the reason is the whole point of the
+    thing: a presigned PUT signs the bucket, the key and the content type,
+    and says nothing about length. The size a client declares when it asks
+    for the URL is therefore decorative — it can promise one megabyte and
+    send five gigabytes, and the first thing that notices is the worker
+    that reads the object.
+
+    A POST policy is a signed DOCUMENT of conditions. `content-length-range`
+    is one of them, so the storage service refuses an oversized body before
+    it lands rather than after. The cap moves from something we check
+    afterwards to something the upload cannot break.
+
+    Returns `{"url": ..., "fields": {...}}`. The browser must send every
+    field, unmodified, as multipart form data with the file LAST — that
+    ordering is part of the S3 POST contract, not a suggestion.
+
+    NOTE ON WHERE THIS IS ENFORCED: by the storage service, not by us.
+    `moto`, which the tests and the dev server use, does NOT enforce
+    `content-length-range` — an oversized body is accepted there. So the
+    tests assert that the signed policy CONTAINS the condition, which is
+    the part we are responsible for, and `head_size` below remains a real
+    second line of defence rather than a formality.
+    """
+    return _presigner().generate_presigned_post(
+        bucket(), key,
+        Fields={"Content-Type": content_type},
+        Conditions=[
+            {"Content-Type": content_type},
+            ["content-length-range", min_bytes, max_bytes],
+        ],
         ExpiresIn=UPLOAD_URL_EXPIRY_S,
     )
 
@@ -81,7 +131,7 @@ def presign_get(key: str, expires_in: int = DISPLAY_URL_EXPIRY_S) -> str:
     return _presigner().generate_presigned_url(
         "get_object",
         Params={"Bucket": bucket(), "Key": key},
-        ExpiresIn=expires_in,
+        ExpiresIn=min(expires_in, MAX_PRESIGN_EXPIRY_S),
     )
 
 

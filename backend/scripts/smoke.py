@@ -64,10 +64,15 @@ def main(base_url: str) -> int:
             headers=headers)
         check("POST /photos/upload-url", resp.status_code == 200)
         issued = resp.json()
-        put = httpx.put(issued["upload_url"], content=data,
-                        headers={"Content-Type": "image/jpeg"}, timeout=TIMEOUT)
-        check("presigned PUT writable", put.status_code in (200, 204),
-              f"status {put.status_code}")
+        # A form POST with the signed policy: the size cap is a condition in
+        # that policy, so storage refuses an oversized body rather than us
+        # discovering it afterwards. Fields first, file LAST.
+        upload = issued["upload"]
+        sent = httpx.post(upload["url"], data=upload["fields"],
+                          files={"file": ("smoke.jpg", data, "image/jpeg")},
+                          timeout=TIMEOUT)
+        check("presigned POST writable", sent.status_code in (200, 204),
+              f"status {sent.status_code}")
         resp = client.post(
             f"/api/v1/books/{book['book_id']}/photos/{issued['photo_id']}/complete",
             headers=headers)

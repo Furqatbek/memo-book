@@ -27,8 +27,23 @@ class UploadUrlRequest(BaseModel):
     bytes: int
 
 
+class UploadTarget(BaseModel):
+    """Where to POST the file, and every field that must go with it.
+
+    A form POST rather than a PUT because the size cap rides in a SIGNED
+    POLICY the storage service checks before the body lands. A presigned PUT
+    signs the key and the content type and nothing about length, so the size
+    a client declared was decorative — this is the fix for that.
+
+    Every field must be sent unmodified, and the file must be LAST in the
+    form. Both are part of the S3 POST contract.
+    """
+    url: str
+    fields: dict[str, str]
+
+
 class UploadUrlResponse(BaseModel):
-    upload_url: str
+    upload: UploadTarget
     photo_id: uuid.UUID
     storage_key: str
 
@@ -38,10 +53,11 @@ class UploadUrlResponse(BaseModel):
                                       lambda s: s.rate_limit_upload_url_per_min)])
 async def upload_url(book_id: uuid.UUID, body: UploadUrlRequest, session: Session,
                      x_edit_token: EditToken):
-    photo, url = await svc.issue_upload_url(
+    photo, upload = await svc.issue_upload_url(
         session, book_id, x_edit_token, body.filename, body.mime, body.bytes
     )
-    return {"upload_url": url, "photo_id": photo.id, "storage_key": photo.original_key}
+    return {"upload": upload, "photo_id": photo.id,
+            "storage_key": photo.original_key}
 
 
 class CompleteRequest(BaseModel):
