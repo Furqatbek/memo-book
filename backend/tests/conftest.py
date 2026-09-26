@@ -107,6 +107,12 @@ async def client(sessionmaker, s3, monkeypatch):
     # share link is not testing the product anybody deploys; the tests
     # about the refusal set it back to empty for themselves.
     monkeypatch.setenv("PUBLIC_BASE_URL", "http://test")
+    # Likewise: a bot username is what makes the Telegram offer
+    # appear at all, and a deployment without one has a customer-
+    # facing feature switched off — which the admin console now
+    # reports as something needing a person. Tests about the
+    # UNconfigured case clear it for themselves.
+    monkeypatch.setenv("TELEGRAM_BOT_USERNAME", "rspixel_test_bot")
     monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")  # dedicated tests re-enable
     # The shop is shut by default (A74); tests about checkout are testing
     # checkout, so open it here and let the guard's own tests turn it back off.

@@ -20,7 +20,15 @@ Three sources, deliberately including the last one:
 * orders in `rendering` past the stall threshold — the watchdog has not got
   to them yet, and showing them a few minutes early costs nothing;
 * outbox messages that gave up — the alert itself failing is exactly the
-  case Telegram cannot report.
+  case Telegram cannot report;
+* SETTINGS THAT HAVE SWITCHED A CUSTOMER-FACING FEATURE OFF. Several
+  features fail closed on purpose rather than half-work: with no
+  PUBLIC_BASE_URL the editor hides the share and contributor buttons,
+  because the alternative is copying the text "/s/abc" into somebody's
+  group chat. That is the right behaviour and it is invisible — the button
+  is simply not there, and the only trace is one line in a startup log
+  nobody reads. This is how the operator finds out, in the place they
+  already look.
 """
 from datetime import UTC, datetime, timedelta
 
@@ -123,4 +131,66 @@ async def needs_attention(session: AsyncSession,
                        "on the order."),
         })
 
+    items.extend(_configuration_gaps())
     return {"count": len(items), "items": items}
+
+
+# Setting -> what is switched off, and what the operator sees instead.
+#
+# Every entry here is a feature that FAILS CLOSED by design. The value of
+# saying so out loud is that "the button is missing" and "the button is
+# broken" look identical from the outside, and the second one sends somebody
+# hunting through JavaScript for an hour.
+def _configuration_gaps() -> list[dict]:
+    settings = get_settings()
+    gaps: list[dict] = []
+
+    if not (settings.public_base_url or "").strip():
+        gaps.append({
+            "kind": "config",
+            "human_ref": None,
+            "status": None,
+            "customer_name": None,
+            "summary": "PUBLIC_BASE_URL is not set, so every link that has "
+                       "to work outside this server is switched off",
+            "detail": "The editor hides “Share preview” and “Ask friends for "
+                      "photos” entirely, rather than handing somebody a link "
+                      "like “/s/abc” that opens nowhere. Draft reminders, "
+                      "review requests and flip-video links are affected the "
+                      "same way.",
+            "action": "Set PUBLIC_BASE_URL to this deployment's origin "
+                      "(e.g. https://rspixel.uz, no trailing slash) in "
+                      "deploy/.env and restart. Nothing else needs changing.",
+        })
+
+    if not (settings.telegram_bot_username or "").strip():
+        gaps.append({
+            "kind": "config",
+            "human_ref": None,
+            "status": None,
+            "customer_name": None,
+            "summary": "TELEGRAM_BOT_USERNAME is not set, so customers are "
+                       "never offered the Telegram bot",
+            "detail": "The editor hides the offer rather than showing a "
+                      "button that lands nowhere. A customer who never links "
+                      "Telegram gets their production updates by email if "
+                      "they gave an address, and nothing if they did not.",
+            "action": "Set TELEGRAM_BOT_USERNAME to the bot's @name without "
+                      "the @, in deploy/.env, and restart.",
+        })
+
+    if not settings.prices_confirmed:
+        gaps.append({
+            "kind": "config",
+            "human_ref": None,
+            "status": None,
+            "customer_name": None,
+            "summary": "PRICES_CONFIRMED is false — the shop is not taking "
+                       "orders",
+            "detail": "Checkout answers 503 for everybody. This is the guard "
+                      "that stops a placeholder price becoming somebody's "
+                      "bill.",
+            "action": "Confirm the real prices, then set PRICES_CONFIRMED=true.",
+        })
+
+    return gaps

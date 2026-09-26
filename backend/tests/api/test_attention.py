@@ -194,3 +194,82 @@ class TestOrderingIsUseful:
 
         refs = [i["human_ref"] for i in (await attention(client))["items"]]
         assert refs == [first.human_ref, second.human_ref], refs
+
+
+class TestItSaysWhenASettingHasSwitchedAFeatureOff:
+    """The failure this exists for: PUBLIC_BASE_URL was unset in production,
+    so the editor correctly hid "Share preview" and "Ask friends for
+    photos" — and the only trace was one line in a startup log. From the
+    outside, a button that is deliberately absent and a button that is
+    broken look exactly the same, and the second one sends somebody hunting
+    through JavaScript. The console is where the operator already looks."""
+
+    async def test_a_missing_public_base_url_is_reported(self, client, admin,
+                                                         monkeypatch):
+        monkeypatch.setenv("PUBLIC_BASE_URL", "")
+        get_settings.cache_clear()
+        try:
+            body = (await client.get("/api/v1/admin/attention",
+                                     headers=AUTH)).json()
+        finally:
+            get_settings.cache_clear()
+        row = next(i for i in body["items"]
+                   if i["kind"] == "config" and "PUBLIC_BASE_URL" in i["summary"])
+        # It must name the buttons, because that is the symptom the operator
+        # arrived with.
+        assert "Share preview" in row["detail"]
+        assert "PUBLIC_BASE_URL" in row["action"]
+
+    async def test_and_is_silent_once_it_is_set(self, client, admin,
+                                                monkeypatch):
+        monkeypatch.setenv("PUBLIC_BASE_URL", "https://rspixel.uz")
+        get_settings.cache_clear()
+        try:
+            body = (await client.get("/api/v1/admin/attention",
+                                     headers=AUTH)).json()
+        finally:
+            get_settings.cache_clear()
+        assert not [i for i in body["items"]
+                    if i["kind"] == "config" and "PUBLIC_BASE_URL" in i["summary"]]
+
+    async def test_a_missing_bot_username_is_reported(self, client, admin,
+                                                      monkeypatch):
+        monkeypatch.setenv("TELEGRAM_BOT_USERNAME", "")
+        get_settings.cache_clear()
+        try:
+            body = (await client.get("/api/v1/admin/attention",
+                                     headers=AUTH)).json()
+        finally:
+            get_settings.cache_clear()
+        assert [i for i in body["items"]
+                if i["kind"] == "config"
+                and "TELEGRAM_BOT_USERNAME" in i["summary"]]
+
+    async def test_an_unconfirmed_price_list_is_reported(self, client, admin,
+                                                         monkeypatch):
+        """The loudest one: checkout answers 503 for everybody, and the site
+        looks entirely normal."""
+        monkeypatch.setenv("PRICES_CONFIRMED", "false")
+        get_settings.cache_clear()
+        try:
+            body = (await client.get("/api/v1/admin/attention",
+                                     headers=AUTH)).json()
+        finally:
+            get_settings.cache_clear()
+        assert [i for i in body["items"]
+                if i["kind"] == "config" and "PRICES_CONFIRMED" in i["summary"]]
+
+    async def test_a_config_row_has_no_order_to_open(self, client, admin,
+                                                     monkeypatch):
+        """The console makes a row clickable when it carries a reference.
+        These carry none, and a clickable row that opens nothing is worse
+        than a row that plainly does not."""
+        monkeypatch.setenv("PUBLIC_BASE_URL", "")
+        get_settings.cache_clear()
+        try:
+            body = (await client.get("/api/v1/admin/attention",
+                                     headers=AUTH)).json()
+        finally:
+            get_settings.cache_clear()
+        for row in [i for i in body["items"] if i["kind"] == "config"]:
+            assert row["human_ref"] is None

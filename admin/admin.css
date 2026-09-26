@@ -301,6 +301,14 @@ input[type=color] {
   font-size: 13px; line-height: 1.35;
 }
 .attention li.clickable { cursor: pointer; }
+/* A setup gap is not an order gone wrong — it is a feature that is
+   off everywhere, for everybody, until somebody edits a file. Cooler
+   than the amber rows so it does not read as an emergency, distinct
+   so it does not read as one more stuck order. */
+.attention li.att-config {
+  border-color: #b9c6dd; background: #f7f9fd;
+}
+.attention li.att-config > b { color: #3a4a66; }
 .attention li.clickable:hover { border-color: var(--warn-ink); }
 .attention li small { color: var(--muted); }
 /* The raw error is for when the summary is not enough — present, not loud. */

@@ -154,7 +154,13 @@ export async function refreshAttention(deps) {
   for (const item of items) {
     const li = document.createElement('li');
     const ref = document.createElement('b');
-    ref.textContent = item.human_ref || '—';
+    /* A configuration gap has no order behind it, and a bold "—" reads like
+       a row that failed to load. Name what it is instead: these say a
+       customer-facing feature has switched ITSELF off, which is the one kind
+       of problem here that no amount of looking at orders would reveal. */
+    ref.textContent = item.kind === 'config'
+      ? 'Setup' : (item.human_ref || '—');
+    if (item.kind === 'config') li.classList.add('att-config');
     li.append(ref);
 
     const what = document.createElement('span');
