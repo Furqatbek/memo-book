@@ -2,13 +2,13 @@
    All geometry mirrors the backend (backend/app/domain/geometry.py):
    trim 148x210mm, bleed 3mm (canvas 154x216), safe margin 5mm inside trim.
    Coordinates are millimetres with the origin at the trim top-left. */
-import * as api from './api.js?v=20260926c';
-import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260926c';
+import * as api from './api.js?v=20260926d';
+import { LANG_NAMES, applyStatic, fmtAmount, has, initLang, lang, setLang, t } from './i18n.js?v=20260926d';
 import { STICKER_CATEGORIES, STICKERS } from './stickers.js?v=20260826';
 import { DEFAULT_LAYOUT, LAYOUTS } from './layouts.js?v=20260826';
 import { COVER_TEMPLATES, COVER_TEMPLATE_IDS, DEFAULT_COVER_TEMPLATE, FULL_COVER_RECT }
   from './cover-templates.js?v=20260824';
-import { makeJobs, runJobs } from './upload.js?v=20260926c';
+import { makeJobs, runJobs } from './upload.js?v=20260926d';
 
 const BLEED = 3, TRIM_W = 148, TRIM_H = 210, SAFE = 5;
 /* Every interior page is bound along one edge, and paper curves into the
@@ -59,6 +59,10 @@ const S = {
   // there is no campaign, which is also what a failed request leaves it
   // as — silence rather than a guess.
   campaign: null,
+  // Whether there is a Telegram bot to point at, as the SERVER answered.
+  // Undefined until asked, and false is the safe reading: no offer is shown
+  // until we know there is one to make.
+  tgAvailable: false,
 };
 
 /* Occasion picked before the page-count step. Everything here is only a
@@ -619,6 +623,7 @@ async function refreshTelegramOffer() {
   if (!S.creds) return;
   try {
     const r = await api.telegramLink(S.creds);
+    S.tgAvailable = !!r.available;
     if (!r.available) return;
     if (r.linked) { done.classList.remove('hidden'); return; }
     btn.href = r.deep_link;
@@ -626,13 +631,49 @@ async function refreshTelegramOffer() {
   } catch (e) { /* an optional convenience never breaks the editor */ }
 }
 
+/* Order updates on Telegram, offered on the ORDER screen.
+ *
+ * The same mechanism as the editor's recovery button — a deep link that
+ * attaches this chat to this book — but a different moment and different
+ * words, because it is answering a different question. In the editor it
+ * means "we will remind you"; here it means "we will tell you when your
+ * book is on the press". CR-003-2 built those three messages and they
+ * reached almost nobody: the only door to them was a button about an
+ * unfinished draft.
+ *
+ * Silent on failure, like the editor's. Nothing here is worth breaking the
+ * screen that shows somebody their order.
+ */
+async function refreshOrderTelegramOffer() {
+  const card = $('or-tg');
+  const done = $('or-tg-linked');
+  card.classList.add('hidden');
+  done.classList.add('hidden');
+  // A customer looking their order up on another device holds the reference
+  // and their phone, not the edit token — and the link is minted behind
+  // that token. Nothing to offer them here, so nothing is shown.
+  if (!S.creds) return;
+  try {
+    const r = await api.telegramLink(S.creds);
+    S.tgAvailable = !!r.available;
+    if (!r.available) return;
+    if (r.linked) { done.classList.remove('hidden'); return; }
+    $('or-tg-link').href = r.deep_link;
+    card.classList.remove('hidden');
+  } catch (e) { /* never break the order screen over an extra */ }
+}
+
 /* The customer taps the button, leaves for Telegram, presses Start, and
    comes BACK to this tab. Without this they return to a button still
    offering what they have just done — so the editor re-asks whenever the
    tab regains focus, which is exactly when the answer may have changed. */
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && $('screen-editor').classList.contains('active')) {
-    refreshTelegramOffer();
+  if (document.hidden) return;
+  if ($('screen-editor').classList.contains('active')) refreshTelegramOffer();
+  // Pressing the deep link hands the tab to Telegram. Whether they went
+  // through with it is only knowable when they come back.
+  if ($('screen-order').classList.contains('active')) {
+    refreshOrderTelegramOffer();
   }
 });
 
@@ -3743,6 +3784,7 @@ function showOrder() {
   updatePayCard(null);
   $('or-receipt').classList.add('hidden');
   $('receipt-error').classList.add('hidden');
+  refreshOrderTelegramOffer();
   pollOrder();
 }
 
@@ -4081,6 +4123,9 @@ function bind() {
   });
   $('pv-checkout').addEventListener('click', () => {
     renderCheckoutSummary();
+    // Sets an expectation rather than competing with paying: a button here
+    // would pull attention off the one thing this screen is for.
+    $('co-tg-hint').hidden = !S.tgAvailable;
     showScreen('checkout');
     // No server call happens here otherwise — moving to checkout is a
     // screen swap — so this step would be invisible in the funnel, and it

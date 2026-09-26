@@ -86,9 +86,50 @@ const SHOT = (name) => path.join(__dirname, '..', 'shots', name);
   await page.fill('input[name=name]', 'Aziza Karimova');
   await page.fill('input[name=phone]', '+998 90 123 45 67');
   await page.fill('textarea[name=address]', 'Tashkent, Chilonzor 5, dom 12, kv 34');
+  /* The checkout hint sets the expectation without competing with paying.
+     Shown only when the server says there is a bot to point at. */
+  const coHint = await page.evaluate(() => {
+    const el = document.getElementById('co-tg-hint');
+    return { present: !!el, hidden: el.hidden, text: el.textContent.trim() };
+  });
+  console.log('checkout telegram hint:', JSON.stringify(coHint));
+  if (!coHint.present) throw new Error('the checkout telegram hint is missing');
+  if (!coHint.hidden && !coHint.text) {
+    throw new Error('the checkout hint is shown with no words in it');
+  }
   await page.screenshot({ path: SHOT('08-checkout.png') });
   await page.click('#co-form button[type=submit]');
   await page.waitForSelector('#or-details:not(.hidden)', { timeout: 60000 });
+
+  /* The offer that CR-003-2's three production messages depend on. Until
+     now the only way to attach a chat to a book was a button in the editor
+     bar about an unfinished draft, which nobody who orders in one sitting
+     ever presses — so the updates went by email or nowhere. */
+  const tgOffer = await page.evaluate(() => {
+    const card = document.getElementById('or-tg');
+    const link = document.getElementById('or-tg-link');
+    return {
+      present: !!card,
+      hidden: card.classList.contains('hidden'),
+      href: link ? link.getAttribute('href') : null,
+      words: card.textContent.replace(/\s+/g, ' ').trim(),
+    };
+  });
+  console.log('order telegram offer:', JSON.stringify(tgOffer));
+  if (!tgOffer.present) throw new Error('the order screen has no telegram offer');
+  if (!tgOffer.hidden) {
+    if (!/^https:\/\/t\.me\//.test(tgOffer.href || '')) {
+      throw new Error(`the offer points nowhere useful: ${tgOffer.href}`);
+    }
+    /* The deep-link token attaches a chat to this book. It must not be the
+       edit token, which is everything. */
+    const creds = JSON.parse(await page.evaluate(
+      () => localStorage.getItem('mb-book')));
+    if (tgOffer.href.includes(creds.edit_token)) {
+      throw new Error('the deep link carries the edit token');
+    }
+    if (!tgOffer.words) throw new Error('the offer is shown with no words');
+  }
   const ref = await page.textContent('#or-ref');
   const amount = await page.textContent('#or-amount');
   console.log('order created:', ref, '|', amount);

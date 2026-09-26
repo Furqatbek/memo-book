@@ -448,6 +448,18 @@ async def admin_reviews(session: AsyncSession = Session) -> dict:
                       "may_publish."}
 
 
+@router.post("/orders/{human_ref}/flip-video", dependencies=[Admin])
+async def admin_remake_flip_video(human_ref: str,
+                                  session: AsyncSession = Session) -> dict:
+    """Make the customer's flip video again (CR-003-5).
+
+    The operator's only handle on a feature that is otherwise entirely
+    automatic — which is why it was impossible to tell a working encode from
+    a `flip` worker that was never started.
+    """
+    return await admin_orders_svc.remake_flip_video(session, human_ref)
+
+
 @router.post("/orders/{human_ref}/resend", dependencies=[Admin])
 async def admin_resend(human_ref: str,
                        session: AsyncSession = Session) -> dict:

@@ -132,6 +132,12 @@ export const uploadProgressPhoto = (ref, file) => {
                  { form });
 };
 
+/* Make the customer's flip video again (CR-003-5). The console's only
+   handle on it: the feature runs by itself, so without this there is no way
+   to tell a failed encode from a `flip` worker nobody started. */
+export const remakeFlipVideo = (ref) =>
+  request('POST', `${V}/orders/${encodeURIComponent(ref)}/flip-video`);
+
 export const resendToPrinter = (ref) =>
   request('POST', `${V}/orders/${encodeURIComponent(ref)}/resend`);
 

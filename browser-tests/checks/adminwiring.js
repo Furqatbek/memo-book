@@ -328,6 +328,46 @@ async function placeOrder(page) {
   }, links[0]);
   check('a print link serves a real PDF', served === '200:%PDF-', served);
 
+  /* The flip video (CR-003-5). It is made automatically and sent
+     automatically, and until now had no surface anywhere — so "no video" and
+     "the flip worker was never started" looked identical to the operator.
+     The panel's job is to make ABSENCE legible, so that is what is checked:
+     the words must say WHICH kind of nothing this is. */
+  const flipApi = (await (await api(`/orders/${ref}`)).json()).flip_video || {};
+  const flipNote = (await page.textContent('#od-flip')).trim();
+  console.log('   flip panel:', JSON.stringify(flipNote));
+  check('the flip panel says something either way', flipNote.length > 0, flipNote);
+  if (flipApi.exists) {
+    check('it reports the size and how often it was opened',
+      /opened \d+ time/.test(flipNote) && /\d/.test(flipNote), flipNote);
+    const watch = await page.$$eval('#od-flip-links a',
+                                    (els) => els.map((e) => e.href));
+    check('the operator can watch what was sent', watch.length >= 1,
+      String(watch.length));
+  } else if (flipApi.enabled === false) {
+    check('it names the switch rather than implying a failure',
+      /switched off/i.test(flipNote), flipNote);
+  } else if (flipApi.eligible === false) {
+    check('it says the pages are not rendered yet',
+      /not yet/i.test(flipNote), flipNote);
+  } else {
+    check('it names the likely cause — the worker',
+      /worker/i.test(flipNote), flipNote);
+  }
+  /* "Make it again" is the only handle on the feature, so a button that is
+     present and does nothing would be the whole bug back again. */
+  if (flipApi.eligible) {
+    check('"make it again" is offered', await page.isVisible('#btn-flip-remake'));
+    await page.click('#btn-flip-remake');
+    await page.waitForFunction(
+      () => !document.getElementById('btn-flip-remake').disabled,
+      undefined, { timeout: 180000 });
+    const after = (await (await api(`/orders/${ref}`)).json()).flip_video || {};
+    check('and it answers rather than hanging',
+      after.exists === true || after.exists === false,
+      JSON.stringify(after.exists));
+  }
+
   // resend
   await page.click('#btn-resend');
   await page.waitForTimeout(1200);

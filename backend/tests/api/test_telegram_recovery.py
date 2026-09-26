@@ -375,3 +375,88 @@ class TestRemindersPreferTelegram:
         assert len(bot) == before          # nothing sent yet
         assert (await db.execute(select(OutboxMessage).where(
             OutboxMessage.topic == "book.reminder.telegram"))).scalars().first()
+
+
+class TestTheOfferSurvivesCheckout:
+    """The gap this closes: CR-003-2 built three production messages — on the
+    press, being bound, shipped — and they reach a customer only if their
+    book has a chat attached. The single way to attach one was a button in
+    the editor bar labelled "Remind me in Telegram", which is draft
+    recovery. Anybody who finishes an order in one sitting never presses it,
+    so the messages went by email or to nobody.
+
+    The order screen now offers it, which means the endpoint behind it has to
+    keep working on a book that is no longer a draft. It did not have to
+    before, and nothing said so."""
+
+    async def test_a_locked_book_can_still_be_linked(self, client, bot, db):
+        """The moment that matters most: they have just paid, and they want
+        to know what happens next."""
+        from app.domain.states import BookStatus
+
+        book = await make_book(client, 16)
+        row = await book_row(db, book)
+        row.status = BookStatus.LOCKED.value
+        await db.commit()
+
+        body = await link_of(client, book)
+        assert body["available"] is True
+        assert body["deep_link"]
+
+    async def test_and_so_can_an_ordered_one(self, client, bot, db):
+        from app.domain.states import BookStatus
+
+        book = await make_book(client, 16)
+        row = await book_row(db, book)
+        row.status = BookStatus.ORDERED.value
+        await db.commit()
+        assert (await link_of(client, book))["available"] is True
+
+    async def test_an_expired_book_is_refused(self, client, bot, db):
+        """Its photographs are gone, so there is nothing to follow — and the
+        book is not a thing anybody should be attaching a chat to."""
+        from app.domain.states import BookStatus
+
+        book = await make_book(client, 16)
+        row = await book_row(db, book)
+        row.status = BookStatus.EXPIRED.value
+        await db.commit()
+
+        resp = await client.get(
+            f"/api/v1/books/{book['book_id']}/telegram-link",
+            headers={"X-Edit-Token": book["edit_token"]})
+        assert resp.status_code == 410
+
+    async def test_linking_after_the_order_reaches_the_production_messages(
+            self, client, bot, db):
+        """End to end on the thing that was broken: a customer who links
+        AFTER paying must get the three updates, because that is the only
+        moment the product now asks them."""
+        from app.models.order import Order
+        from app.models.outbox import OutboxMessage
+        from app.services import outbox, production_updates
+
+        book = await make_book(client, 16)
+        row = await book_row(db, book)
+        # As the webhook does when they press the deep link.
+        row.telegram_chat_id = 991122
+        await db.commit()
+
+        order = Order(book_id=row.id, human_ref="UB-TGTST",
+                      customer_name="Aziza", customer_phone="+998900000000",
+                      customer_address="Tashkent", customer_email=None,
+                      amount_minor=18000000, status="sent_to_production",
+                      preview_confirmed_at=datetime.now(UTC),
+                      created_at=datetime.now(UTC))
+        db.add(order)
+        await db.commit()
+
+        assert await production_updates.notify(
+            db, order, "printing") is True
+        await db.commit()
+
+        sent = [m for m in (await db.execute(
+            select(OutboxMessage))).scalars().all()
+            if m.topic == outbox.TOPIC_BOOK_REMINDER_TG]
+        assert sent, "a linked chat got no production update"
+        assert sent[-1].payload["chat_id"] == 991122

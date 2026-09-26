@@ -223,7 +223,107 @@ async def order_detail(session: AsyncSession, human_ref: str) -> dict:
                        "url": storage.presign_get(a.storage_key,
                                                   ARTIFACT_URL_EXPIRY_S)}
                       for a in artifacts],
+        # The customer's flip video (CR-003-5). Here because the feature was
+        # otherwise unfalsifiable: it is made automatically, sent
+        # automatically, and had no surface anywhere — so there was no way to
+        # tell "it worked" from "the flip worker is not running", which is a
+        # real possibility on a deploy that did not recreate its services.
+        "flip_video": await _flip_video(session, order),
     }
+
+
+async def _flip_video(session: AsyncSession, order) -> dict | None:
+    """What exists, how big, and how often the customer's link was opened.
+
+    `None` means no video. That is not an error — the feature can be
+    switched off, the encode can have failed, or the order may simply not
+    have reached `rendered` yet — so the console says which of those it is
+    rather than leaving a blank the operator has to guess at.
+    """
+    from app.config import get_settings
+    from app.models.flip_video import FlipVideo
+    from app.services import flip_video as flip_svc
+
+    video = (await session.execute(
+        select(FlipVideo).where(FlipVideo.order_id == order.id)
+    )).scalar_one_or_none()
+    if video is None:
+        return {
+            "exists": False,
+            "enabled": get_settings().flip_video_enabled,
+            "eligible": order.status in FLIP_ELIGIBLE_STATUSES,
+        }
+    return {
+        "exists": True,
+        "enabled": get_settings().flip_video_enabled,
+        "eligible": True,
+        "bytes": video.size_bytes,
+        "duration_ms": video.duration_ms,
+        "page_count": video.page_count,
+        "render_ms": video.render_ms,
+        # How many times the customer (or whoever they forwarded it to)
+        # opened it. The number the feature is actually judged on.
+        "download_count": video.download_count,
+        "created_at": video.created_at,
+        # The operator's own way in, so they can watch what was sent rather
+        # than trust that something was. Short-lived, like every other link
+        # this console hands out.
+        "url": storage.presign_get(video.storage_key, flip_svc.URL_EXPIRY_S),
+        "customer_url": flip_svc.video_url(video.token)
+        if _links_work() else None,
+    }
+
+
+def _links_work() -> bool:
+    from app.services.public_links import configured
+
+    return configured()
+
+
+# A video is made on the way into `rendered`, so anything from there on can
+# have one. Before that there are no pages rendered to film.
+FLIP_ELIGIBLE_STATUSES = frozenset({
+    OrderStatus.RENDERED.value, OrderStatus.SENT_TO_PRODUCTION.value,
+    OrderStatus.PRINTING.value, OrderStatus.BINDING.value,
+    OrderStatus.QUALITY_CHECK.value, OrderStatus.SHIPPED.value,
+    OrderStatus.DELIVERED.value,
+})
+
+
+async def remake_flip_video(session: AsyncSession, human_ref: str) -> dict:
+    """Make the video again — the operator's only handle on this feature.
+
+    Deletes the row first so `generate` is not short-circuited by its own
+    idempotency guard, which exists to stop an RQ retry making a second
+    video and is exactly what has to be stepped around here.
+
+    Failure answers rather than raises. The whole design rule for this
+    feature is that a video can never disturb an order, and an operator
+    pressing a button is not a reason to break that.
+    """
+    from app.models.flip_video import FlipVideo
+    from app.services import flip_video as flip_svc
+
+    row = await _load(session, human_ref)
+    order = row.order
+    if order.status not in FLIP_ELIGIBLE_STATUSES:
+        raise DomainError(
+            ErrorCode.ILLEGAL_TRANSITION,
+            f"a {order.status} order has no rendered pages to film",
+            {"status": order.status})
+
+    existing = (await session.execute(
+        select(FlipVideo).where(FlipVideo.order_id == order.id)
+    )).scalar_one_or_none()
+    if existing is not None:
+        await session.delete(existing)
+        await session.commit()
+
+    import structlog
+
+    made = await flip_svc.generate(session, order.id)
+    structlog.get_logger().info("flip_video.remade", order=human_ref, made=made)
+    return {**await order_detail(session, human_ref), "made": made}
 
 
 async def confirm_payment(session: AsyncSession, human_ref: str,

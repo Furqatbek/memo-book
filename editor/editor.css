@@ -1191,6 +1191,16 @@ a.brand:hover { color: var(--primary); }
 
 .pv-cover figcaption { color: var(--primary); font-weight: 600; }
 .or-files { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+/* Order updates on Telegram. Above the print-file card and shaped the
+   same, because at this moment "what happens next" is the question the
+   customer actually has. The link opens Telegram, so it is a real
+   anchor and needs its underline removed like the file links. */
+.or-tg { display: flex; flex-direction: column; gap: 8px; margin-top: 16px;
+  border-radius: var(--radius-lg); border-color: transparent;
+  box-shadow: var(--sh-md); }
+.or-tg .btn { text-decoration: none; align-self: flex-start; }
+.or-tg p { margin: 0; }
+#or-tg-linked { margin-top: 14px; }
 .or-file-links { display: flex; gap: 10px; flex-wrap: wrap; }
 .or-file-links .btn { text-decoration: none; }
 

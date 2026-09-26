@@ -311,6 +311,7 @@ function renderDetail(deps) {
   }
   $('btn-resend').classList.toggle('hidden', o.artifacts.length === 0);
 
+  renderFlipVideo(o);
   renderActions(deps);
 
   const events = $('od-events');
@@ -321,6 +322,50 @@ function renderDetail(deps) {
       h('span', {}, `${STATUS_LABEL[e.to] || e.to}`),
       e.note ? h('span', { class: 'muted small' }, `— ${e.note}`) : null));
   }
+}
+
+/* The customer's flip video (CR-003-5).
+ *
+ * The point of this panel is to make ABSENCE legible. "No video" has three
+ * completely different causes — the feature is switched off, the order has
+ * not been rendered yet, or the encode failed (most likely because the
+ * `flip` worker is not running) — and they call for three different
+ * responses. A blank space would leave the operator guessing between them.
+ */
+function renderFlipVideo(o) {
+  const f = o.flip_video || {};
+  const note = $('od-flip');
+  const links = $('od-flip-links');
+  links.innerHTML = '';
+
+  if (f.exists) {
+    const seconds = Math.round((f.duration_ms || 0) / 1000);
+    note.textContent = `${f.page_count} pages · ${seconds}s · ${bytes(f.bytes)}`
+      + ` · made in ${Math.round((f.render_ms || 0) / 1000)}s`
+      + ` · opened ${f.download_count} time${f.download_count === 1 ? '' : 's'}`;
+    links.append(h('a', {
+      class: 'btn small', href: f.url, target: '_blank', rel: 'noopener',
+    }, 'Watch it'));
+    // What the CUSTOMER was sent, so the operator can check the thing that
+    // was actually handed over rather than a copy of it.
+    if (f.customer_url) {
+      links.append(h('a', {
+        class: 'btn small', href: f.customer_url, target: '_blank',
+        rel: 'noopener',
+      }, 'Their link'));
+    }
+  } else if (!f.enabled) {
+    note.textContent = 'Switched off — FLIP_VIDEO_ENABLED is false.';
+  } else if (!f.eligible) {
+    note.textContent = 'Not yet — the video is made when the print files are.';
+  } else {
+    note.textContent = 'None. The order is rendered, so this means the encode '
+      + 'failed or the `flip` worker is not running.';
+  }
+  // Offered whenever there are pages to film, including when one already
+  // exists: a first attempt that produced something wrong is exactly when
+  // somebody wants to try again.
+  $('btn-flip-remake').classList.toggle('hidden', !f.eligible);
 }
 
 function renderActions(deps) {
@@ -439,6 +484,30 @@ async function act(deps, what, spec) {
   }
 }
 
+/* Encoding takes seconds, not milliseconds, so the button says so and stays
+   disabled. A silent wait on this one would read as a dead button. */
+async function remakeFlip(deps) {
+  const ref = S.current && S.current.human_ref;
+  if (!ref) return;
+  const btn = $('btn-flip-remake');
+  btn.disabled = true;
+  const was = btn.textContent;
+  btn.textContent = 'Making it…';
+  try {
+    const body = await api.remakeFlipVideo(ref);
+    S.current = body;
+    deps.toast(body.made
+      ? `Video made again for ${ref}.`
+      : `Could not make a video for ${ref} — check the flip worker's logs.`);
+    renderDetail(deps);
+  } catch (e) {
+    await deps.adminError(e, 'Could not make the video.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = was;
+  }
+}
+
 async function resend(deps) {
   const ref = S.current && S.current.human_ref;
   if (!ref) return;
@@ -458,6 +527,7 @@ export function bindOrders(deps) {
   $('btn-attention-refresh').addEventListener('click',
     () => refreshAttention(deps));
   $('btn-resend').addEventListener('click', () => resend(deps));
+  $('btn-flip-remake').addEventListener('click', () => remakeFlip(deps));
   $('o-status').addEventListener('change', (e) => {
     S.status = e.target.value;
     refreshOrders(deps);

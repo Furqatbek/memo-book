@@ -44,6 +44,15 @@ async def paid_order(client, db) -> str:
 
 
 async def video_for(db, ref: str) -> FlipVideo | None:
+    """What is in the DATABASE now, not what this session remembers.
+
+    `order_id` is the primary key, so a row deleted and recreated by the app
+    (which is exactly what "make it again" does, in its own session) comes
+    back under the same identity — and without expiring first, this returns
+    the stale object and its OLD token. That read cost a debugging round:
+    the assertion compared an object with itself.
+    """
+    db.expire_all()
     order = await load(db, ref)
     return (await db.execute(select(FlipVideo).where(
         FlipVideo.order_id == order.id))).scalar_one_or_none()
@@ -298,3 +307,120 @@ class TestWhatTheVideoShows:
         ref = await paid_order(client, db)
         video = await video_for(db, ref)
         assert video.page_count <= MAX_PAGES + 1   # + the cover
+
+
+class TestTheOperatorCanSeeAndRemakeIt:
+    """The gap this closes: the video was made automatically, sent
+    automatically, and had no surface anywhere. "No video" and "the flip
+    worker was never started" looked identical, and the second one is a
+    realistic state on a deploy that did not recreate its services."""
+
+    async def test_the_order_detail_carries_the_numbers(self, client, db,
+                                                        videos_on):
+        ref = await paid_order(client, db)
+        detail = (await client.get(f"/api/v1/admin/orders/{ref}",
+                                   headers=AUTH)).json()
+        f = detail["flip_video"]
+        assert f["exists"] is True
+        assert f["bytes"] > 0
+        assert f["page_count"] > 0
+        assert f["download_count"] == 0
+        assert f["url"], "no way for the operator to watch what was sent"
+
+    async def test_the_download_count_is_the_customers_real_one(
+            self, client, db, videos_on):
+        ref = await paid_order(client, db)
+        video = await video_for(db, ref)
+        for _ in range(2):
+            await client.get(f"/v/{video.token}", follow_redirects=False)
+        detail = (await client.get(f"/api/v1/admin/orders/{ref}",
+                                   headers=AUTH)).json()
+        assert detail["flip_video"]["download_count"] == 2
+
+    async def test_absence_says_WHICH_kind_of_absence(self, client, db,
+                                                      monkeypatch):
+        """Three causes, three different responses from the operator. A bare
+        `None` would make them guess."""
+        monkeypatch.setenv("FLIP_VIDEO_ENABLED", "false")
+        monkeypatch.setenv("ADMIN_TOKEN", ADMIN_TOKEN)
+        get_settings.cache_clear()
+        try:
+            ref = await paid_order(client, db)
+            f = (await client.get(f"/api/v1/admin/orders/{ref}",
+                                  headers=AUTH)).json()["flip_video"]
+            assert f["exists"] is False
+            assert f["enabled"] is False        # switched off, not broken
+            assert f["eligible"] is True        # and the pages do exist
+        finally:
+            get_settings.cache_clear()
+
+    async def test_an_unrendered_order_is_not_eligible(self, client, db,
+                                                       videos_on):
+        """Nothing has been drawn yet, so there is nothing to film — which is
+        not the same as a failure."""
+        ref = await an_order(client, db)
+        f = (await client.get(f"/api/v1/admin/orders/{ref}",
+                              headers=AUTH)).json()["flip_video"]
+        assert f["exists"] is False
+        assert f["eligible"] is False
+
+    async def test_remaking_it_replaces_the_video(self, client, db,
+                                                  videos_on):
+        ref = await paid_order(client, db)
+        # The TOKEN, as a string. Holding the ORM object instead compares it
+        # with itself later: `order_id` is the primary key, so the recreated
+        # row lands on the same identity-mapped instance and both names point
+        # at one object whose token has already been refreshed.
+        first_token = (await video_for(db, ref)).token
+
+        resp = await client.post(f"/api/v1/admin/orders/{ref}/flip-video",
+                                 headers=AUTH)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["made"] is True
+
+        # A new row, so a new token: the old link stops working, which is the
+        # honest consequence of replacing what was sent.
+        assert (await video_for(db, ref)).token != first_token
+        assert resp.json()["flip_video"]["exists"] is True
+
+    async def test_remaking_gets_past_the_idempotency_guard(self, client, db,
+                                                            videos_on):
+        """`generate` refuses a second video on purpose, so an RQ retry
+        cannot make two. Remaking has to step around exactly that guard —
+        if it does not, the button silently does nothing."""
+        ref = await paid_order(client, db)
+        order = await load(db, ref)
+        assert await svc.generate(db, order.id) is True   # the guard, firing
+        before = (await video_for(db, ref)).token
+        await client.post(f"/api/v1/admin/orders/{ref}/flip-video",
+                          headers=AUTH)
+        assert (await video_for(db, ref)).token != before
+
+    async def test_a_failed_remake_answers_rather_than_raising(
+            self, client, db, videos_on, monkeypatch):
+        """The rule for this whole feature is that a video can never disturb
+        an order. An operator pressing a button is not a reason to break
+        it."""
+        ref = await paid_order(client, db)
+        monkeypatch.setattr(svc, "_encode",
+                            lambda pages: (_ for _ in ()).throw(
+                                RuntimeError("no codec")))
+        resp = await client.post(f"/api/v1/admin/orders/{ref}/flip-video",
+                                 headers=AUTH)
+        assert resp.status_code == 200
+        assert resp.json()["made"] is False
+        order = await load(db, ref)
+        await db.refresh(order)
+        assert order.status == "rendered"
+
+    async def test_remaking_an_unrendered_order_is_refused_with_a_reason(
+            self, client, db, videos_on):
+        ref = await an_order(client, db)
+        resp = await client.post(f"/api/v1/admin/orders/{ref}/flip-video",
+                                 headers=AUTH)
+        assert resp.status_code == 409
+        assert "no rendered pages" in resp.json()["error"]["message"]
+
+    async def test_the_route_needs_the_admin_token(self, client, db):
+        resp = await client.post("/api/v1/admin/orders/UB-ZZZZZ/flip-video")
+        assert resp.status_code == 404
