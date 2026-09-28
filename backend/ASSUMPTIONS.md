@@ -3109,3 +3109,40 @@ enough to recommend you.
 capacity is genuinely constrained", and 40+ books a month against current
 volume is not a constraint. A scarcity counter that counts nothing real is
 exactly the practice this project rated a competitor down for.
+
+**Nothing queues a message it cannot send.** Every customer is reached
+through the Telegram bot; `app/services/email.py` has no provider behind it
+and `send_email` raises. Until now the callers did not ask: a customer who
+typed an address at checkout and never linked the bot got a message queued,
+retried and abandoned, which produced an attention row about a channel that
+is off on purpose.
+
+The alert was the least of it. `lifecycle.queue_reminders` sets the day's
+flag and emits `reminder_sent` when the message is QUEUED, and
+`reviews.ask` writes the ReviewRequest row in the same transaction as the
+outbox message. So a message that could never leave the building **spent**
+that book's day-3 reminder and that customer's one review request, for
+good, and counted both as sent in the funnel. Switching a transport on
+later would not give either back.
+
+So `email.configured()` is now the single place that says whether mail can
+go out, and the four callers that would use it — reminders, production
+updates, review requests, the flip video — ask first and otherwise behave
+exactly as they do for a customer who left no contact details at all:
+nothing queued, nothing recorded, nothing spent.
+
+How many people that silences is reported **once**, in the console's
+attention panel, counted from live orders and unfinished drafts rather than
+estimated. The test suite turns mail on module by module, by a named
+fixture, so the email path stays covered for the day a provider exists and
+the shipping behaviour is never the silent default.
+
+**The flip video's length is a setting.** It shipped aiming at eight
+seconds, and at the twenty-page cap that leaves 0.2s a page — exactly
+`MIN_HOLD_FRAMES`, so the longest books sat pinned against the strobe
+floor, and the thing being shown is somebody's photographs. `TARGET_FRAMES`
+became `target_frames()`, read per call from `FLIP_VIDEO_SECONDS`
+(default 15, clamped to 5..40), because how long a video should be is a
+matter of taste that wants changing after watching one rather than after a
+deploy. At 15s a full-length video is 0.8 MB and about 12 seconds of one
+core.

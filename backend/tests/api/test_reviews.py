@@ -35,6 +35,15 @@ from app.services import reviews as svc
 from tests.api.conftest import ADMIN_TOKEN
 from tests.api.test_admin_orders import AUTH, an_order, load
 
+# Every customer in this module is reached by email, because that is what the
+# checkout fixtures produce. In production nothing is: there is no mail
+# transport, and callers ask before they queue. The email branch is still the
+# fallback the day a provider exists, so it stays under test HERE — and the
+# tests for a deployment without mail turn the fixture back off by name, so
+# neither case is the silent default.
+pytestmark = pytest.mark.usefixtures("email_on")
+
+
 
 @pytest.fixture
 def admin_on(monkeypatch):
@@ -582,3 +591,81 @@ class TestTheWayBackToTheForm:
         assert resp.status_code == 200
         assert resp.json() == {"available": False, "url": None,
                                "submitted": False}
+
+
+class TestWhenThereIsNoMailTransport:
+    """The deployment every customer actually meets.
+
+    This is the worst place for the old behaviour, because the review
+    request is the ONE message a customer ever gets: `ask` writes the
+    ReviewRequest row in the same transaction as the outbox message, and
+    `due` never returns that order again. So queueing a message that can
+    never leave did not merely fail to reach them — it permanently marked
+    them as asked, and no amount of fixing the transport afterwards would
+    give the ask back.
+    """
+
+    @pytest.fixture
+    def email_off(self, monkeypatch):
+        """Undoes this module's `email_on`, by name."""
+        from app.services import email
+
+        monkeypatch.setattr(email, "configured", lambda: False)
+
+    async def test_no_row_is_written_so_they_stay_askable(
+            self, client, db, admin_on, email_off):
+        ref = await delivered_order(client, db, days_ago=8)
+        order = await load(db, ref)
+
+        assert await svc.ask(db, order) is False
+        assert await svc.existing_for_order(db, order.id) is None
+        # Still due, which is the whole point: the ask was deferred, not
+        # spent.
+        assert [o.human_ref for o in await svc.due(db)] == [ref]
+
+    async def test_nothing_is_queued(self, client, db, admin_on, email_off):
+        """Scoped to the CUSTOMER's topics: walking an order to delivered
+        also queues the printer's files, and that message is nobody's
+        business but the printer's."""
+        ref = await delivered_order(client, db, days_ago=8)
+        await svc.ask(db, await load(db, ref))
+        rows = (await db.execute(select(OutboxMessage).where(
+            OutboxMessage.topic.in_((outbox.TOPIC_ORDER_PROGRESS,
+                                     outbox.TOPIC_BOOK_REMINDER_TG))
+        ))).scalars().all()
+        assert rows == []
+
+    async def test_and_they_are_asked_once_mail_works(
+            self, client, db, admin_on, email_off, monkeypatch):
+        from app.services import email
+
+        ref = await delivered_order(client, db, days_ago=8)
+        order = await load(db, ref)
+        assert await svc.ask(db, order) is False
+
+        monkeypatch.setattr(email, "configured", lambda: True)
+        assert await svc.ask(db, order) is True
+        assert await svc.existing_for_order(db, order.id) is not None
+
+    async def test_a_linked_customer_is_asked_as_always(
+            self, client, db, admin_on, email_off):
+        ref = await delivered_order(client, db, days_ago=8)
+        order = await load(db, ref)
+        book = (await db.execute(
+            select(Book).where(Book.id == order.book_id))).scalar_one()
+        book.telegram_chat_id = 31337
+        await db.commit()
+
+        assert await svc.ask(db, order) is True
+        assert await svc.existing_for_order(db, order.id) is not None
+
+    async def test_the_nightly_job_still_finishes(self, client, db, admin_on,
+                                                  email_off):
+        """The same lesson as PUBLIC_BASE_URL: nothing about a review may
+        take the rest of the nightly job down."""
+        from app.services.lifecycle import run_nightly
+
+        await delivered_order(client, db, days_ago=8)
+        result = await run_nightly(db)
+        assert result["review_requests"] == 0
+        assert "expired" in result and "outbox_delivered" in result

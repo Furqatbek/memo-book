@@ -78,6 +78,19 @@ class Settings(BaseSettings):
     # running one render worker may not have the CPU to spare, and no
     # customer is owed this.
     flip_video_enabled: bool = True
+    # How long the video should aim to be, in seconds. A TARGET, not a
+    # promise: the per-page hold is worked out from it and then clamped, so a
+    # four-page book comes out shorter rather than holding each page for
+    # four seconds.
+    #
+    # It shipped at eight and eight is too short — at the twenty-page cap
+    # that is 0.2s a page, which is a strobe rather than a look at somebody's
+    # photographs. Fifteen gives about 0.55s a page at the cap and is one
+    # Instagram Story card. Raise it toward twenty if the pages still go by
+    # too fast; past that a video gets scrolled away from before it ends.
+    # Clamped to 5..40 in app/render/flip.py — a typo here must not produce a
+    # ten-minute file for the worker to encode and Telegram to refuse.
+    flip_video_seconds: int = 15
     # Contributor links, likewise. This one is a kill switch for an
     # unauthenticated upload endpoint, which is a thing worth being able to
     # turn off from an env file at three in the morning.

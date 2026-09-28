@@ -15,6 +15,14 @@ from app.services.lifecycle import expire_drafts, queue_reminders, run_nightly
 from tests.api.test_books import make_book
 from tests.render.helpers import seed_rendered_book
 
+# Every draft in this module is reminded by email, because that is what the
+# fixtures produce. In production nothing is: there is no mail transport, and
+# `queue_reminders` asks before it queues. The email path is still the
+# fallback the day a provider exists, so it stays under test here — and
+# TestWhenThereIsNoMailTransport turns the fixture back off by name.
+pytestmark = pytest.mark.usefixtures("email_on")
+
+
 NOW = datetime(2026, 9, 1, 3, 0, tzinfo=UTC)
 
 
@@ -426,3 +434,86 @@ class TestTheSeasonalNote:
         # leave half a sentence behind.
         assert text.index("waiting") < text.index("Order by 25 November")
         get_settings.cache_clear()
+
+
+class TestWhenThereIsNoMailTransport:
+    """The deployment every customer actually meets.
+
+    Reminders go by Telegram or they do not go. A draft whose owner left an
+    email address and never linked the bot cannot be reminded, and the bug
+    this guards against is not that they hear nothing — it is that they were
+    marked as reminded anyway.
+
+    `queue_reminders` sets the day's flag and emits REMINDER_SENT when the
+    message is QUEUED, before the outbox has tried to deliver it. So a
+    message that could never leave spent that book's day-3 reminder for
+    good, and counted as sent in the funnel. Turning mail on later would not
+    give it back.
+    """
+
+    @pytest.fixture
+    def email_off(self, monkeypatch):
+        """Undoes this module's `email_on`, by name."""
+        monkeypatch.setattr(email_svc, "configured", lambda: False)
+
+    async def _unreachable_draft(self, client, db) -> dict:
+        book = await make_book(client, 16)
+        await give_photo(db, book["book_id"])
+        await age_book(db, book["book_id"], expires_delta_days=25,
+                       updated_delta_days=4, email="traveller@example.com")
+        return book
+
+    async def test_nothing_is_queued(self, client, db, email_off):
+        await self._unreachable_draft(client, db)
+        assert await queue_reminders(db, now=NOW) == 0
+        assert (await db.execute(select(OutboxMessage))).scalars().all() == []
+
+    async def test_the_reminder_is_not_spent(self, client, db, email_off):
+        """The important half. The flag stays down, so this book is reminded
+        properly the day a transport exists."""
+        book = await self._unreachable_draft(client, db)
+        await queue_reminders(db, now=NOW)
+
+        row = (await db.execute(select(Book).where(
+            Book.id == uuid.UUID(book["book_id"])))).scalar_one()
+        await db.refresh(row)
+        assert row.reminder_3d_sent is False
+
+    async def test_and_the_funnel_is_not_told_a_reminder_was_sent(
+            self, client, db, email_off):
+        """`reminder_sent` counts messages, and a message nothing can carry
+        is not one. Counting it inflates the step and quietly flatters every
+        rate below it."""
+        from app.domain.events import EventType
+        from app.models.funnel_event import FunnelEvent
+
+        await self._unreachable_draft(client, db)
+        await queue_reminders(db, now=NOW)
+
+        rows = (await db.execute(select(FunnelEvent).where(
+            FunnelEvent.event_type == EventType.REMINDER_SENT.value)
+        )).scalars().all()
+        assert rows == []
+
+    async def test_it_is_sent_once_mail_works(self, client, db, email_off,
+                                              monkeypatch):
+        """Proving the skip is a deferral and not a loss."""
+        await self._unreachable_draft(client, db)
+        assert await queue_reminders(db, now=NOW) == 0
+
+        monkeypatch.setattr(email_svc, "configured", lambda: True)
+        assert await queue_reminders(db, now=NOW) == 1
+
+    async def test_a_linked_draft_is_reminded_as_always(self, client, db,
+                                                        email_off):
+        """Telegram is chosen first, so the mail path being off changes
+        nothing for anybody on the bot."""
+        book = await self._unreachable_draft(client, db)
+        row = (await db.execute(select(Book).where(
+            Book.id == uuid.UUID(book["book_id"])))).scalar_one()
+        row.telegram_chat_id = 4242
+        await db.commit()
+
+        assert await queue_reminders(db, now=NOW) == 1
+        [message] = (await db.execute(select(OutboxMessage))).scalars().all()
+        assert message.topic == "book.reminder.telegram"

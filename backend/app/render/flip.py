@@ -36,15 +36,40 @@ WIDTH = 1080
 HEIGHT = 1920
 FPS = 30
 
-# Six to ten seconds, whatever the book's length — which means the hold has
-# to be worked out from the page count rather than fixed. A fixed hold gives
-# a 16-page book four seconds and a 96-page book fifteen, and fifteen is a
-# video people scroll past.
-TARGET_FRAMES = 8 * FPS   # aim for eight seconds
+# The target length, whatever the book — which means the hold is worked out
+# from the page count rather than fixed. A fixed hold gives a 16-page book
+# four seconds and a 96-page book a minute.
+#
+# It shipped aiming at eight seconds and that was too short. The arithmetic
+# says why: at the twenty-page cap, eight seconds leaves 0.2s a page, which
+# is exactly MIN_HOLD_FRAMES — so the longest books were pinned against the
+# strobe floor, and the thing being shown is somebody's photographs. The
+# target is now a setting, because how long a video should be is a matter of
+# taste that wants changing after watching a few rather than after a deploy.
+DEFAULT_TARGET_S = 15
+MIN_TARGET_S = 5          # shorter than this is a GIF, not a look at a book
+MAX_TARGET_S = 40         # longer is a file nobody watches to the end
+
 FADE_FRAMES = 6           # 0.2s crossing to the next page
-MIN_HOLD_FRAMES = 6       # 0.2s — below this the pages strobe
+MIN_HOLD_FRAMES = 12      # 0.4s — below this a page is a flash, not a photo
 MAX_HOLD_FRAMES = 45      # 1.5s — above this a short book drags
 MAX_PAGES = 20            # the CR's cap; a 96-page book shows its first 20
+
+
+def target_frames() -> int:
+    """The length to aim for, in frames.
+
+    Read per call rather than frozen at import: this is a knob somebody
+    turns after watching a video, and a module-level constant would need a
+    restart to take effect — which is how a setting quietly becomes a lie.
+    """
+    try:
+        from app.config import get_settings
+
+        seconds = int(get_settings().flip_video_seconds)
+    except Exception:  # noqa: BLE001 — unreadable settings must not stop a video
+        seconds = DEFAULT_TARGET_S
+    return int(min(MAX_TARGET_S, max(MIN_TARGET_S, seconds)) * FPS)
 
 # Paper white all round, so a vertical frame of a portrait page looks like a
 # photograph of a book rather than a page floating in a void.
@@ -116,13 +141,19 @@ def _blend(a: Image.Image, b: Image.Image, t: float) -> Image.Image:
 
 
 def hold_frames(image_count: int) -> int:
-    """How long each page is held, so the whole video lands near eight
-    seconds regardless of how long the book is.
+    """How long each page is held, so the whole video lands near the target
+    regardless of how long the book is.
 
     The last image is held twice, hence `n + 1` below rather than `n`.
+
+    Both clamps make the result MISS the target on purpose, in opposite
+    directions, and both are right: a two-page book padded to fifteen
+    seconds is two very long stares, and twenty pages squeezed into five
+    seconds is a strobe. The target is what the pacing aims at, not a
+    promise about the file.
     """
     n = max(1, image_count)
-    ideal = (TARGET_FRAMES - (n - 1) * FADE_FRAMES) / (n + 1)
+    ideal = (target_frames() - (n - 1) * FADE_FRAMES) / (n + 1)
     return int(min(MAX_HOLD_FRAMES, max(MIN_HOLD_FRAMES, round(ideal))))
 
 

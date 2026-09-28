@@ -69,13 +69,62 @@ class TestTheFrame:
         assert 0 < share < 0.01, f"the wordmark covers {share:.1%} of the frame"
 
 
+def target_s() -> float:
+    return flip.target_frames() / flip.FPS
+
+
 class TestThePacing:
     @pytest.mark.parametrize("images", [17, 19, 21])
-    def test_a_real_book_lands_between_six_and_ten_seconds(self, images):
-        """The CR's window. A fixed hold gives a 16-page book four seconds
-        and a 96-page book fifteen, and fifteen is a video people scroll
-        past."""
-        assert 6.0 <= flip.duration_s(images) <= 10.0
+    def test_a_real_book_lands_near_the_target(self, images):
+        """A fixed hold gives a 16-page book four seconds and a 96-page book
+        a minute, which is why the hold is derived from the page count."""
+        assert abs(flip.duration_s(images) - target_s()) <= 1.0, (
+            f"{images} pages -> {flip.duration_s(images)}s "
+            f"against a {target_s()}s target")
+
+    def test_every_page_is_held_long_enough_to_be_looked_at(self):
+        """The reason eight seconds was wrong.
+
+        At the twenty-page cap an eight-second target left 0.2s a page,
+        which was exactly MIN_HOLD_FRAMES — so the longest books sat pinned
+        against the strobe floor. These are somebody's photographs; a page
+        that flashes is a page nobody saw.
+        """
+        hold = flip.hold_frames(flip.MAX_PAGES + 1)
+        assert hold >= flip.MIN_HOLD_FRAMES
+        assert hold / flip.FPS >= 0.4, f"{hold / flip.FPS}s a page at the cap"
+
+    def test_a_short_book_is_not_padded_out_to_the_target(self):
+        """Two pages stretched to fifteen seconds is two long stares. The
+        target is what the pacing aims at, not a promise about the file."""
+        assert flip.duration_s(2) < target_s()
+        assert flip.hold_frames(2) == flip.MAX_HOLD_FRAMES
+
+    def test_the_length_is_a_setting_that_actually_moves_it(self, monkeypatch):
+        """A knob that needs a code change is not a knob. Read per call
+        rather than frozen at import, so turning it takes effect."""
+        from app.config import get_settings
+
+        monkeypatch.setenv("FLIP_VIDEO_SECONDS", "24")
+        get_settings.cache_clear()
+        try:
+            assert abs(flip.duration_s(20) - 24.0) <= 1.0, flip.duration_s(20)
+        finally:
+            get_settings.cache_clear()
+
+    @pytest.mark.parametrize("seconds,expected", [("1", flip.MIN_TARGET_S),
+                                                  ("600", flip.MAX_TARGET_S)])
+    def test_a_silly_setting_is_clamped(self, monkeypatch, seconds, expected):
+        """A typo must not hand the worker a ten-minute encode and Telegram
+        a file it will refuse."""
+        from app.config import get_settings
+
+        monkeypatch.setenv("FLIP_VIDEO_SECONDS", seconds)
+        get_settings.cache_clear()
+        try:
+            assert flip.target_frames() == expected * flip.FPS
+        finally:
+            get_settings.cache_clear()
 
     def test_a_long_book_shows_its_first_twenty_pages(self):
         assert flip.frame_budget(96) == flip.MAX_PAGES

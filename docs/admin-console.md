@@ -134,6 +134,16 @@ Deliberately:
 failing, the book itself is the problem, not the printer; the server logs
 name the page.
 
+**"No mail transport: N live orders … are hearing nothing"** — not a fault.
+Every customer is reached through the Telegram bot, and there is no email
+provider behind the address they typed at checkout. Nothing is queued for
+those customers, so nothing fails and nothing is wasted: their reminder and
+their review request are still unspent and go out properly if mail is ever
+switched on. The number is there so the cost of that is a figure rather than
+a feeling. To shrink it, get more customers onto the bot — the offer appears
+on the preview and order screens and needs `TELEGRAM_BOT_USERNAME` set — or
+phone the ones on that list; the order screen has their number.
+
 **Sign-in fails with the right token** — check `ADMIN_TOKEN` is actually set
 in the running container (`docker compose exec api env | grep ADMIN`), not
 just in the `.env` on disk.

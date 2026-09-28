@@ -22,6 +22,15 @@ from app.models.outbox import OutboxMessage
 from app.services import outbox, production_updates
 from tests.api.test_admin_orders import AUTH, an_order, load
 
+# Every customer in this module is reached by email, because that is what the
+# checkout fixtures produce. In production nothing is: there is no mail
+# transport, and callers ask before they queue. The email branch is still the
+# fallback the day a provider exists, so it stays under test HERE — and the
+# tests for a deployment without mail turn the fixture back off by name, so
+# neither case is the silent default.
+pytestmark = pytest.mark.usefixtures("email_on")
+
+
 
 async def to_production(client, db, ref: str) -> None:
     """Walk an order to sent_to_production the way the console does."""
@@ -312,3 +321,75 @@ class TestTheOperatorCanActuallyReachThis:
             files={"photo": ("p.jpg", fixture_photo_bytes(400, 300, 1),
                              "image/jpeg")})
         assert resp.status_code == 404
+
+
+class TestWhenThereIsNoMailTransport:
+    """What production actually does.
+
+    Everything reaches customers through the Telegram bot. There is no mail
+    provider integrated and there never has been, so a customer who typed an
+    email at checkout and never linked the bot is reachable by nothing.
+
+    The old behaviour was to queue anyway. That produced a guaranteed
+    delivery failure, an attention row that read as a fault rather than as
+    the consequence of a decision, and — because the queue is what "we told
+    them" means everywhere else — a record saying the customer had been
+    notified. All three are worse than doing nothing and saying so.
+    """
+
+    @pytest.fixture
+    def email_off(self, monkeypatch):
+        """Undoes this module's `email_on`, by name, so that the deployment
+        every customer actually meets is the one being tested here."""
+        from app.services import email
+
+        monkeypatch.setattr(email, "configured", lambda: False)
+
+    async def test_nothing_is_queued_for_an_unreachable_customer(
+            self, client, db, admin, email_off):
+        ref = await an_order(client, db)
+        await to_production(client, db, ref)
+        assert (await advance(client, ref, "printing")).status_code == 200
+        assert await customer_messages(db) == []
+
+    async def test_and_the_order_is_not_recorded_as_having_told_them(
+            self, client, db, admin, email_off):
+        """The half that would have been quietly wrong. `set_status` writes
+        an audit row saying the customer was notified, and a message sitting
+        in the outbox that can never leave is not a customer who was told."""
+        ref = await an_order(client, db)
+        await to_production(client, db, ref)
+        await advance(client, ref, "printing")
+
+        order = await load(db, ref)
+        notes = [e.note or "" for e in (await db.execute(
+            select(OrderEvent).where(OrderEvent.order_id == order.id)
+        )).scalars().all()]
+        assert not [n for n in notes
+                    if production_updates.SENT_NOTE in n], notes
+
+    async def test_the_move_itself_still_happens(self, client, db, admin,
+                                                 email_off):
+        """The operator's job is not blocked by our inability to tell the
+        customer. The order moves; only the message is declined."""
+        ref = await an_order(client, db)
+        await to_production(client, db, ref)
+        assert (await advance(client, ref, "printing")).status_code == 200
+        assert (await load(db, ref)).status == OrderStatus.PRINTING.value
+
+    async def test_a_linked_customer_is_unaffected(self, client, db, admin,
+                                                   email_off):
+        """Telegram is the channel that works, and it is chosen first — so
+        turning the mail path off must change nothing for anybody on it."""
+        ref = await an_order(client, db)
+        order = await load(db, ref)
+        book = (await db.execute(
+            select(Book).where(Book.id == order.book_id))).scalar_one()
+        book.telegram_chat_id = 99887766
+        await db.commit()
+
+        await to_production(client, db, ref)
+        await advance(client, ref, "printing")
+        messages = await customer_messages(db)
+        assert len(messages) == 1, messages
+        assert messages[0]["chat_id"] == 99887766

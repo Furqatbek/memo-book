@@ -25,7 +25,7 @@ from app.domain.states import BookStatus, transition_book
 from app.models.book import Book
 from app.models.photo import Photo
 from app.domain.events import EventType
-from app.services import funnel, outbox, telegram_recovery
+from app.services import email, funnel, outbox, telegram_recovery
 
 log = structlog.get_logger()
 
@@ -201,6 +201,16 @@ async def queue_reminders(session: AsyncSession,
                     # message that waited out an outage still opens.
                     "photo_key": thumb,
                 })
+            elif not email.configured():
+                # Their only contact detail is an address nothing can send
+                # to. Skipped BEFORE the flag is set and before the funnel
+                # hears about it, which is the whole point: queueing here
+                # spent this book's day-3 reminder on a message that could
+                # never leave, and counted it as sent. They are reminded
+                # properly the day a mail transport exists.
+                log.info("lifecycle.reminder_skipped_no_email_transport",
+                         book_id=str(book.id), days=delta.days)
+                continue
             else:
                 channel = "email"
                 outbox.enqueue(session, outbox.TOPIC_BOOK_REMINDER, {

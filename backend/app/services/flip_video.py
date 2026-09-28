@@ -201,7 +201,7 @@ async def _announce(session: AsyncSession, order_id: uuid.UUID) -> None:
     is one people forward, and a link is one more tap between the customer
     and posting it. Email gets the link, because email cannot do better.
     """
-    from app.services import outbox
+    from app.services import email, outbox
 
     video = await existing(session, order_id)
     order = (await session.execute(
@@ -218,7 +218,7 @@ async def _announce(session: AsyncSession, order_id: uuid.UUID) -> None:
             "video_key": video.storage_key,
             "text": VIDEO_MESSAGE,
         })
-    elif order.customer_email:
+    elif order.customer_email and email.configured():
         outbox.enqueue(session, outbox.TOPIC_ORDER_PROGRESS, {
             "order_id": str(order_id),
             "email": order.customer_email,
@@ -227,6 +227,9 @@ async def _announce(session: AsyncSession, order_id: uuid.UUID) -> None:
             "text": f"{VIDEO_MESSAGE}\n\n{video_url(video.token)}",
         })
     else:
+        # No chat, and no transport for the address they left. The video is
+        # already made and keeps its token, so the console can still hand it
+        # over — this only declines to queue a message that cannot be sent.
         return
     await session.commit()
 

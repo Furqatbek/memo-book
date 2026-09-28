@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.states import OrderStatus
 from app.models.book import Book
 from app.models.order import Order, OrderEvent
-from app.services import outbox
+from app.services import email, outbox
 
 log = structlog.get_logger()
 
@@ -103,7 +103,7 @@ async def notify(session: AsyncSession, order: Order, status: str, *,
             "photo_key": photo_url,
         })
         channel = "telegram"
-    elif order.customer_email:
+    elif order.customer_email and email.configured():
         outbox.enqueue(session, outbox.TOPIC_ORDER_PROGRESS, {
             "order_id": str(order.id),
             "email": order.customer_email,
@@ -116,7 +116,15 @@ async def notify(session: AsyncSession, order: Order, status: str, *,
         # Nowhere to send it. Not an error: plenty of customers give a
         # phone number and nothing else, and the operator's own Telegram
         # notification already told them the order moved.
-        log.info("production.no_channel", order=order.human_ref, status=status)
+        #
+        # An address with no transport behind it counts as nowhere, and is
+        # named separately so the logs say which of the two it was. Queueing
+        # it instead produced a guaranteed failure and an attention row about
+        # a channel that is off on purpose; how many customers this silences
+        # is reported once, in the console, rather than once per message.
+        log.info("production.no_channel", order=order.human_ref, status=status,
+                 reason="no_email_transport" if order.customer_email
+                        else "no_contact_details")
         return False
 
     session.add(OrderEvent(

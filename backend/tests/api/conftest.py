@@ -24,6 +24,41 @@ def admin(monkeypatch):
 
 
 @pytest.fixture
+def email_on():
+    """A deployment where mail can actually be delivered.
+
+    There is no mail transport, in any deployment, and nothing queues a
+    message it cannot send — so in production every customer is reached
+    through the Telegram bot or not at all.
+
+    The email code still exists and is still the fallback the day a provider
+    is integrated, so it stays under test. A module that asks for this
+    fixture is saying "assume mail works"; the tests for what happens when
+    it does not turn it back off explicitly, by name, so the two cases are
+    both visible rather than one of them being the silent default.
+
+    `send_email` itself still raises. This is only about whether callers are
+    willing to QUEUE — the outbox's own failure handling is tested
+    separately and should keep seeing a transport that throws.
+
+    It holds its OWN MonkeyPatch rather than the shared `monkeypatch`
+    fixture, and that is not fussiness: a test that calls
+    `monkeypatch.undo()` to put back something it broke on purpose — the
+    attention tests do, to repair a deliberately broken render — would
+    otherwise silently switch mail off halfway through and fail on a row
+    about unreachable customers that has nothing to do with what it tests.
+    """
+    from _pytest.monkeypatch import MonkeyPatch
+
+    from app.services import email
+
+    own = MonkeyPatch()
+    own.setattr(email, "configured", lambda: True)
+    yield
+    own.undo()
+
+
+@pytest.fixture
 async def browsers(sessionmaker, s3, monkeypatch):
     """A factory for INDEPENDENT browsers against the same app.
 

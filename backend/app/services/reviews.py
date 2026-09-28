@@ -109,6 +109,7 @@ async def ask(session: AsyncSession, order: Order,
     or a row claiming we asked when we did not.
     """
     from app.domain.events import EventType
+    from app.services import email as email_svc
     from app.services import funnel, outbox
 
     if await existing_for_order(session, order.id) is not None:
@@ -140,7 +141,7 @@ async def ask(session: AsyncSession, order: Order,
             "book_id": str(book.id), "chat_id": book.telegram_chat_id,
             "text": text, "photo_key": None})
         channel = "telegram"
-    elif order.customer_email:
+    elif order.customer_email and email_svc.configured():
         outbox.enqueue(session, outbox.TOPIC_ORDER_PROGRESS, {
             "order_id": str(order.id), "email": order.customer_email,
             "human_ref": order.human_ref, "status": "review_request",
@@ -150,7 +151,13 @@ async def ask(session: AsyncSession, order: Order,
         # Nowhere to send it, and nothing to record: leaving the row out
         # means this order is asked properly if a contact detail ever
         # arrives, instead of being permanently marked as asked.
-        log.info("review.no_channel", order=order.human_ref)
+        #
+        # An address with no mail transport behind it is nowhere. This is
+        # the one ask a customer ever gets, so spending it on a message
+        # that cannot leave the building is the worst version of this bug.
+        log.info("review.no_channel", order=order.human_ref,
+                 reason="no_email_transport" if order.customer_email
+                        else "no_contact_details")
         return False
 
     session.add(ReviewRequest(order_id=order.id, token=token,

@@ -27,6 +27,15 @@ from tests.api.test_production_updates import (
     to_production,
 )
 
+# The customers these fixtures create are reachable only by email, because
+# that is what the checkout and draft helpers produce. In production nobody
+# is: there is no mail transport, and every caller asks before it queues.
+# The email path is still the fallback the day a provider exists, so it
+# stays under test here; tests/api/test_production_updates.py and
+# test_lifecycle.py carry the classes for what actually ships.
+pytestmark = pytest.mark.usefixtures("email_on")
+
+
 GIFT = {
     "recipient_name": "Dilnoza Rashidova",
     "recipient_phone": "+998 91 777-88-99",
@@ -128,6 +137,43 @@ class TestTheRecipientHearsNothing:
         book = (await db.execute(
             select(Book).where(Book.id == order.book_id))).scalar_one()
         assert book.email in (None, CUSTOMER["email"])
+
+    async def test_the_rule_holds_on_the_channel_production_uses(
+            self, client, db, admin):
+        """The rest of this class proves it over email. Email is the
+        fallback for the day a provider exists; TELEGRAM is what every
+        customer is actually reached on, and "a present someone was told
+        about in advance is not a present" is the rule that must not have a
+        path this suite never walks.
+
+        A gift buyer who linked the bot gets all three updates in their own
+        chat, and nothing anywhere names the person opening the parcel.
+        """
+        ref = await gift_order(client, db)
+        order = await load(db, ref)
+        book = (await db.execute(
+            select(Book).where(Book.id == order.book_id))).scalar_one()
+        book.telegram_chat_id = 55512345
+        await db.commit()
+
+        await to_production(client, db, ref)
+        for stage in ("printing", "binding", "shipped"):
+            assert (await advance(client, ref, stage)).status_code == 200
+
+        messages = await customer_messages(db)
+        assert len(messages) == 3, [m.get("text") for m in messages]
+        # Every one of them to the BUYER's chat, which is the only chat that
+        # exists: the recipient never had a book to link.
+        assert {m["chat_id"] for m in messages} == {55512345}
+
+        rows = (await db.execute(select(OutboxMessage))).scalars().all()
+        for row in rows:
+            if row.topic in (outbox.TOPIC_BOOK_REMINDER_TG,
+                             outbox.TOPIC_ORDER_PROGRESS,
+                             outbox.TOPIC_BOOK_REMINDER):
+                blob = repr(row.payload)
+                assert GIFT["recipient_phone"] not in blob, row.topic
+                assert GIFT["recipient_name"] not in blob, row.topic
 
 
 class TestWhatThePrinterIsTold:

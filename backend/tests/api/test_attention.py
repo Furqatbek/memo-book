@@ -24,6 +24,14 @@ from tests.services.test_stuck_orders import (
     paid_order,
 )
 
+# The orders these fixtures create belong to customers with an email address
+# and no Telegram link — so in a deployment with no mail transport (which is
+# every deployment) the panel correctly carries a row saying those customers
+# are hearing nothing. That row is the subject of exactly one class below,
+# which turns this fixture back off by name; everywhere else it would be a
+# constant that every other assertion had to step around.
+pytestmark = pytest.mark.usefixtures("email_on")
+
 TOKEN = "test-admin-token"
 AUTH = {"X-Admin-Token": TOKEN}
 
@@ -273,3 +281,74 @@ class TestItSaysWhenASettingHasSwitchedAFeatureOff:
             get_settings.cache_clear()
         for row in [i for i in body["items"] if i["kind"] == "config"]:
             assert row["human_ref"] is None
+
+
+class TestCustomersNothingCanReach:
+    """The row that replaced a stream of failed deliveries.
+
+    Everything reaches customers through the Telegram bot. Somebody who
+    typed an email at checkout and never linked the bot is reachable by
+    nothing — and the old way of finding that out was one failed outbox row
+    per message, which reads as a delivery fault rather than as the
+    consequence of a decision, and arrives in ones rather than as a number.
+
+    Every figure in it is counted from real rows. There is no estimate here
+    of how many of those customers would have read the mail anyway, because
+    that is not a thing this system can know.
+    """
+
+    @pytest.fixture
+    def email_off(self, monkeypatch):
+        """Undoes this module's `email_on`, by name."""
+        from app.services import email
+
+        monkeypatch.setattr(email, "configured", lambda: False)
+
+    def _row(self, body: dict) -> dict | None:
+        return next((i for i in body["items"]
+                     if i["kind"] == "config"
+                     and "No mail transport" in i["summary"]), None)
+
+    async def test_a_live_order_with_only_an_email_is_counted(
+            self, client, db, admin, email_off):
+        await paid_order(client, db)
+        row = self._row(await attention(client))
+        assert row is not None, "nothing said the customer is unreachable"
+        assert "1 live order" in row["summary"], row["summary"]
+
+    async def test_the_count_is_real(self, client, db, admin, email_off):
+        """Three orders, three counted. A hardcoded 'some customers' would
+        pass a test that only checks the row appears."""
+        for _ in range(3):
+            await paid_order(client, db)
+        row = self._row(await attention(client))
+        assert "3 live orders" in row["summary"], row["summary"]
+
+    async def test_a_customer_on_telegram_is_not_counted(
+            self, client, db, admin, email_off):
+        """They are reachable, so they are not a problem."""
+        from app.models.book import Book
+
+        order = await paid_order(client, db)
+        book = (await db.execute(
+            select(Book).where(Book.id == order.book_id))).scalar_one()
+        book.telegram_chat_id = 777
+        await db.commit()
+        assert self._row(await attention(client)) is None
+
+    async def test_a_delivered_order_is_not_counted(self, client, db, admin,
+                                                    email_off):
+        """There is nothing left to tell them about."""
+        order = await paid_order(client, db)
+        for target in ("sent_to_production", "shipped", "delivered"):
+            resp = await client.post(
+                f"/api/v1/admin/orders/{order.human_ref}/status",
+                json={"target": target}, headers=AUTH)
+            assert resp.status_code == 200, resp.text
+        assert self._row(await attention(client)) is None
+
+    async def test_it_is_silent_when_mail_works(self, client, db, admin):
+        """No `email_off` here: this module's `email_on` is in force, and a
+        deployment that can send mail has nobody in this bucket."""
+        await paid_order(client, db)
+        assert self._row(await attention(client)) is None

@@ -14,13 +14,20 @@ person rather than a push — carries its own view of everything stuck. It
 answers one question: is there anything I need to do that I do not already
 know about?
 
-Three sources, deliberately including the last one:
+Five sources, deliberately including the last two:
 
 * orders in `render_failed` — the render broke, retryable from the console;
 * orders in `rendering` past the stall threshold — the watchdog has not got
   to them yet, and showing them a few minutes early costs nothing;
 * outbox messages that gave up — the alert itself failing is exactly the
   case Telegram cannot report;
+* CUSTOMERS NOTHING CAN REACH. Everybody is contacted through the Telegram
+  bot; somebody who typed an email at checkout and never linked the bot is
+  reachable only by mail, and there is no mail transport. That used to show
+  up as one failed outbox row per message, which reads as a delivery fault
+  rather than as the consequence of a decision, and arrives in ones rather
+  than as a number. Now nothing is queued for them and this says how many
+  they are, counted from real rows;
 * SETTINGS THAT HAVE SWITCHED A CUSTOMER-FACING FEATURE OFF. Several
   features fail closed on purpose rather than half-work: with no
   PUBLIC_BASE_URL the editor hides the share and contributor buttons,
@@ -32,11 +39,12 @@ Three sources, deliberately including the last one:
 """
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.domain.states import OrderStatus
+from app.domain.states import BookStatus, OrderStatus
+from app.models.book import Book
 from app.models.order import Order, OrderEvent
 from app.models.outbox import OutboxMessage, OutboxStatus
 
@@ -131,8 +139,78 @@ async def needs_attention(session: AsyncSession,
                        "on the order."),
         })
 
+    items.extend(await _silenced_customers(session))
     items.extend(_configuration_gaps())
     return {"count": len(items), "items": items}
+
+
+async def _silenced_customers(session: AsyncSession) -> list[dict]:
+    """How many people an absent mail transport is keeping in the dark.
+
+    Everything reaches customers through the Telegram bot. Someone who typed
+    an email at checkout and never linked the bot is reachable only by mail,
+    and there is no mail — so they hear nothing about their own order.
+
+    Until now the only trace of that was one failed outbox row per message,
+    which read as a delivery fault rather than as a policy, and arrived in
+    ones rather than as a number. Nothing queues those messages any more, so
+    this is the replacement: ONE row, and every figure in it counted from
+    real rows. If it cannot be counted it is not shown — which is why there
+    is no estimate here of how many of them would have read the mail anyway.
+    """
+    from app.services import email
+
+    if email.configured():
+        return []
+
+    live = (await session.execute(
+        select(func.count()).select_from(Order).join(
+            Book, Book.id == Order.book_id
+        ).where(
+            Order.status.notin_((OrderStatus.DELIVERED.value,
+                                 OrderStatus.CANCELLED.value,
+                                 OrderStatus.REFUNDED.value)),
+            Order.customer_email.is_not(None),
+            Order.customer_email != "",
+            Book.telegram_chat_id.is_(None),
+        ))).scalar() or 0
+
+    # Drafts are a separate population and a separate loss: these are people
+    # who would have got a "your book is waiting" reminder and will not.
+    drafts = (await session.execute(
+        select(func.count()).select_from(Book).where(
+            Book.status == BookStatus.DRAFT.value,
+            Book.email.is_not(None),
+            Book.email != "",
+            Book.telegram_chat_id.is_(None),
+        ))).scalar() or 0
+
+    if not (live or drafts):
+        return []
+
+    parts = []
+    if live:
+        parts.append(f"{live} live order{'s' if live != 1 else ''}")
+    if drafts:
+        parts.append(f"{drafts} unfinished book{'s' if drafts != 1 else ''}")
+    return [{
+        "kind": "config",
+        "human_ref": None,
+        "status": None,
+        "customer_name": None,
+        "summary": f"No mail transport: {' and '.join(parts)} belong to "
+                   "customers who can only be reached by email, and are "
+                   "hearing nothing",
+        "detail": "They gave an address at checkout and never linked the "
+                  "Telegram bot. Nothing is queued for them — a message that "
+                  "cannot be sent used to fail here as an alert, and worse, "
+                  "spent the one reminder or review request that customer "
+                  "gets. They are contacted properly the day mail works.",
+        "action": "Either reach these customers by hand — the order screen "
+                  "has their phone number — or get more of them onto the bot: "
+                  "the offer appears on the preview and order screens, and "
+                  "needs TELEGRAM_BOT_USERNAME set.",
+    }]
 
 
 # Setting -> what is switched off, and what the operator sees instead.
@@ -172,9 +250,10 @@ def _configuration_gaps() -> list[dict]:
             "summary": "TELEGRAM_BOT_USERNAME is not set, so customers are "
                        "never offered the Telegram bot",
             "detail": "The editor hides the offer rather than showing a "
-                      "button that lands nowhere. A customer who never links "
-                      "Telegram gets their production updates by email if "
-                      "they gave an address, and nothing if they did not.",
+                      "button that lands nowhere — so nobody can link the "
+                      "bot at all, and since there is no mail transport, "
+                      "that means no customer hears anything about their "
+                      "order except from you.",
             "action": "Set TELEGRAM_BOT_USERNAME to the bot's @name without "
                       "the @, in deploy/.env, and restart.",
         })

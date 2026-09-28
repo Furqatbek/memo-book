@@ -21,6 +21,15 @@ from app.services import outbox
 from tests.api.conftest import ADMIN_TOKEN
 from tests.api.test_admin_orders import AUTH, an_order, load
 
+# Every customer in this module is reached by email, because that is what the
+# checkout fixtures produce. In production nothing is: there is no mail
+# transport, and callers ask before they queue. The email branch is still the
+# fallback the day a provider exists, so it stays under test HERE — and the
+# tests for a deployment without mail turn the fixture back off by name, so
+# neither case is the silent default.
+pytestmark = pytest.mark.usefixtures("email_on")
+
+
 
 @pytest.fixture
 def videos_on(monkeypatch):
@@ -68,7 +77,15 @@ class TestItGetsMade:
         video = await video_for(db, ref)
         assert video is not None
         assert video.size_bytes > 0
-        assert 6.0 <= video.duration_ms / 1000 <= 10.0
+        # Near whatever the target currently is, rather than a window typed
+        # in here: the length is a setting now, and a test that pins it to
+        # the old eight seconds would fail for the person who turns the knob
+        # rather than for the person who breaks the pacing.
+        from app.render import flip
+
+        target = flip.target_frames() / flip.FPS
+        assert abs(video.duration_ms / 1000 - target) <= 1.5, (
+            f"{video.duration_ms}ms against a {target}s target")
         assert video.storage_key.endswith("flip.mp4")
 
     async def test_it_is_made_once(self, client, db, videos_on):

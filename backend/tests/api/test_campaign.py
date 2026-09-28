@@ -27,6 +27,15 @@ from tests.api.conftest import ADMIN_TOKEN
 from tests.api.test_admin_orders import AUTH, an_order
 from tests.api.test_checkout import do_checkout, ready_book
 
+# The customers these fixtures create are reachable only by email, because
+# that is what the checkout and draft helpers produce. In production nobody
+# is: there is no mail transport, and every caller asks before it queues.
+# The email path is still the fallback the day a provider exists, so it
+# stays under test here; tests/api/test_production_updates.py and
+# test_lifecycle.py carry the classes for what actually ships.
+pytestmark = pytest.mark.usefixtures("email_on")
+
+
 TODAY = datetime(2026, 11, 1, 12, 0, tzinfo=UTC)
 
 
