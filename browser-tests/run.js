@@ -39,6 +39,11 @@ const SOLO = {
 };
 // Checks that need a specific server configuration to mean anything.
 const NEEDS = {
+  mobileflow: 'nothing — it walks preview, checkout and the order screen on a '
+    + '375x667 phone and measures whether a thumb can reach every control. '
+    + 'e2e drives the whole flow at 1360x850 and only visits a phone '
+    + 'viewport as far as the EDITOR, which is why a checkout with its '
+    + 'submit button clipped off shipped',
   pricegate: 'PRICES_CONFIRMED=false (the dev server sets it true)',
   admincheck: 'ADMIN_TOKEN=dev-admin (the dev server sets this by default)',
   reviewsadmin: 'ADMIN_TOKEN=dev-admin — it serves its own review rows through a route intercept, because reaching a real one needs an order walked to delivered plus seven days, and a fixture review living in the repository is an invented review (CR-003-9)',

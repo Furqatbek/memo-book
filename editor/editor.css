@@ -943,6 +943,21 @@ img.lay-thumb { object-fit: cover; display: block; }
   padding: clamp(20px, 4vw, 44px) 20px clamp(140px, 26vh, 250px);
   display: grid; gap: clamp(16px, 3vw, 28px); align-content: start;
   grid-template-columns: minmax(0, 480px); justify-content: center;
+  /* The grid equivalent of `.start-body > * { flex: none }`, and it is here
+     for the same reason that comment gives — except that here the symptom
+     was not cosmetic.
+
+     `.sheet` sets `overflow: hidden`, and a box whose overflow is not
+     visible has an automatic minimum size of ZERO. So this grid, which has
+     a definite height (it is `flex: 1` inside a 100dvh column), was free to
+     size the form's row to whatever was left over — 318px on a 375x667
+     phone — and the sheet then CLIPPED the rest of itself. The pane saw
+     nothing to scroll, because as far as it knew everything fitted.
+
+     On that phone it hid the email field, the gift toggle and the submit
+     button: a checkout nobody could complete. Content-sized rows instead,
+     so the form is always drawn at its full height and the pane scrolls. */
+  grid-auto-rows: max-content;
 }
 @media (min-width: 880px) {
   .co-wrap {
