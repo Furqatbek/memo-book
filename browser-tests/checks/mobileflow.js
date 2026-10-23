@@ -182,6 +182,32 @@ async function hiddenInside(page, selector) {
   await assertReachable(page, 'THE SUBMIT BUTTON',
                         '#co-form button[type=submit]');
 
+  console.log('\nNO SHEET IS A CLIPPING BOX');
+  /* The guard on the trap itself, rather than on one of its symptoms.
+   *
+   * `.sheet` used to set `overflow: hidden`, to keep its gold hairline
+   * inside the rounded corners. A box whose overflow is not `visible` has an
+   * automatic minimum size of ZERO — so any flex or grid parent with a
+   * definite height could squeeze a sheet below its own content, and the
+   * sheet then clipped the remainder instead of overflowing. Nothing looked
+   * broken; the content was simply gone.
+   *
+   * The hairline is inset past the corners now and the clipping is gone. If
+   * it ever comes back — on any sheet, for any reason — this says so by
+   * name, rather than leaving the next person to discover it as a checkout
+   * nobody can finish. */
+  const sheets = await page.$$eval('.sheet', (els) => els.map((el) => ({
+    id: el.id || el.className.trim().split(/\s+/)[0],
+    overflowX: getComputedStyle(el).overflowX,
+    overflowY: getComputedStyle(el).overflowY,
+  })));
+  check('there are sheets to check', sheets.length > 0, `${sheets.length} found`);
+  for (const s of sheets) {
+    check(`.sheet#${s.id} does not clip`,
+      s.overflowX === 'visible' && s.overflowY === 'visible',
+      `overflow ${s.overflowX}/${s.overflowY}`);
+  }
+
   console.log('\nCHECKOUT WITH GIFT MODE ON — the tallest this form gets');
   await page.check('#co-gift');
   await page.waitForTimeout(400);

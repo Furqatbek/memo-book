@@ -3146,3 +3146,42 @@ became `target_frames()`, read per call from `FLIP_VIDEO_SECONDS`
 matter of taste that wants changing after watching one rather than after a
 deploy. At 15s a full-length video is 0.8 MB and about 12 seconds of one
 core.
+
+**`.sheet` must never set `overflow` to anything but `visible`.** It did,
+to keep its gold hairline inside the rounded corners, and the cost was out
+of all proportion to the ornament: a box whose overflow is not `visible` has
+an automatic minimum size of ZERO, so any flex or grid parent with a
+definite height could squeeze a sheet below its own content — and the sheet
+then CLIPPED the remainder of itself instead of overflowing, leaving the
+scrolling pane around it with nothing to scroll.
+
+That is how the checkout shipped with its submit button cut off. Measured
+across ten common phone sizes, nine could not complete a purchase; only a
+430x932 Pro Max got through, and it was still hiding 23px. Nothing looked
+broken. The form simply ended.
+
+The hairline is inset past the corners now (`inset: 0 var(--radius-xl)
+auto`), which costs nothing — the gradient is already transparent for its
+first and last fifth — and the clipping is gone. A sheet that will not fit
+now overflows visibly: ugly, noticeable, reported.
+
+`grid-auto-rows: max-content` on `.co-wrap` was the first fix, written when
+the symptom was understood and the cause was not. It is kept because
+content-sized rows are what a scrolling column wants, and its comment now
+says plainly that nothing depends on it — removing it and re-running
+`checks/mobileflow.js` passes.
+
+The lesson that outlives the bug is about the test suite, not the CSS.
+`e2e` drives the whole flow at 1360x850 and visited a phone viewport only as
+far as the EDITOR, so the one part of the product that takes money had no
+mobile coverage at all. `checks/mobileflow.js` now builds a real book at
+375x667 and walks preview, checkout and the order screen asking one question
+per control: can a thumb reach this? It also asserts directly that no sheet
+clips, so the trap cannot come back quietly.
+
+One trap inside that check, worth knowing before writing another like it:
+`scrollIntoView` will happily scroll an `overflow: hidden` box and a finger
+will not. The first version scrolled the clipped sheet's own hidden scroll
+area, found the submit button in the viewport and pronounced it fine. It now
+puts back any scrolling that happened in a box the user cannot scroll, and
+measures what is left.

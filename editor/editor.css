@@ -182,12 +182,31 @@ select {
   border-radius: var(--radius-xl);
   box-shadow: var(--sh-lg);
   padding: clamp(22px, 3.6vw, 40px);
-  position: relative; overflow: hidden;
+  /* NO `overflow: hidden` here, and that is load-bearing.
+   *
+   * It used to be, to keep the hairline below inside the rounded corners.
+   * The cost was invisible and expensive: a box whose overflow is not
+   * `visible` has an automatic minimum size of ZERO, so any flex or grid
+   * parent with a definite height was free to squeeze a sheet below its own
+   * content — and the sheet then CLIPPED the remainder of itself rather than
+   * overflowing, so the scrolling pane around it saw nothing to scroll.
+   *
+   * That is how the checkout shipped with its submit button cut off on nine
+   * of ten common phone sizes. The hairline is inset past the corners
+   * instead, which costs nothing, and now a sheet that will not fit
+   * overflows visibly — ugly, noticeable, reported — instead of silently
+   * eating the end of a form. */
+  position: relative;
 }
 /* The one ornament: a hairline of gold along the top edge, fading out at
-   both ends. A gilt line on the head of a page. */
+   both ends. A gilt line on the head of a page.
+
+   Held clear of the rounded corners by its own inset rather than by clipping
+   the sheet — see the note above for what clipping the sheet cost. The
+   gradient is already transparent for its first and last fifth, so starting
+   it a corner's width in changes nothing anybody can see. */
 .sheet::before {
-  content: ""; position: absolute; inset: 0 0 auto; height: 2px;
+  content: ""; position: absolute; inset: 0 var(--radius-xl) auto; height: 2px;
   background: linear-gradient(90deg, transparent, var(--accent) 22%,
                               var(--accent) 78%, transparent);
   opacity: .45;
@@ -943,20 +962,16 @@ img.lay-thumb { object-fit: cover; display: block; }
   padding: clamp(20px, 4vw, 44px) 20px clamp(140px, 26vh, 250px);
   display: grid; gap: clamp(16px, 3vw, 28px); align-content: start;
   grid-template-columns: minmax(0, 480px); justify-content: center;
-  /* The grid equivalent of `.start-body > * { flex: none }`, and it is here
-     for the same reason that comment gives — except that here the symptom
-     was not cosmetic.
+  /* Content-sized rows, because this is a scrolling column rather than a
+     layout to divide up — the same intent `.start-body > * { flex: none }`
+     states for the flex version of this pane.
 
-     `.sheet` sets `overflow: hidden`, and a box whose overflow is not
-     visible has an automatic minimum size of ZERO. So this grid, which has
-     a definite height (it is `flex: 1` inside a 100dvh column), was free to
-     size the form's row to whatever was left over — 318px on a 375x667
-     phone — and the sheet then CLIPPED the rest of itself. The pane saw
-     nothing to scroll, because as far as it knew everything fitted.
-
-     On that phone it hid the email field, the gift toggle and the submit
-     button: a checkout nobody could complete. Content-sized rows instead,
-     so the form is always drawn at its full height and the pane scrolls. */
+     It is NOT what keeps the checkout from clipping any more. That was the
+     `overflow: hidden` on `.sheet`, which is gone; see the note there. This
+     was the first fix, written when the symptom was understood and the
+     cause was not, and it is kept because content-sized rows are what this
+     pane genuinely wants — not because anything now depends on it.
+     Removing it and re-running checks/mobileflow.js passes. */
   grid-auto-rows: max-content;
 }
 @media (min-width: 880px) {
